@@ -26,20 +26,38 @@ export default function App() {
       </h1>
 
       <button className="btn btn-success" onClick={handleCheck} disabled={state === "loading"}>
+        {state === "loading" && <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />}
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
 
       {state === "success" && (
-        <div className="mt-3">
-          <p className="text-success">System Status: Online</p>
-          <h2 className="h5">Supported Request Categories:</h2>
-          <ul>
-            {categories.map((category) => <li key={category.id}>{category.name}</li>)}
-          </ul>
+        <div className="mt-4">
+          <div className="alert alert-success d-flex align-items-center gap-3" role="status">
+            <span className="fs-4" aria-hidden="true">✓</span>
+            <div>
+              <div className="fw-semibold">System Status</div>
+              <div>Online</div>
+            </div>
+          </div>
+
+          <div className="card shadow-sm">
+            <div className="card-header fw-semibold">Supported Request Categories</div>
+            <ul className="list-group list-group-flush">
+              {categories.map((category, index) => (
+                <li className="list-group-item d-flex align-items-center gap-3" key={category.id}>
+                  <span className="badge text-bg-success rounded-pill">{index + 1}</span>
+                  <span>{category.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
       {state === "error" && (
-        <p className="text-danger mt-3">Offline — Unable to reach the API. Please try again.</p>
+        <div className="alert alert-danger mt-4" role="alert">
+          <div className="fw-semibold">System Status: Offline</div>
+          <div>Unable to reach the API. Please try again.</div>
+        </div>
       )}
     </div>
   );

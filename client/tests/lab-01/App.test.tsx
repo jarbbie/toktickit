@@ -23,7 +23,8 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Check System" }));
 
-    expect(await screen.findByText("System Status: Online")).toBeInTheDocument();
+    expect(await screen.findByText("System Status")).toBeInTheDocument();
+    expect(screen.getByText("Online")).toBeInTheDocument();
     expect(screen.getByText("Account and Access")).toBeInTheDocument();
   });
 
@@ -44,6 +45,8 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: "Check System" }));
 
-    expect(await screen.findByText(/Offline — Unable to reach the API/i)).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /System Status.*Offline.*Unable to reach the API/,
+    );
   });
 });
