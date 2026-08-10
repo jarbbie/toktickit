@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { checkSystem } from "./api.js";
+import { Category, checkSystem } from "./api.js";
 
 // UI states you must handle for Issue 4: idle, loading, success, error.
 type UiState = "idle" | "loading" | "success" | "error";
 
 export default function App() {
   const [state, setState] = useState<UiState>("idle");
+  const [categories, setCategories] = useState<Category[]>([]);
 
   async function handleCheck() {
     setState("loading");
     try {
-      await checkSystem();
+      const result = await checkSystem();
+      setCategories(result.categories);
       setState("success");
     } catch {
       setState("error");
@@ -27,7 +29,15 @@ export default function App() {
         {state === "loading" ? "Loading…" : "Check System"}
       </button>
 
-      {state === "success" && <p className="text-success mt-3">Online</p>}
+      {state === "success" && (
+        <div className="mt-3">
+          <p className="text-success">System Status: Online</p>
+          <h2 className="h5">Supported Request Categories:</h2>
+          <ul>
+            {categories.map((category) => <li key={category.id}>{category.name}</li>)}
+          </ul>
+        </div>
+      )}
       {state === "error" && (
         <p className="text-danger mt-3">Offline — Unable to reach the API. Please try again.</p>
       )}
