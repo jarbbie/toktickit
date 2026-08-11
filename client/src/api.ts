@@ -7,11 +7,16 @@ export interface Category {
 
 export interface SystemStatus {
   online: boolean;
+  categories: Category[];
 }
 
-// Issue 2 — call the health endpoint. Issue 4 will add categories here.
 export async function checkSystem(): Promise<SystemStatus> {
-  const response = await fetch(`${API_URL}/api/health`);
-  if (!response.ok) throw new Error("Backend health check failed");
-  return { online: true };
+  const [healthResponse, categoriesResponse] = await Promise.all([
+    fetch(`${API_URL}/api/health`),
+    fetch(`${API_URL}/api/categories`),
+  ]);
+  if (!healthResponse.ok || !categoriesResponse.ok) throw new Error("System check failed");
+
+  const health = await healthResponse.json();
+  return { online: health.status === "ok", categories: await categoriesResponse.json() };
 }
