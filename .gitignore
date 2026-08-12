@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+
+# Build output and test coverage
+dist/
+build/
+coverage/
+
+# Vite and TypeScript caches
+.vite/
+*.tsbuildinfo
+
+# Editor and operating-system files
+.DS_Store
+.vscode/
