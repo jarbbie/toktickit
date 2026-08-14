@@ -1,6 +1,6 @@
 # Lab 1 — AI Use and Reflection
 
-**LLM/agent used:** Codex
+**LLM/agent used:** I used the Codex cli on my terminal.  I mainly used gpt-5.6-terra as the LLM with a thinking  level of Medium. 
 
 ## Selected key prompts (6–10)
 | # | Prompt (summarised) | What I did with the result |
