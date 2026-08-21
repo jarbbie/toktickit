@@ -54,9 +54,9 @@ The backend must still enforce ownership using that selected requester ID.
   belongs to an active requester.
 - **BR-02:** A new ticket is owned by the selected requester and starts with
   status `NEW`.
-- **BR-03:** The backend generates Ticket Number after creating the ticket from
-  its database ID, using `TKT-YYYY-000001`; the number is unique and cannot be
-  set by a client.
+- **BR-03:** The backend generates Ticket Number before creating the ticket,
+  using `TKT-YYYY-XXXXXXXX` where the suffix is an uppercase random hexadecimal
+  value. The number is unique and cannot be set by a client.
 - **BR-04:** Category and Related System must refer to active seeded records.
 - **BR-05:** Summary and Description are trimmed, required, and limited to
   200 and 4,000 characters respectively. Summary must contain 5–200 characters;
@@ -92,20 +92,89 @@ and Ticket Detail handle loading, empty, no-results, success, and failure states
 
 ## 7. Data Changes
 
-Add Prisma models and idempotent seed data for the following:
+Add these Prisma enums and models. This is the approved target schema; the
+implementation branch will turn it into a migration.
 
-| Model | Key fields and constraints |
-|---|---|
-| `Requester` | `id`, `name`, unique `email`, `isActive`, timestamps |
-| `Category` | existing `id`, unique `name`, `isActive`, `createdAt` |
-| `RelatedSystem` | `id`, unique `name`, `isActive`, `createdAt` |
-| `Ticket` | `id`, unique `ticketNumber`, requester/category/related-system FKs, priority, `status`, summary, description, timestamps |
-| `Attachment` | `id`, `ticketId`, original filename, generated storage key, MIME type, size, timestamps, `removedAt`, `removalReason` |
+```prisma
+enum RequestedPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  NEW
+}
+
+model Requester {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tickets   Ticket[]
+
+  @@index([isActive, name])
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  tickets   Ticket[]
+}
+
+model RelatedSystem {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  tickets   Ticket[]
+}
+
+model Ticket {
+  id                Int               @id @default(autoincrement())
+  ticketNumber      String            @unique @db.VarChar(32)
+  requesterId       Int
+  categoryId        Int
+  relatedSystemId   Int
+  requestedPriority RequestedPriority @default(MEDIUM)
+  status            TicketStatus      @default(NEW)
+  summary           String            @db.VarChar(200)
+  description       String            @db.VarChar(4000)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  requester         Requester         @relation(fields: [requesterId], references: [id])
+  category          Category          @relation(fields: [categoryId], references: [id])
+  relatedSystem     RelatedSystem     @relation(fields: [relatedSystemId], references: [id])
+  attachments       Attachment[]
+
+  @@index([requesterId, updatedAt])
+}
+
+model Attachment {
+  id             Int       @id @default(autoincrement())
+  ticketId       Int
+  originalName   String    @db.VarChar(255)
+  storageKey     String    @unique @db.VarChar(64)
+  mimeType       String    @db.VarChar(100)
+  sizeBytes      Int
+  createdAt      DateTime  @default(now())
+  removedAt      DateTime?
+  removalReason  String?   @db.VarChar(500)
+  ticket         Ticket    @relation(fields: [ticketId], references: [id])
+
+  @@index([ticketId, removedAt])
+}
+```
 
 `Ticket.requesterId`, `categoryId`, and `relatedSystemId` are required foreign
-keys. Index `Ticket` by `requesterId` with `updatedAt`, and index active
-attachments by `ticketId`/`removedAt`; these are the primary list and attachment
-lookups. Files live in a gitignored server upload directory, not in PostgreSQL.
+keys. A requester has many tickets; Category and RelatedSystem each have many
+tickets; a Ticket has zero to many Attachments; each Attachment has one Ticket.
+Files live under a gitignored server upload directory, not in PostgreSQL.
 
 ## 8. API Contract Summary
 
@@ -165,7 +234,7 @@ checks.
 
 - `requesterId` is sent explicitly in Lab 2 because there is no authentication;
   Lab 3 will replace this with the authenticated user identity.
-- Ticket Number uses the database ID for reliable uniqueness rather than a
-  client-generated counter.
+- Ticket Number uses a backend random suffix and a database unique constraint;
+  this avoids a separate sequence table or a two-step ticket write.
 - Attachments use local development storage. A later deployment can replace the
   storage implementation without changing the Attachment metadata contract.

@@ -11,7 +11,7 @@ inactive requester.
 
 | ID | Type | AC | What it proves | Planned file | Final |
 |---|---|---|---|---|---|
-| UNIT-01 | Unit | AC-03 | Ticket-number formatter produces `TKT-YYYY-000001` | `server/tests/lab-02/ticket-number.test.ts` | Planned |
+| UNIT-01 | Unit | AC-03 | Ticket-number generator produces `TKT-YYYY-XXXXXXXX` | `server/tests/lab-02/ticket-number.test.ts` | Planned |
 | API-01 | API | AC-01 | Active requester list omits inactive requester | `server/tests/lab-02/requesters.api.test.ts` | Planned |
 | API-02 | API | AC-03, AC-04 | Valid ticket creates `NEW`; invalid fields return 400 | `server/tests/lab-02/create-ticket.api.test.ts` | Planned |
 | API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response is correct | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |

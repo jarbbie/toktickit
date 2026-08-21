@@ -59,7 +59,7 @@ The default is `sortBy=updatedAt`, `direction=desc`, `page=1`, `pageSize=10`.
 {
   "items": [{
     "id": 1,
-    "ticketNumber": "TKT-2026-000001",
+    "ticketNumber": "TKT-2026-A1B2C3D4",
     "summary": "VPN cannot connect",
     "requestedPriority": "MEDIUM",
     "status": "NEW",
