@@ -80,5 +80,5 @@ hidden buttons, or unreadable attachment names.
   no-results, active attachment, invalid attachment, and removed attachment
   states.
 - Capture desktop, tablet, and mobile screenshots under
-  `artifacts/lab-02/screenshots/` for Create Ticket, My Tickets, and Ticket
-  Detail.
+  `artifacts/lab-02/screenshots/` for Create Ticket `screenshots/create-ticket/`, My Tickets `screenshots/my-tickets/`, and Ticket
+  Detail `screenshots/ticket-detail/`.
