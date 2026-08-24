@@ -9,8 +9,10 @@
   summarize what does this project cover. the
   summarization can be long to cover everything. I
   prioritize organization of the summary. | Summarize and clarify things that need to be done in Lab 2 |
-| 2 |  |  |
+| 2 | Recheck the database design and fix `specification.md` if needed. | Reviewed the Lab 2 data requirements, then added the proposed Prisma models, fields, relations, constraints, and indexes to the contract. |
 
 ## Reflection
-Two or three sentences: what made your prompts better, and one place you had to
-correct or reject what the agent produced.
+I used AI to turn the Lab 2 handout into an initial engineering contract, then
+reviewed each decision against the handout. More specific prompts helped me
+catch and correct the ticket-number design and make the database section meet
+the required level of detail.

@@ -6,11 +6,17 @@
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-| [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract |  |
+| [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Changes requested |
 
 [feature/5-lab2-contract](https://github.com/jarbbie/toktickit/pull/17)
-Reviewer comment I received: <...>
-How I responded: <...>
+Reviewer comment I received:
+> Please fill in the second AI-use prompt and replace the reflection placeholder;
+> record this review comment and your response; and update BR-03 so the server
+> generates a new random Ticket Number and retries if a generated number already
+> exists.
+
+How I responded: I added a real second prompt and reflection, recorded this
+review feedback, and updated BR-03 with the duplicate-number retry rule.
 
 ## Pull Requests I reviewed for my partner
 [feature/lab2-spec](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/22) by @SupeemAFK

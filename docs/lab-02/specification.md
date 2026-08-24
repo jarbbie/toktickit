@@ -56,7 +56,8 @@ The backend must still enforce ownership using that selected requester ID.
   status `NEW`.
 - **BR-03:** The backend generates Ticket Number before creating the ticket,
   using `TKT-YYYY-XXXXXXXX` where the suffix is an uppercase random hexadecimal
-  value. The number is unique and cannot be set by a client.
+  value. The number is unique and cannot be set by a client. If a generated
+  number already exists, the server generates a new number and retries.
 - **BR-04:** Category and Related System must refer to active seeded records.
 - **BR-05:** Summary and Description are trimmed, required, and limited to
   200 and 4,000 characters respectively. Summary must contain 5–200 characters;
