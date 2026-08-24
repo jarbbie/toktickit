@@ -10,6 +10,7 @@ node_modules/
 dist/
 build/
 coverage/
+server/uploads/
 
 # Vite and TypeScript caches
 .vite/
