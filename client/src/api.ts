@@ -1,22 +1,32 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-export interface Category {
+export interface ReferenceItem {
   id: number;
   name: string;
 }
 
-export interface SystemStatus {
-  online: boolean;
-  categories: Category[];
+export interface Requester extends ReferenceItem {
+  email: string;
 }
 
-export async function checkSystem(): Promise<SystemStatus> {
-  const [healthResponse, categoriesResponse] = await Promise.all([
-    fetch(`${API_URL}/api/health`),
-    fetch(`${API_URL}/api/categories`),
-  ]);
-  if (!healthResponse.ok || !categoriesResponse.ok) throw new Error("System check failed");
+export interface ReferenceData {
+  requesters: Requester[];
+  categories: ReferenceItem[];
+  relatedSystems: ReferenceItem[];
+}
 
-  const health = await healthResponse.json();
-  return { online: health.status === "ok", categories: await categoriesResponse.json() };
+async function loadJson<T>(path: string): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`);
+  if (!response.ok) throw new Error("Reference data request failed");
+  return response.json() as Promise<T>;
+}
+
+export async function loadReferenceData(): Promise<ReferenceData> {
+  const [requesters, categories, relatedSystems] = await Promise.all([
+    loadJson<Requester[]>("/api/requesters"),
+    loadJson<ReferenceItem[]>("/api/categories"),
+    loadJson<ReferenceItem[]>("/api/related-systems"),
+  ]);
+
+  return { requesters, categories, relatedSystems };
 }
