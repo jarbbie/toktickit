@@ -6,21 +6,75 @@
 ## Pull Requests I authored (reviewed by my partner)
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
-| [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Changes requested |
+| [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Approved |
+| [#20](https://github.com/jarbbie/toktickit/pull/20) | feature/6-db-seed | Approved |
 
-[feature/5-lab2-contract](https://github.com/jarbbie/toktickit/pull/17)
+---
+
+[#17 feature/5-lab2-contract](https://github.com/jarbbie/toktickit/pull/17)
+Reviewer:
+```
+Thanks! Please fix these 3 small things before I approve:
+
+    docs/lab-02/ai-use.md: Fill in row 2 with a real prompt you used, and replace the Reflection placeholder with 2–3 sentences about how you used AI.
+
+    docs/lab-02/reviewer.md: After this review, copy this review comment into Reviewer comment I received, then write a short How I responded note explaining the fixes you made.
+
+    docs/lab-02/specification.md (BR-03): Add one sentence saying that, if the random ticket number already exists, the server generates a new number and tries again. This prevents a rare duplicate-number error.
+
+After these changes, please request my review again I will approve.
+```
+
+Me:
+```
+Addressed in commit 4d78b91.
+
+    Filled the second AI-use prompt and replaced the reflection placeholder.
+    Recorded your review comment and my response in reviewer.md.
+    Updated BR-03 so the server regenerates and retries if a random ticket number already exists.
+
+Please re-review when convenient. Thank you.
+```
+
+Reviewer:
+```
+Approved.
+
+The requested updates are complete:
+
+    The AI-use record now has a real second prompt and reflection.
+    The peer-review record includes the review feedback and response.
+    BR-03 now requires retrying when a generated ticket number already exists.
+
+I also rechecked the final diff for whitespace errors; it passes. There are no CI checks configured on this branch.
+```
+
+---
+
+[#20 feature/6-db-seed](https://github.com/jarbbie/toktickit/pull/20)
 Reviewer comment I received:
-> Please fill in the second AI-use prompt and replace the reflection placeholder;
-> record this review comment and your response; and update BR-03 so the server
-> generates a new random Ticket Number and retries if a generated number already
-> exists.
+```
+Approved.
 
-How I responded: I added a real second prompt and reflection, recorded this
-review feedback, and updated BR-03 with the duplicate-number retry rule.
+The Lab 2 data foundation meets the required database increment:
+
+    The Prisma schema and additive migration include the required models, enums, foreign keys, unique constraints, and indexes.
+    The seed data is idempotent and includes the 4 required categories, 6 related systems, 4 active requesters, and 1 inactive requester.
+    Local upload storage is correctly ignored.
+
+I verified that Prisma schema validation passes, the new seed-data test passes, and the diff has no whitespace errors.
+```
+
+How I responded:
+```
+Thank you for approval jaa :D
+```
+
+---
 
 ## Pull Requests I reviewed for my partner
-[feature/lab2-spec](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/22) by @SupeemAFK
-My comment:
+[#22 feature/lab2-spec](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/22) @SupeemAFK
+Me:
 ```
 Thanks—this is a clear, well-organized Lab 2 engineering contract. The scope, API behavior, UI states, acceptance criteria, and planned test traceability are strong.
 
@@ -35,7 +89,7 @@ This is required in the contract stage by the Lab 2 sheet:
 
 The later data/requester Issue will implement the approved design in schema.prisma, migrations, seeds, and tests. Once the contract documents that design, I’m happy to approve.
 ```
-Partner's response:
+Partner:
 ```
 Addressed the requested contract change in the latest commit.
 
@@ -43,7 +97,7 @@ specification.md Section 7 now documents the proposed Prisma models, fields/type
 
 The reviewer record now also reflects this genuine request and response. Please re-review when convenient.
 ```
-My comment:
+Me:
 ```
 Approved!
 
@@ -51,3 +105,64 @@ The updated Lab 2 engineering contract now documents the required data design, i
 
 This satisfies the Lab 2 requirements in Sections 5, 5.1, 5.2, and 8.10. The specification, API contract, UI specification, and test plan are consistent and provide a clear contract for the following implementation Issues.
 ```
+
+---
+
+[#23 feature/lab2-database](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/23) @SupeemAFK
+Me:
+```
+The Lab 2 schema and idempotent seed design look good. However, the new migration cannot apply to an existing Lab 1 database.
+
+Category.updatedAt is added as TIMESTAMP NOT NULL without a default value or
+backfill. Since Lab 1 already has seeded Category rows, PostgreSQL cannot create
+that required column.
+
+Please update the migration to:
+
+    Add updatedAt as nullable.
+    Backfill it from createdAt for existing rows.
+    Change it to NOT NULL.
+
+Then verify the migration works against a non-empty Lab 1 database. After that, I’m happy to approve.
+```
+
+Partner:
+```
+Addressed the migration compatibility issue in the latest commit.
+
+The migration now adds Category.updatedAt as nullable, backfills every existing row from createdAt, and then enforces NOT NULL.
+
+Verification:
+
+    Applied the Lab 1 migration to a new isolated local database.
+    Inserted two existing Category rows.
+    Applied this Lab 2 migration successfully.
+    Confirmed 2 of 2 existing rows received updatedAt equal to createdAt.
+    Full server suite: 5 tests passed; TypeScript build passed.
+
+Please re-review when convenient.
+```
+
+Me:
+```
+Approved!
+
+The migration now safely supports existing Lab 1 Category rows: it adds updatedAt as
+nullable, backfills it from createdAt, then enforces NOT NULL.
+
+I also rechecked the schema validation, server tests, and TypeScript build successfully. The database schema, idempotent seed data, migration, and seed tests are ready to merge into lab2-staging.
+```
+
+---
+
+[#24 feature/requester-context](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/24) @SupeemAFK
+Me:
+```
+Approved.
+
+The Development Requester endpoint correctly returns active requesters in name order, and the selector implements loading, empty, retryable error, session-storage context, and Change Requester behavior.
+
+The UI and API test coverage matches the Lab 2 requester-selection contract. Thanks for including the verification results.
+```
+
+Partner: Noticed successfully merged PR.
