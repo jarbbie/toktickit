@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
-import { type CreatedTicket, type ReferenceData, type Requester, type TicketListResponse, type TicketQuery, createTicket, loadReferenceData, loadTickets } from "./api.js";
+import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { type CreatedTicket, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, attachmentDownloadUrl, createTicket, loadReferenceData, loadTicket, loadTickets, removeAttachment, uploadAttachment } from "./api.js";
 
 type LoadState = "loading" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
@@ -102,8 +102,76 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{ticket.requestedPriority}</td><td>{ticket.status}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><button className="btn btn-sm btn-outline-success" disabled>Open</button></td></tr>)}</tbody></table></div>}
+    {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{ticket.requestedPriority}</td><td>{ticket.status}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><NavLink className="btn btn-sm btn-outline-success" to={`/tickets/${ticket.id}`}>Open</NavLink></td></tr>)}</tbody></table></div>}
     {result && result.totalPages > 1 && <nav className="d-flex justify-content-between align-items-center mt-3" aria-label="Ticket pagination"><button className="btn btn-outline-success" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>Previous</button><span>Page {result.page} of {result.totalPages}</span><button className="btn btn-outline-success" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next</button></nav>}
+  </section>;
+}
+
+function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticketId: number }) {
+  const [ticket, setTicket] = useState<TicketDetail | null>(null);
+  const [failure, setFailure] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
+  const [removalReason, setRemovalReason] = useState("");
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setTicket(null);
+    setFailure(false);
+    void loadTicket(ticketId, requester.id).then((data) => { if (!cancelled) setTicket(data); }).catch(() => { if (!cancelled) setFailure(true); });
+    return () => { cancelled = true; };
+  }, [requester.id, retry, ticketId]);
+
+  async function upload() {
+    if (!file || !ticket) return;
+    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setUploadError("Choose a JPG, PNG, WEBP, or PDF file no larger than 5 MB.");
+      return;
+    }
+    setUploading(true);
+    setUploadError("");
+    try {
+      const attachment = await uploadAttachment(ticket.id, requester.id, file);
+      setTicket({ ...ticket, attachments: [attachment, ...ticket.attachments] });
+      setFile(null);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Unable to upload attachment.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function remove() {
+    if (!removingId || !ticket) return;
+    if (removalReason.trim().length < 1 || removalReason.trim().length > 500) return;
+    setRemoving(true);
+    setRemoveError("");
+    try {
+      const updated = await removeAttachment(removingId, requester.id, removalReason);
+      setTicket({ ...ticket, attachments: ticket.attachments.map((item) => item.id === updated.id ? updated : item) });
+      setRemovingId(null);
+      setRemovalReason("");
+    } catch (error) {
+      setRemoveError(error instanceof Error ? error.message : "Unable to remove attachment.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  if (!ticket && !failure) return <p role="status">Loading ticket…</p>;
+  if (failure) return <div className="alert alert-danger" role="alert">Unable to load ticket. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>;
+  if (!ticket) return null;
+  return <section>
+    <NavLink className="btn btn-sm btn-outline-success mb-3" to="/tickets">Back to My Tickets</NavLink>
+    <div className="card shadow-sm mb-4"><div className="card-body"><h1 className="h3">{ticket.ticketNumber}</h1><dl className="row mb-0"><dt className="col-sm-3">Summary</dt><dd className="col-sm-9">{ticket.summary}</dd><dt className="col-sm-3">Description</dt><dd className="col-sm-9" style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</dd><dt className="col-sm-3">Category</dt><dd className="col-sm-9">{ticket.category.name}</dd><dt className="col-sm-3">Related System</dt><dd className="col-sm-9">{ticket.relatedSystem.name}</dd><dt className="col-sm-3">Requested Priority</dt><dd className="col-sm-9">{ticket.requestedPriority}</dd><dt className="col-sm-3">Status</dt><dd className="col-sm-9">{ticket.status}</dd></dl></div></div>
+    <div className="card shadow-sm"><div className="card-body"><h2 className="h4">Attachments</h2><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn text-white mt-2" style={{ backgroundColor: "#006B3C" }} disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
+      {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge text-bg-secondary">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id, requester.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
+    </div></div>
   </section>;
 }
 
@@ -202,6 +270,12 @@ export default function App() {
     <Route path="/select" element={<Navigate replace to="/tickets" />} />
     <Route path="/tickets" element={<Shell requester={requester} onChangeRequester={changeRequester}><MyTickets requester={requester} data={referenceData} /></Shell>} />
     <Route path="/tickets/new" element={<Shell requester={requester} onChangeRequester={changeRequester}><CreateTicket requester={requester} data={referenceData} /></Shell>} />
+    <Route path="/tickets/:ticketId" element={<Shell requester={requester} onChangeRequester={changeRequester}><TicketRoute requester={requester} /></Shell>} />
     <Route path="*" element={<Navigate replace to="/tickets" />} />
   </Routes>;
+}
+
+function TicketRoute({ requester }: { requester: Requester }) {
+  const ticketId = Number(useParams().ticketId);
+  return Number.isInteger(ticketId) && ticketId > 0 ? <TicketDetailPage requester={requester} ticketId={ticketId} /> : <Navigate replace to="/tickets" />;
 }

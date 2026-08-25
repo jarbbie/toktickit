@@ -1,12 +1,28 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import multer from "multer";
+import { randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
 import { generateTicketNumber } from "./ticket-number.js";
+import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 const statuses = ["NEW"] as const;
 const sortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority"] as const;
+const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const attachmentSelect = { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true, removedAt: true, removalReason: true } as const;
+
+class AttachmentTypeError extends Error {}
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    if (attachmentTypes.includes(file.mimetype)) callback(null, true);
+    else callback(new AttachmentTypeError());
+  },
+});
 
 class RequestError extends Error {
   constructor(readonly message: string) { super(message); }
@@ -44,6 +60,11 @@ function queryChoice<T extends readonly string[]>(value: unknown, name: string, 
   if (value === undefined) return fallback;
   if (typeof value !== "string" || !choices.includes(value)) throw new RequestError(`${name} is invalid.`);
   return value as T[number];
+}
+
+function multipartId(value: unknown, name: string) {
+  if (typeof value === "string" && /^\d+$/.test(value)) return requiredId(Number(value), name);
+  return requiredId(value, name);
 }
 
 async function requireActiveRequester(prisma: PrismaClient, requesterId: number) {
@@ -143,6 +164,128 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/api/tickets/:ticketId", async (req: Request, res: Response) => {
+  try {
+    const requesterId = queryInteger(req.query.requesterId, "requesterId");
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: ticketId, requesterId },
+      select: { id: true, ticketNumber: true, requesterId: true, summary: true, description: true, requestedPriority: true, status: true, createdAt: true, updatedAt: true, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, attachments: { orderBy: { createdAt: "desc" }, select: attachmentSelect } },
+    });
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found." });
+      return;
+    }
+    res.json(ticket);
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load ticket." });
+  }
+});
+
+app.post("/api/tickets/:ticketId/attachments", upload.single("file"), async (req: Request, res: Response) => {
+  let storageKey: string | null = null;
+  try {
+    const requesterId = multipartId(req.body?.requesterId, "requesterId");
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    if (!req.file || req.file.originalname.length === 0 || req.file.originalname.length > 255) throw new RequestError("Attachment filename is invalid.");
+    const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
+    const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, requesterId }, select: { id: true } });
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found." });
+      return;
+    }
+    // ponytail: count-and-create can race under concurrent uploads; add a transaction/lock if uploads become concurrent.
+    if (await prisma.attachment.count({ where: { ticketId, removedAt: null } }) >= 5) {
+      res.status(409).json({ error: "A ticket can have at most five active attachments." });
+      return;
+    }
+    storageKey = randomUUID();
+    await saveAttachment(storageKey, req.file.buffer);
+    const attachment = await prisma.attachment.create({ data: { ticketId, originalName: req.file.originalname, storageKey, mimeType: req.file.mimetype, sizeBytes: req.file.size }, select: attachmentSelect });
+    res.status(201).json(attachment);
+  } catch (error) {
+    if (storageKey) await discardAttachment(storageKey);
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to upload attachment." });
+  }
+});
+
+app.get("/api/attachments/:attachmentId", async (req: Request, res: Response) => {
+  try {
+    const requesterId = queryInteger(req.query.requesterId, "requesterId");
+    const attachmentId = queryInteger(req.params.attachmentId, "attachmentId");
+    const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
+    const attachment = await prisma.attachment.findFirst({ where: { id: attachmentId, ticket: { requesterId } }, select: attachmentSelect });
+    if (!attachment) {
+      res.status(404).json({ error: "Attachment not found." });
+      return;
+    }
+    res.json(attachment);
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load attachment." });
+  }
+});
+
+app.get("/api/attachments/:attachmentId/download", async (req: Request, res: Response) => {
+  try {
+    const requesterId = queryInteger(req.query.requesterId, "requesterId");
+    const attachmentId = queryInteger(req.params.attachmentId, "attachmentId");
+    const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
+    const attachment = await prisma.attachment.findFirst({ where: { id: attachmentId, removedAt: null, ticket: { requesterId } }, select: { originalName: true, mimeType: true, storageKey: true } });
+    if (!attachment) {
+      res.status(404).json({ error: "Attachment not found." });
+      return;
+    }
+    res.type(attachment.mimeType).download(attachmentPath(attachment.storageKey), attachment.originalName, (error) => {
+      if (error && !res.headersSent) res.status(500).json({ error: "Unable to download attachment." });
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to download attachment." });
+  }
+});
+
+app.delete("/api/attachments/:attachmentId", async (req: Request, res: Response) => {
+  try {
+    const requesterId = requiredId(req.body?.requesterId, "requesterId");
+    const attachmentId = queryInteger(req.params.attachmentId, "attachmentId");
+    const reason = requiredText(req.body?.reason, "reason", 1, 500);
+    const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
+    const attachment = await prisma.attachment.findFirst({ where: { id: attachmentId, removedAt: null, ticket: { requesterId } }, select: { id: true } });
+    if (!attachment) {
+      res.status(404).json({ error: "Attachment not found." });
+      return;
+    }
+    res.json(await prisma.attachment.update({ where: { id: attachmentId }, data: { removedAt: new Date(), removalReason: reason }, select: attachmentSelect }));
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to remove attachment." });
+  }
+});
+
 app.post("/api/tickets", async (req: Request, res: Response) => {
   try {
     const requesterId = requiredId(req.body?.requesterId, "requesterId");
@@ -181,6 +324,18 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
     }
     res.status(500).json({ error: "Unable to create ticket." });
   }
+});
+
+app.use((error: Error, _req: Request, res: Response, next: NextFunction) => {
+  if (error instanceof multer.MulterError) {
+    res.status(error.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: error.code === "LIMIT_FILE_SIZE" ? "Attachment exceeds the 5 MB limit." : "Invalid attachment upload." });
+    return;
+  }
+  if (error instanceof AttachmentTypeError) {
+    res.status(415).json({ error: "Attachment type is not permitted." });
+    return;
+  }
+  next(error);
 });
 
 export default app;

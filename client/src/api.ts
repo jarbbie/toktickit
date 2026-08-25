@@ -48,6 +48,24 @@ export interface TicketListResponse {
   totalPages: number;
 }
 
+export interface Attachment {
+  id: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+  removedAt: string | null;
+  removalReason: string | null;
+}
+
+export interface TicketDetail extends TicketListItem {
+  requesterId: number;
+  description: string;
+  createdAt: string;
+  relatedSystem: ReferenceItem;
+  attachments: Attachment[];
+}
+
 export interface TicketQuery {
   search?: string;
   categoryId?: string;
@@ -93,4 +111,32 @@ export async function loadTickets(requesterId: number, query: TicketQuery): Prom
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load tickets.");
   return body as TicketListResponse;
+}
+
+export async function loadTicket(ticketId: number, requesterId: number): Promise<TicketDetail> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load ticket.");
+  return body as TicketDetail;
+}
+
+export async function uploadAttachment(ticketId: number, requesterId: number, file: File): Promise<Attachment> {
+  const form = new FormData();
+  form.set("requesterId", String(requesterId));
+  form.set("file", file);
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, { method: "POST", body: form });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to upload attachment.");
+  return body as Attachment;
+}
+
+export async function removeAttachment(attachmentId: number, requesterId: number, reason: string): Promise<Attachment> {
+  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId, reason }) });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to remove attachment.");
+  return body as Attachment;
+}
+
+export function attachmentDownloadUrl(attachmentId: number, requesterId: number) {
+  return `${API_URL}/api/attachments/${attachmentId}/download?requesterId=${requesterId}`;
 }
