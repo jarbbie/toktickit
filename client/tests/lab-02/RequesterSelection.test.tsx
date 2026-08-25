@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
@@ -15,11 +16,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function renderApp(path = "/select") {
+  return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
+}
+
 describe("Development Requester selection", () => {
   it("shows a loading state while reference data is loading", () => {
     vi.spyOn(api, "loadReferenceData").mockReturnValue(new Promise(() => {}));
 
-    render(<App />);
+    renderApp();
 
     expect(screen.getByText("Loading Development Requesters…")).toBeInTheDocument();
   });
@@ -27,13 +32,13 @@ describe("Development Requester selection", () => {
   it("selects an active requester and supports changing it", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
 
     await user.selectOptions(await screen.findByLabelText("Development Requester"), "1");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(screen.getByText("Current requester: Nicha Somchai")).toBeInTheDocument();
-    expect(screen.getByText("Reference data ready: 1 category and 1 related system.")).toBeInTheDocument();
+    expect(screen.getByText("Requester: Nicha Somchai")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
     expect(sessionStorage.getItem("toktickit.requesterId")).toBe("1");
 
     await user.click(screen.getByRole("button", { name: "Change Requester" }));
@@ -45,7 +50,7 @@ describe("Development Requester selection", () => {
   it("shows an empty state when no active requester exists", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue({ ...referenceData, requesters: [] });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText("No active Development Requesters are available.")).toBeInTheDocument();
   });
@@ -55,7 +60,7 @@ describe("Development Requester selection", () => {
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce(referenceData);
     const user = userEvent.setup();
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load requester and reference data.");
     await user.click(screen.getByRole("button", { name: "Retry" }));

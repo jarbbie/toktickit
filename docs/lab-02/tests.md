@@ -18,7 +18,7 @@ inactive requester.
 | API-04 | API | AC-07, AC-10 | Owned detail succeeds; cross-requester detail returns 404 | `server/tests/lab-02/ticket-detail.api.test.ts` | Planned |
 | API-05 | API | AC-11, AC-12, AC-13 | Upload, size/type/count limits, removal, and blocked download | `server/tests/lab-02/attachments.api.test.ts` | Planned |
 | UI-01 | UI | AC-01, AC-02 | Selector loading, empty, failure, selection, and Change Requester states | `client/tests/lab-02/RequesterSelection.test.tsx` | Pass |
-| UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Planned |
+| UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
 | UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Planned |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Planned |
 | STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/ui-style.test.tsx` | Planned |
@@ -82,6 +82,13 @@ Ticket-creation API verification completed on `feature/8-ticket-create-api`:
 - `cd server && npm test` — 17 tests passed.
 - `cd server && npm run build` — passed.
 - `cd client && npm test` — 5 tests passed.
+- `cd client && npm run build` — passed.
+
+Create Ticket UI verification completed on `feature/9-create-ticket-ui`:
+
+- `cd server && npm test` — 17 tests passed.
+- `cd server && npm run build` — passed.
+- `cd client && npm test` — 9 tests passed.
 - `cd client && npm run build` — passed.
 
 ## 7. Known Limitations or Deferred Tests
