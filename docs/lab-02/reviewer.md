@@ -8,6 +8,7 @@
 |----|--------|------------------|
 | [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Approved |
 | [#20](https://github.com/jarbbie/toktickit/pull/20) | feature/6-db-seed | Approved |
+| [#21](https://github.com/jarbbie/toktickit/pull/21) | feature/7-requester-context | Approved |
 
 ---
 
@@ -69,6 +70,27 @@ How I responded:
 ```
 Thank you for approval jaa :D
 ```
+
+---
+
+[#21 feature/7-requester-context](https://github.com/jarbbie/toktickit/pull/21)
+Reviewer:
+```
+Approved.
+
+The requester context implementation meets the Lab 2 requirement for a temporary,
+non-authentication requester selector:
+
+- Active requesters, categories, and related systems are returned in name order.
+- The selector handles loading, empty, retry, persistence, and Change Requester states.
+- The new API and UI tests cover the new behavior.
+
+I verified the client test suite and production build pass, and the diff has no
+whitespace errors. No CI checks are configured on this branch.
+```
+
+How I responded: No changes were requested. The PR was merged into
+`lab2-staging` after approval.
 
 ---
 
@@ -166,3 +188,74 @@ The UI and API test coverage matches the Lab 2 requester-selection contract. Tha
 ```
 
 Partner: Noticed successfully merged PR.
+
+---
+
+[#25 feature/create-ticket-api](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/25) @SupeemAFK
+Me:
+```
+Request changes:
+
+docs/lab-02/tests.md marks API-02 as Pass, but its Final Results section still
+says "Not run: this is the pre-implementation plan." Please update that section
+to record the passing API test while keeping the remaining planned tests pending.
+```
+
+Partner:
+```
+Addressed the requested documentation correction in the latest commit. The Final
+Results section now records the passing API-01, UI-01, and API-02 coverage and
+explicitly leaves all remaining rows Planned. Verification remains green: server
+10 tests, client 9 tests, and both TypeScript builds pass.
+```
+
+Me:
+```
+Request changes: malformed JSON sent to POST /api/tickets returns Express's
+default HTML error page with a stack trace and server paths, rather than the
+documented safe JSON error. Please add an express.json() parse-error handler
+returning a safe 400 JSON response and cover it with a test.
+```
+
+Partner:
+```
+Addressed the malformed-JSON request. express.json() parse failures now return
+400 with a safe JSON error and no HTML stack trace or server paths. Added focused
+API coverage. The Create Ticket API tests, full server suite, and server
+TypeScript build pass.
+```
+
+Me:
+```
+Approved. The malformed-JSON error is now a safe JSON 400 response and is
+covered by an API test.
+```
+
+---
+
+[#26 feature/create-ticket-ui](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/26) @SupeemAFK
+Me:
+```
+Request changes:
+
+1. The three read-only system fields need the distinct read-only visual treatment
+required by ui-spec.md, not only the readOnly attribute.
+2. Please add the missing busy/disabled duplicate-submission test before marking
+UI-02 Pass.
+```
+
+Partner:
+```
+Addressed both requested changes. The Requester, Ticket Date, and Ticket Number
+fields now use the distinct pale gray-green read-only treatment. Added a
+regression test that keeps submission pending, verifies the busy label and
+disabled button, attempts a second click, and confirms only one API request
+occurs. The Create Ticket UI, full client and server suites, and both builds pass.
+```
+
+Me:
+```
+Approved. The required read-only treatment is now applied, and the new
+deferred-request test verifies the busy/disabled state prevents duplicate
+submission.
+```
