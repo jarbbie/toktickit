@@ -14,12 +14,12 @@ inactive requester.
 | UNIT-01 | Unit | AC-03 | Ticket-number generator produces `TKT-YYYY-XXXXXXXX` | `server/tests/lab-02/ticket-number.test.ts` | Pass |
 | API-01 | API | AC-01 | Active requester, Category, and Related System APIs exclude inactive data | `server/tests/lab-02/reference-data.api.test.ts` | Pass |
 | API-02 | API | AC-03, AC-04 | Valid ticket creates `NEW`; validation, inactive references, duplicate retry, and malformed JSON return safe responses | `server/tests/lab-02/create-ticket.api.test.ts` | Pass |
-| API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response is correct | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |
+| API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response is correct | `server/tests/lab-02/my-tickets.api.test.ts` | Pass |
 | API-04 | API | AC-07, AC-10 | Owned detail succeeds; cross-requester detail returns 404 | `server/tests/lab-02/ticket-detail.api.test.ts` | Planned |
 | API-05 | API | AC-11, AC-12, AC-13 | Upload, size/type/count limits, removal, and blocked download | `server/tests/lab-02/attachments.api.test.ts` | Planned |
 | UI-01 | UI | AC-01, AC-02 | Selector loading, empty, failure, selection, and Change Requester states | `client/tests/lab-02/RequesterSelection.test.tsx` | Pass |
 | UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
-| UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Planned |
+| UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Planned |
 | STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/ui-style.test.tsx` | Planned |
 | E2E-01 | E2E | AC-03, AC-06, AC-10 | Requester creates a ticket and finds/opens it | `e2e/lab-02/requester-ticket-flow.spec.ts` | Planned |
@@ -90,6 +90,11 @@ Create Ticket UI verification completed on `feature/9-create-ticket-ui`:
 - `cd server && npm run build` — passed.
 - `cd client && npm test` — 9 tests passed.
 - `cd client && npm run build` — passed.
+
+My Tickets verification completed on `feature/10-my-tickets`:
+
+- Focused API tests cover requester ownership, filters, pagination, invalid queries, and safe failures.
+- Focused UI tests cover ticket display, filters, empty/no-match states, and retry.
 
 ## 7. Known Limitations or Deferred Tests
 

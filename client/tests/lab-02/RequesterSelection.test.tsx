@@ -31,6 +31,7 @@ describe("Development Requester selection", () => {
 
   it("selects an active requester and supports changing it", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
+    vi.spyOn(api, "loadTickets").mockResolvedValue({ items: [], page: 1, pageSize: 10, totalItems: 0, totalPages: 0 });
     const user = userEvent.setup();
     renderApp();
 
