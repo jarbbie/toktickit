@@ -66,6 +66,15 @@ cd client && npm test
 API-01 and UI-01 pass on the requester-context feature branch. The remaining
 tests are planned and require their later implementation branches.
 
+Requester-context verification completed on `feature/7-requester-context`:
+
+- `npx prisma migrate status` — 2 migrations found; database schema up to date.
+- `npx prisma db seed` — passed; seed remains idempotent.
+- `cd server && npm test` — 6 tests passed.
+- `cd server && npm run build` — passed.
+- `cd client && npm test` — 5 tests passed.
+- `cd client && npm run build` — passed.
+
 ## 7. Known Limitations or Deferred Tests
 
 Authentication, roles, IT Staff workflow, comments, notes, actions, and ticket
