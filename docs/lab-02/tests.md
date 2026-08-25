@@ -12,12 +12,12 @@ inactive requester.
 | ID | Type | AC | What it proves | Planned file | Final |
 |---|---|---|---|---|---|
 | UNIT-01 | Unit | AC-03 | Ticket-number generator produces `TKT-YYYY-XXXXXXXX` | `server/tests/lab-02/ticket-number.test.ts` | Planned |
-| API-01 | API | AC-01 | Active requester list omits inactive requester | `server/tests/lab-02/requesters.api.test.ts` | Planned |
+| API-01 | API | AC-01 | Active requester, Category, and Related System APIs exclude inactive data | `server/tests/lab-02/reference-data.api.test.ts` | Pass |
 | API-02 | API | AC-03, AC-04 | Valid ticket creates `NEW`; invalid fields return 400 | `server/tests/lab-02/create-ticket.api.test.ts` | Planned |
 | API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response is correct | `server/tests/lab-02/my-tickets.api.test.ts` | Planned |
 | API-04 | API | AC-07, AC-10 | Owned detail succeeds; cross-requester detail returns 404 | `server/tests/lab-02/ticket-detail.api.test.ts` | Planned |
 | API-05 | API | AC-11, AC-12, AC-13 | Upload, size/type/count limits, removal, and blocked download | `server/tests/lab-02/attachments.api.test.ts` | Planned |
-| UI-01 | UI | AC-01, AC-02 | Selector loading, active choices, selection, and failure state | `client/tests/lab-02/RequesterSelection.test.tsx` | Planned |
+| UI-01 | UI | AC-01, AC-02 | Selector loading, empty, failure, selection, and Change Requester states | `client/tests/lab-02/RequesterSelection.test.tsx` | Pass |
 | UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Planned |
 | UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Planned |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Planned |
@@ -63,9 +63,8 @@ cd client && npm test
 
 ## 6. Final Results
 
-All tests are planned in this contract. Replace `Planned` with final pass/fail
-evidence only after the corresponding implementation is merged and run on
-`main`.
+API-01 and UI-01 pass on the requester-context feature branch. The remaining
+tests are planned and require their later implementation branches.
 
 ## 7. Known Limitations or Deferred Tests
 

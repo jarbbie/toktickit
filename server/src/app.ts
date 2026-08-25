@@ -21,12 +21,39 @@ app.get("/api/health", (_req: Request, res: Response) => {
 app.get("/api/categories", async (_req: Request, res: Response) => {
   try {
     const categories = await getPrisma().category.findMany({
+      where: { isActive: true },
       select: { id: true, name: true },
-      orderBy: { id: "asc" },
+      orderBy: { name: "asc" },
     });
     res.json(categories);
   } catch {
-    res.status(500).json({ error: "Unable to load request categories" });
+    res.status(500).json({ error: "Unable to load request categories." });
+  }
+});
+
+app.get("/api/requesters", async (_req: Request, res: Response) => {
+  try {
+    const requesters = await getPrisma().requester.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, email: true },
+    });
+    res.json(requesters);
+  } catch {
+    res.status(500).json({ error: "Unable to load requesters." });
+  }
+});
+
+app.get("/api/related-systems", async (_req: Request, res: Response) => {
+  try {
+    const relatedSystems = await getPrisma().relatedSystem.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    res.json(relatedSystems);
+  } catch {
+    res.status(500).json({ error: "Unable to load related systems." });
   }
 });
 
