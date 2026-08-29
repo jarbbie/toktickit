@@ -83,6 +83,10 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     setFilters((current) => ({ ...current, [key]: value, page: 1 }));
   }
 
+  function changePage(page: number) {
+    setFilters((current) => ({ ...current, page }));
+  }
+
   const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status);
   return <section>
     <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><h1 className="h3 mb-0">My Tickets</h1><NavLink className="btn text-white" style={{ backgroundColor: "#006B3C" }} to="/tickets/new">Create Ticket</NavLink></div>
@@ -99,7 +103,7 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
     {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{ticket.requestedPriority}</td><td>{ticket.status}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><button className="btn btn-sm btn-outline-success" disabled>Open</button></td></tr>)}</tbody></table></div>}
-    {result && result.totalPages > 1 && <nav className="d-flex justify-content-between align-items-center mt-3" aria-label="Ticket pagination"><button className="btn btn-outline-success" disabled={result.page === 1} onClick={() => update("page", result.page - 1)}>Previous</button><span>Page {result.page} of {result.totalPages}</span><button className="btn btn-outline-success" disabled={result.page === result.totalPages} onClick={() => update("page", result.page + 1)}>Next</button></nav>}
+    {result && result.totalPages > 1 && <nav className="d-flex justify-content-between align-items-center mt-3" aria-label="Ticket pagination"><button className="btn btn-outline-success" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>Previous</button><span>Page {result.page} of {result.totalPages}</span><button className="btn btn-outline-success" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next</button></nav>}
   </section>;
 }
 

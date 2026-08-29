@@ -1,6 +1,6 @@
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
 import { generateTicketNumber } from "./ticket-number.js";
 
@@ -44,6 +44,11 @@ function queryChoice<T extends readonly string[]>(value: unknown, name: string, 
   if (value === undefined) return fallback;
   if (typeof value !== "string" || !choices.includes(value)) throw new RequestError(`${name} is invalid.`);
   return value as T[number];
+}
+
+async function requireActiveRequester(prisma: PrismaClient, requesterId: number) {
+  const requester = await prisma.requester.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } });
+  if (!requester) throw new RequestError("Requester is unavailable.");
 }
 
 // The Express app is exported separately from app.listen() (see index.ts) so
@@ -123,6 +128,7 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
     const where: Prisma.TicketWhereInput = { requesterId, categoryId, requestedPriority, status };
     if (search) where.OR = [{ ticketNumber: { contains: search, mode: "insensitive" } }, { summary: { contains: search, mode: "insensitive" } }];
     const prisma = getPrisma();
+    await requireActiveRequester(prisma, requesterId);
     const [items, totalItems] = await Promise.all([
       prisma.ticket.findMany({ where, orderBy: { [sortBy]: direction }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, summary: true, requestedPriority: true, status: true, updatedAt: true, category: { select: { id: true, name: true } } } }),
       prisma.ticket.count({ where }),

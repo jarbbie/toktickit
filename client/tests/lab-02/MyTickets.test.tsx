@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import App from "../../src/App.js";
@@ -24,7 +24,7 @@ afterEach(() => {
 describe("My Tickets", () => {
   it("shows the requester’s ticket and sends filter changes to the API", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
-    const loadTickets = vi.spyOn(api, "loadTickets").mockResolvedValue({ items: [{ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", requestedPriority: "HIGH", status: "NEW", category: { id: 2, name: "Hardware" }, updatedAt: "2026-08-25T00:00:00.000Z" }], page: 1, pageSize: 10, totalItems: 1, totalPages: 1 });
+    const loadTickets = vi.spyOn(api, "loadTickets").mockImplementation(async (_requesterId, query) => ({ items: [{ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", requestedPriority: "HIGH", status: "NEW", category: { id: 2, name: "Hardware" }, updatedAt: "2026-08-25T00:00:00.000Z" }], page: query.page ?? 1, pageSize: 10, totalItems: 11, totalPages: 2 }));
     const user = userEvent.setup();
     renderMyTickets();
 
@@ -33,6 +33,9 @@ describe("My Tickets", () => {
 
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
     expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2" }));
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2", page: 2 })));
   });
 
   it("distinguishes an empty requester from no filter matches", async () => {
