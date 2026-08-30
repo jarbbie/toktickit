@@ -10,6 +10,8 @@ node_modules/
 dist/
 build/
 coverage/
+client/test-results/
+client/playwright-report/
 server/uploads/
 
 # Vite and TypeScript caches

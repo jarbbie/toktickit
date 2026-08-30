@@ -9,6 +9,10 @@
 | [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Approved |
 | [#20](https://github.com/jarbbie/toktickit/pull/20) | feature/6-db-seed | Approved |
 | [#21](https://github.com/jarbbie/toktickit/pull/21) | feature/7-requester-context | Approved |
+| [#23](https://github.com/jarbbie/toktickit/pull/23) | feature/9-create-ticket-ui | Approved |
+| [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
+| [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
+| [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Changes addressed; awaiting re-review |
 
 ---
 
@@ -91,6 +95,66 @@ whitespace errors. No CI checks are configured on this branch.
 
 How I responded: No changes were requested. The PR was merged into
 `lab2-staging` after approval.
+
+---
+
+[#23 feature/9-create-ticket-ui](https://github.com/jarbbie/toktickit/pull/23)
+Reviewer comment I received:
+```
+Approved. The Create Ticket screen meets the scoped requirements: generated
+fields are read-only, reference data and validation are handled correctly, and
+the busy, success, and safe-failure states are covered by UI tests. The router
+also provides navigation, requester display, and Change Requester.
+```
+
+How I responded: No changes were requested. The PR was merged after approval.
+
+---
+
+[#24 feature/10-my-tickets](https://github.com/jarbbie/toktickit/pull/24)
+Reviewer comment I received:
+```
+Request changes: pagination always requests page 1 because the update helper
+resets the page. Keep the requested page for Previous/Next and add a UI test.
+Also validate that the requester exists and is active before listing tickets,
+with tests for inactive and missing requesters.
+```
+
+How I responded: In commit `590d723`, I preserved the requested page for
+pagination, added the Next-page UI test, and validated active requester context
+in the list API with regression tests. The reviewer then approved the PR.
+
+---
+
+[#25 feature/11-ticket-detail-attachments](https://github.com/jarbbie/toktickit/pull/25)
+Reviewer comment I received:
+```
+Request changes: validate the actual PDF/PNG content signature rather than
+trusting the submitted MIME type, rejecting mismatches with 415. Also make the
+five-active-attachment limit safe for concurrent uploads by using a
+transaction/lock and removing a stored file if that transaction fails.
+```
+
+How I responded: I added PDF/PNG/JPEG/WEBP signature checks, a per-ticket
+transaction lock for the count-and-create decision, cleanup for failed writes,
+and regression tests for a spoofed PDF and the guarded upload path. The reviewer
+approved the corrected PR.
+
+---
+
+[#26 feature/12-lab2-verification](https://github.com/jarbbie/toktickit/pull/26)
+Reviewer comment I received:
+```
+Request changes: the E2E flow removes the uploaded attachment without proving
+that an owned active attachment can be downloaded. Use Playwright's download
+event to verify the downloaded filename or content, then retain the removal and
+blocked-download checks. Also capture or document readable active-download
+evidence.
+```
+
+How I responded: I added an active-download event assertion for `evidence.pdf`,
+captured `ticket-detail-active/1440x1000.png` before removal, and retained the
+existing removal and missing-Download checks. This update is awaiting re-review.
 
 ---
 
