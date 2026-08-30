@@ -21,9 +21,9 @@ inactive requester.
 | UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
 | UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Pass |
-| STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/ui-style.test.tsx` | Planned |
-| E2E-01 | E2E | AC-03, AC-06, AC-10 | Requester creates a ticket and finds/opens it | `e2e/lab-02/requester-ticket-flow.spec.ts` | Planned |
-| E2E-02 | E2E | AC-07, AC-14 | Requester switch hides A's data; desktop/tablet/mobile screens remain usable | `e2e/lab-02/requester-ownership-responsive.spec.ts` | Planned |
+| STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/ui-style.test.tsx` and visual checklist | Pass |
+| E2E-01 | E2E | AC-03, AC-06, AC-10 | Requester creates a ticket, finds/opens it, uploads, and removes an attachment | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
+| E2E-02 | E2E | AC-07, AC-14 | Requester switch hides A's data; desktop/tablet/mobile screens remain usable | `client/e2e/lab-02/requester-ownership-responsive.spec.ts` | Pass |
 
 ## 3. Acceptance-Criterion Traceability
 
@@ -52,13 +52,17 @@ inactive requester.
   unreadable file name.
 - Confirm editable, read-only, invalid, disabled, busy, success, warning, and
   error states conform to `ui-spec.md`.
+- Evidence is stored in `artifacts/lab-02/screenshots/`: Create Ticket, My
+  Tickets, and Ticket Detail at 1440×1000, 820×1180, and 390×844. A desktop
+  Ticket Detail capture and a mobile Create Ticket capture were manually
+  inspected: content is readable, controls remain reachable, and no horizontal
+  clipping was observed.
 
 ## 5. Test Commands
 
 ```bash
-cd server && npm test
-cd client && npm test
-# Add the documented Playwright command when Playwright is introduced.
+cd server && npm test && npm run build
+cd client && npm test && npm run build && npm run test:e2e
 ```
 
 ## 6. Final Results
@@ -100,6 +104,17 @@ Ticket Detail and Attachments verification completed on `feature/11-ticket-detai
 
 - API tests cover owned/unowned access, type and size validation, five-file limit, upload, soft removal, and blocked download.
 - UI tests cover read-only detail, removal metadata/actions, and retained file selection after upload failure.
+
+Release verification completed on `feature/12-lab2-verification`:
+
+- `cd server && npx prisma migrate status` — 2 migrations found; database schema up to date.
+- `cd server && npm run prisma:seed` — passed; seed remains idempotent.
+- `cd server && npm test` — 32 tests passed.
+- `cd server && npm run build` — passed.
+- `cd client && npm test` — 14 tests passed.
+- `cd client && npm run build` — passed.
+- `cd client && npm run test:e2e` — 2 tests passed; it seeds the database and
+  creates the nine screenshots listed above.
 
 ## 7. Known Limitations or Deferred Tests
 

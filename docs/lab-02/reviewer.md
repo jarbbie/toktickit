@@ -9,6 +9,9 @@
 | [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Approved |
 | [#20](https://github.com/jarbbie/toktickit/pull/20) | feature/6-db-seed | Approved |
 | [#21](https://github.com/jarbbie/toktickit/pull/21) | feature/7-requester-context | Approved |
+| [#23](https://github.com/jarbbie/toktickit/pull/23) | feature/9-create-ticket-ui | Approved |
+| [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
+| [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
 
 ---
 
@@ -91,6 +94,17 @@ whitespace errors. No CI checks are configured on this branch.
 
 How I responded: No changes were requested. The PR was merged into
 `lab2-staging` after approval.
+
+---
+
+[#25 feature/11-ticket-detail-attachments](https://github.com/jarbbie/toktickit/pull/25)
+Reviewer requested server-side content-signature validation rather than trusting
+the submitted MIME type, plus a concurrency-safe five-active-attachment limit.
+
+How I responded: I added PDF/PNG/JPEG/WEBP signature checks, a per-ticket
+transaction lock for the count-and-create decision, cleanup for failed writes,
+and regression tests for a spoofed PDF and the guarded upload path. The reviewer
+approved the corrected PR.
 
 ---
 

@@ -1,11 +1,16 @@
 # TokTickIT
 
 TokTickIT is an IT service desk application built incrementally for CPE334.
-This repository contains the Lab 1 full-stack foundation:
+This repository contains the Lab 1 foundation and Lab 2 Ticket workflow:
 
 - `client/` — React, TypeScript, Vite, and Bootstrap
 - `server/` — Node.js, Express, TypeScript, Prisma, and PostgreSQL
 - `docs/lab-01/` — Lab 1 test, AI-use, and peer-review records
+- `docs/lab-02/` — Lab 2 contract, test, AI-use, and peer-review records
+
+Lab 2 provides a temporary Development Requester selector, Ticket creation,
+My Tickets search and pagination, read-only Ticket Detail, and attachment
+upload, removal, and download for the selected requester.
 
 ## Prerequisites
 
@@ -62,9 +67,7 @@ This repository contains the Lab 1 full-stack foundation:
    already in use, stop the local service or change the Docker host port and
    the port in `server/.env` to match.
 
-5. Prisma is initialized in `server/prisma/schema.prisma`. After the Category
-   model is added, generate the client, apply the migration, and seed the
-   database:
+5. Generate the Prisma client, apply migrations, and seed the database:
 
    ```bash
    cd server
@@ -89,15 +92,16 @@ cd client
 npm run dev
 ```
 
-Open http://localhost:5173. Bootstrap is loaded by `client/src/main.tsx` and
-is used by the initial page styling.
+Open http://localhost:5173. The first screen selects a temporary Development
+Requester context for Lab 2 testing; it is not authentication.
 
 ## Test commands
 
 ```bash
-cd server && npm test
-cd client && npm test
+cd server && npm test && npm run build
+cd client && npm test && npm run build && npm run test:e2e
 ```
 
-Later Lab 1 issues add the health endpoint, Category migration and seed, and
-the complete system-check UI.
+The Playwright command seeds the local database, runs the complete requester
+Ticket flow, and writes responsive screenshots to
+`artifacts/lab-02/screenshots/`.
