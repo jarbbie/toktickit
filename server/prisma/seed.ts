@@ -1,10 +1,8 @@
 import { getPrisma } from "../src/prisma.js";
+import { seedDatabase } from "./seed-data.js";
 
 async function main() {
-  const prisma = getPrisma();
-  for (const name of ["Account and Access", "Hardware", "Software", "Network"]) {
-    await prisma.category.upsert({ where: { name }, update: {}, create: { name } });
-  }
+  await seedDatabase(getPrisma());
 }
 
 main()
