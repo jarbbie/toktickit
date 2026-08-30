@@ -14,6 +14,8 @@ const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/p
 const attachmentSelect = { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true, removedAt: true, removalReason: true } as const;
 
 class AttachmentTypeError extends Error {}
+class AttachmentLimitError extends Error {}
+class TicketNotFoundError extends Error {}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -65,6 +67,14 @@ function queryChoice<T extends readonly string[]>(value: unknown, name: string, 
 function multipartId(value: unknown, name: string) {
   if (typeof value === "string" && /^\d+$/.test(value)) return requiredId(Number(value), name);
   return requiredId(value, name);
+}
+
+function hasAttachmentSignature(file: { mimetype: string; buffer: Buffer }) {
+  const { buffer, mimetype } = file;
+  if (mimetype === "application/pdf") return buffer.subarray(0, 5).equals(Buffer.from("%PDF-"));
+  if (mimetype === "image/png") return buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (mimetype === "image/jpeg") return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  return buffer.subarray(0, 4).toString("ascii") === "RIFF" && buffer.subarray(8, 12).toString("ascii") === "WEBP";
 }
 
 async function requireActiveRequester(prisma: PrismaClient, requesterId: number) {
@@ -194,24 +204,34 @@ app.post("/api/tickets/:ticketId/attachments", upload.single("file"), async (req
     const requesterId = multipartId(req.body?.requesterId, "requesterId");
     const ticketId = queryInteger(req.params.ticketId, "ticketId");
     if (!req.file || req.file.originalname.length === 0 || req.file.originalname.length > 255) throw new RequestError("Attachment filename is invalid.");
+    const file = req.file;
+    if (!hasAttachmentSignature(file)) throw new AttachmentTypeError();
     const prisma = getPrisma();
     await requireActiveRequester(prisma, requesterId);
-    const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, requesterId }, select: { id: true } });
-    if (!ticket) {
-      res.status(404).json({ error: "Ticket not found." });
-      return;
-    }
-    // ponytail: count-and-create can race under concurrent uploads; add a transaction/lock if uploads become concurrent.
-    if (await prisma.attachment.count({ where: { ticketId, removedAt: null } }) >= 5) {
-      res.status(409).json({ error: "A ticket can have at most five active attachments." });
-      return;
-    }
-    storageKey = randomUUID();
-    await saveAttachment(storageKey, req.file.buffer);
-    const attachment = await prisma.attachment.create({ data: { ticketId, originalName: req.file.originalname, storageKey, mimeType: req.file.mimetype, sizeBytes: req.file.size }, select: attachmentSelect });
+    const attachment = await prisma.$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId, requesterId }, select: { id: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      if (await transaction.attachment.count({ where: { ticketId, removedAt: null } }) >= 5) throw new AttachmentLimitError();
+      storageKey = randomUUID();
+      await saveAttachment(storageKey, file.buffer);
+      return transaction.attachment.create({ data: { ticketId, originalName: file.originalname, storageKey, mimeType: file.mimetype, sizeBytes: file.size }, select: attachmentSelect });
+    });
     res.status(201).json(attachment);
   } catch (error) {
     if (storageKey) await discardAttachment(storageKey);
+    if (error instanceof AttachmentTypeError) {
+      res.status(415).json({ error: "Attachment type is not permitted." });
+      return;
+    }
+    if (error instanceof TicketNotFoundError) {
+      res.status(404).json({ error: "Ticket not found." });
+      return;
+    }
+    if (error instanceof AttachmentLimitError) {
+      res.status(409).json({ error: "A ticket can have at most five active attachments." });
+      return;
+    }
     if (error instanceof RequestError) {
       res.status(400).json({ error: error.message });
       return;
