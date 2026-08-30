@@ -9,21 +9,21 @@ inactive requester.
 
 ## 2. Planned Tests
 
-| ID | Type | AC | What it proves | Planned file | Final |
-|---|---|---|---|---|---|
-| UNIT-01 | Unit | AC-03 | Ticket-number generator produces `TKT-YYYY-XXXXXXXX` | `server/tests/lab-02/ticket-number.test.ts` | Pass |
-| API-01 | API | AC-01 | Active requester, Category, and Related System APIs exclude inactive data | `server/tests/lab-02/reference-data.api.test.ts` | Pass |
-| API-02 | API | AC-03, AC-04 | Valid ticket creates `NEW`; validation, inactive references, duplicate retry, and malformed JSON return safe responses | `server/tests/lab-02/create-ticket.api.test.ts` | Pass |
-| API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response is correct | `server/tests/lab-02/my-tickets.api.test.ts` | Pass |
-| API-04 | API | AC-07, AC-10 | Owned detail succeeds; cross-requester detail returns 404 | `server/tests/lab-02/ticket-detail-attachments.api.test.ts` | Pass |
-| API-05 | API | AC-11, AC-12, AC-13 | Upload, size/type/count limits, removal, and blocked download | `server/tests/lab-02/ticket-detail-attachments.api.test.ts` | Pass |
-| UI-01 | UI | AC-01, AC-02 | Selector loading, empty, failure, selection, and Change Requester states | `client/tests/lab-02/RequesterSelection.test.tsx` | Pass |
-| UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
-| UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
-| UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Pass |
-| STYLE-01 | Manual UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/RequesterTicketDetail.test.tsx`, and visual checklist | Pass (manual review) |
-| E2E-01 | E2E | AC-03, AC-06, AC-10–AC-13 | Requester creates a ticket, finds/opens it, uploads, downloads, and removes an attachment | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
-| E2E-02 | E2E | AC-07, AC-14 | Requester switch hides A's data; desktop/tablet/mobile screens remain usable | `client/e2e/lab-02/requester-ownership-responsive.spec.ts` | Pass |
+| ID | Type | AC | What it proves | Expected result | Automated test file | Final |
+|---|---|---|---|---|---|---|
+| UNIT-01 | Unit | AC-03 | Ticket-number generator produces `TKT-YYYY-XXXXXXXX` | Required format is returned | `server/tests/lab-02/ticket-number.test.ts` | Pass |
+| API-01 | API | AC-01 | Active requester, Category, and Related System APIs exclude inactive data | Ordered active records only | `server/tests/lab-02/reference-data.api.test.ts` | Pass |
+| API-02 | API | AC-03, AC-04 | Ticket creation, validation, references, duplicate retry, and malformed JSON | Safe `201` or documented safe error; invalid ticket is not stored | `server/tests/lab-02/create-ticket.api.test.ts` | Pass |
+| API-03 | API | AC-06, AC-08, AC-09 | Owned list search/filter/sort/page response | Matching owned page and metadata | `server/tests/lab-02/my-tickets.api.test.ts` | Pass |
+| API-04 | API | AC-07, AC-10 | Owned detail succeeds; cross-requester detail returns 404 | Owned `200`; unowned `404` | `server/tests/lab-02/ticket-detail-attachments.api.test.ts` | Pass |
+| API-05 | API | AC-11, AC-12, AC-13 | Attachment upload limits, removal, and blocked download | Documented status; removed attachment cannot download | `server/tests/lab-02/ticket-detail-attachments.api.test.ts` | Pass |
+| UI-01 | UI | AC-01, AC-02 | Selector loading, empty, failure, selection, and Change Requester states | Correct state and route/context behavior | `client/tests/lab-02/RequesterSelection.test.tsx` | Pass |
+| UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | Field messages; disabled busy button; success or retained values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
+| UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | Correct list state and query behavior | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
+| UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | Visible detail; removed metadata; safe attachment failure | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Pass |
+| STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | Required classes/states render; visual review has no responsive defects | `client/tests/lab-02/CreateTicket.test.tsx` and `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
+| E2E-01 | E2E | AC-03, AC-06, AC-10–AC-13 | Requester creates a ticket, finds/opens it, uploads, downloads, and removes an attachment | Created ticket is found; `evidence.pdf` downloads; removed link is absent | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
+| E2E-02 | E2E | AC-07 | Requester switch hides A's data and blocks direct detail access | A's ticket is hidden and its detail returns a safe error for B | `client/e2e/lab-02/requester-ownership-responsive.spec.ts` | Pass |
 
 ## 3. Acceptance-Criterion Traceability
 
@@ -42,22 +42,17 @@ inactive requester.
 | AC-11 | API-05, UI-04 |
 | AC-12 | API-05, UI-04 |
 | AC-13 | API-05, UI-04 |
-| AC-14 | STYLE-01, E2E-02 |
+| AC-14 | STYLE-01, E2E-01 |
 
 ## 4. Responsive and Visual Checklist
 
-- Inspect Create Ticket, My Tickets, and Ticket Detail at desktop (≥992px),
-  tablet (768–991px), and mobile (<768px).
-- Confirm no clipping, overlap, horizontal overflow, missing focus state, or
-  unreadable file name.
-- Confirm editable, read-only, invalid, disabled, busy, success, warning, and
-  error states conform to `ui-spec.md`.
-- Evidence is stored in `artifacts/lab-02/screenshots/`: Create Ticket, My
-  Tickets, and removed Ticket Detail at 1440×1000, 820×1180, and 390×844;
-  `ticket-detail-active/1440x1000.png` shows an owned active attachment and
-  its Download control. A desktop Ticket Detail capture and a mobile Create
-  Ticket capture were manually inspected: content is readable, controls remain
-  reachable, and no horizontal clipping was observed.
+| Check | Evidence and result |
+|---|---|
+| Desktop, tablet, mobile layout | Create Ticket, My Tickets, and removed Ticket Detail are captured at 1440×1000, 820×1180, and 390×844 under `artifacts/lab-02/screenshots/`. Pass. |
+| Clipping and horizontal overflow | The E2E capture helper asserts `scrollWidth <= clientWidth` at every captured viewport; desktop Ticket Detail and mobile Create Ticket were manually inspected. Pass. |
+| Labels, required markers, invalid, busy, read-only | `CreateTicket.test.tsx` asserts labelled required/invalid controls and the read-only color; it also verifies the disabled busy Submit button. Pass. |
+| Attachment controls and readable names | `ticket-detail-active/1440x1000.png` visibly shows `evidence.pdf` with Download/Remove; removed-detail screenshots retain metadata without Download. Pass. |
+| UI-spec comparison | The inspected layouts use the approved responsive form/table/card behavior, Zen Green primary actions, and separate Ticket/Attachment sections from `ui-spec.md`. Pass. |
 
 ## 5. Test Commands
 
@@ -115,7 +110,7 @@ Release verification completed on `feature/12-lab2-verification`:
 - `cd server && npm run prisma:seed` — passed; seed remains idempotent.
 - `cd server && npm test` — 32 tests passed.
 - `cd server && npm run build` — passed.
-- `cd client && npm test` — 14 tests passed.
+- `cd client && npm test` — 15 tests passed.
 - `cd client && npm run build` — passed.
 - `cd client && npm run test:e2e` — 2 tests passed; it seeds the database,
   verifies an active attachment download filename, and creates the ten

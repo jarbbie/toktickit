@@ -41,6 +41,20 @@ describe("Create Ticket", () => {
     expect(createTicket).not.toHaveBeenCalled();
   });
 
+  it("uses labelled required fields, invalid styles, and distinct read-only fields", async () => {
+    vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
+    const user = userEvent.setup();
+    renderCreateTicket();
+
+    const requester = await screen.findByLabelText("Requester");
+    expect(requester).toHaveAttribute("readonly");
+    expect(requester).toHaveStyle({ backgroundColor: "rgb(234, 246, 239)" });
+    expect(document.querySelector('label[for="category"] .text-danger')).toHaveTextContent("*");
+    await user.click(screen.getByRole("button", { name: "Submit Ticket" }));
+    expect(screen.getByLabelText(/Category/)).toHaveClass("is-invalid");
+    expect(screen.getByText("Category is required.")).toHaveClass("invalid-feedback");
+  });
+
   it("shows a busy disabled submit button while saving", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "createTicket").mockReturnValue(new Promise(() => {}));

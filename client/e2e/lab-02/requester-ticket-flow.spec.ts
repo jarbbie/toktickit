@@ -32,6 +32,7 @@ async function capture(page: Page, screen: string, viewport: { width: number; he
   await page.setViewportSize(viewport);
   await page.goto(route);
   await expect(page.locator("main")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   const target = path.join(screenshots, screen, `${viewport.width}x${viewport.height}.png`);
   await mkdir(path.dirname(target), { recursive: true });
   await page.screenshot({ path: target, fullPage: true });
