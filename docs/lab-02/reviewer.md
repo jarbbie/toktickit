@@ -12,7 +12,7 @@
 | [#23](https://github.com/jarbbie/toktickit/pull/23) | feature/9-create-ticket-ui | Approved |
 | [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
 | [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
-| [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Awaiting review |
+| [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Changes addressed; awaiting re-review |
 
 ---
 
@@ -143,8 +143,18 @@ approved the corrected PR.
 ---
 
 [#26 feature/12-lab2-verification](https://github.com/jarbbie/toktickit/pull/26)
-Status: Open and awaiting partner review. No reviewer feedback or verdict has
-been received yet, so this record will be updated only after the review occurs.
+Reviewer comment I received:
+```
+Request changes: the E2E flow removes the uploaded attachment without proving
+that an owned active attachment can be downloaded. Use Playwright's download
+event to verify the downloaded filename or content, then retain the removal and
+blocked-download checks. Also capture or document readable active-download
+evidence.
+```
+
+How I responded: I added an active-download event assertion for `evidence.pdf`,
+captured `ticket-detail-active/1440x1000.png` before removal, and retained the
+existing removal and missing-Download checks. This update is awaiting re-review.
 
 ---
 

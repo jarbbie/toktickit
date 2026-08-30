@@ -22,7 +22,7 @@ inactive requester.
 | UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Pass |
 | STYLE-01 | Manual UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/RequesterTicketDetail.test.tsx`, and visual checklist | Pass (manual review) |
-| E2E-01 | E2E | AC-03, AC-06, AC-10 | Requester creates a ticket, finds/opens it, uploads, and removes an attachment | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
+| E2E-01 | E2E | AC-03, AC-06, AC-10–AC-13 | Requester creates a ticket, finds/opens it, uploads, downloads, and removes an attachment | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
 | E2E-02 | E2E | AC-07, AC-14 | Requester switch hides A's data; desktop/tablet/mobile screens remain usable | `client/e2e/lab-02/requester-ownership-responsive.spec.ts` | Pass |
 
 ## 3. Acceptance-Criterion Traceability
@@ -53,10 +53,11 @@ inactive requester.
 - Confirm editable, read-only, invalid, disabled, busy, success, warning, and
   error states conform to `ui-spec.md`.
 - Evidence is stored in `artifacts/lab-02/screenshots/`: Create Ticket, My
-  Tickets, and Ticket Detail at 1440×1000, 820×1180, and 390×844. A desktop
-  Ticket Detail capture and a mobile Create Ticket capture were manually
-  inspected: content is readable, controls remain reachable, and no horizontal
-  clipping was observed.
+  Tickets, and removed Ticket Detail at 1440×1000, 820×1180, and 390×844;
+  `ticket-detail-active/1440x1000.png` shows an owned active attachment and
+  its Download control. A desktop Ticket Detail capture and a mobile Create
+  Ticket capture were manually inspected: content is readable, controls remain
+  reachable, and no horizontal clipping was observed.
 
 ## 5. Test Commands
 
@@ -116,8 +117,9 @@ Release verification completed on `feature/12-lab2-verification`:
 - `cd server && npm run build` — passed.
 - `cd client && npm test` — 14 tests passed.
 - `cd client && npm run build` — passed.
-- `cd client && npm run test:e2e` — 2 tests passed; it seeds the database and
-  creates the nine screenshots listed above.
+- `cd client && npm run test:e2e` — 2 tests passed; it seeds the database,
+  verifies an active attachment download filename, and creates the ten
+  screenshots listed above.
 
 ## 7. Known Limitations or Deferred Tests
 

@@ -37,7 +37,7 @@ async function capture(page: Page, screen: string, viewport: { width: number; he
   await page.screenshot({ path: target, fullPage: true });
 }
 
-test("requester creates, finds, opens, uploads, removes, and captures evidence", async ({ page }) => {
+test("requester creates, finds, opens, downloads, removes, and captures evidence", async ({ page }) => {
   const summary = `E2E VPN ${Date.now()}`;
   await selectRequester(page, "Nicha Somchai");
   const detailRoute = await createTicket(page, summary);
@@ -45,6 +45,9 @@ test("requester creates, finds, opens, uploads, removes, and captures evidence",
   await page.getByLabel("Add attachment").setInputFiles({ name: "evidence.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\nE2E evidence") });
   await page.getByRole("button", { name: "Upload attachment" }).click();
   await expect(page.getByText(/evidence\.pdf/)).toBeVisible();
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "Download" }).click()]);
+  expect(download.suggestedFilename()).toBe("evidence.pdf");
+  await capture(page, "ticket-detail-active", { width: 1440, height: 1000 }, detailRoute);
   await page.getByRole("button", { name: "Remove" }).click();
   await page.getByLabel("Removal reason").fill("E2E removal check");
   await page.getByRole("button", { name: "Confirm removal" }).click();
