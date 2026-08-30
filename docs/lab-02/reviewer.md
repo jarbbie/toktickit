@@ -156,7 +156,7 @@ How I responded: I added an active-download event assertion for `evidence.pdf`,
 captured `ticket-detail-active/1440x1000.png` before removal, and retained the
 existing removal and missing-Download checks.
 
-Reviewer follow-up:
+Reviewer approval:
 ```
 Approved. The E2E flow now downloads the active attachment and verifies the
 filename, captures the active Ticket Detail state before removal, retains the
