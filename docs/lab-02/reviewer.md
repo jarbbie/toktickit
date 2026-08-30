@@ -12,7 +12,7 @@
 | [#23](https://github.com/jarbbie/toktickit/pull/23) | feature/9-create-ticket-ui | Approved |
 | [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
 | [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
-| [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Changes addressed; awaiting re-review |
+| [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Approved and merged |
 
 ---
 
@@ -154,7 +154,16 @@ evidence.
 
 How I responded: I added an active-download event assertion for `evidence.pdf`,
 captured `ticket-detail-active/1440x1000.png` before removal, and retained the
-existing removal and missing-Download checks. This update is awaiting re-review.
+existing removal and missing-Download checks.
+
+Reviewer approval:
+```
+Approved. The E2E flow now downloads the active attachment and verifies the
+filename, captures the active Ticket Detail state before removal, retains the
+removed-download check, and records the updated responsive and test evidence.
+```
+
+The PR was merged into `lab2-staging` after approval.
 
 ---
 
