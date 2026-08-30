@@ -335,14 +335,215 @@ submission.
 
 ---
 
-## Additional Lab 2 reviews I completed
+[#27 feature/my-tickets-api](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/27) @SupeemAFK
+Me:
+```
+Request changes:
 
-| PR | Review I gave | Partner response and outcome |
-|---|---|---|
-| [#27 — My Tickets API](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/27) | Requested required safe `requesterId` validation, complete list-query coverage, then safe-integer validation for oversized IDs. | The requester guard, query coverage, and safe-integer test were added; I approved the corrected PR. |
-| [#28 — My Tickets screen](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/28) | Requested Ticket Detail navigation from the list, then a keyboard-operable desktop open control. | The navigation callback and labelled native button with UI coverage were added; I approved. |
-| [#29 — Ticket Detail](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/29) | Requested active-requester validation before detail lookup and accurate API/test documentation. | The route now validates active context, tests it, and aligns the contract evidence; I approved. |
-| [#30 — Attachment lifecycle](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/30) | Requested safe Multer `413` handling, attachment controls and confirmation, creation-time upload, behavioral ownership/download/removal tests, and consistent test evidence. | The author addressed the blocking attachment workflow and safety issues; I approved after verifying 29 server tests, 17 client tests, and both builds. |
-| [#31 — Responsive Zen Green UI](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/31) | Requested the approved green focus color, no global overflow masking, a style test, and complete populated responsive evidence. | The style and responsive evidence were added across all required viewports; I approved. |
-| [#32 — E2E acceptance coverage](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/32) | Requested that the removal assertion target the uploaded attachment rather than an ambiguous `Removed` label. | The assertion was scoped to the intended row and verifies unavailable actions; I approved after the E2E suite passed. |
-| [#33 — Release evidence](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/33) | Requested genuine collaborator-review evidence; I then corrected my initial assumption and directed the author to link the existing eight reviews on this repository. | `reviewer.md` now links those genuine reviews and outcomes; I approved the final release-evidence PR. |
+1. Require a positive safe-integer requesterId before listing tickets. Without
+it, the ownership filter can be omitted. Return a safe 400 and add coverage.
+2. API-03 needs search, every filter, non-default sort/direction, pagination,
+and requester-context coverage before being marked Pass.
+```
+
+Partner:
+```
+Addressed both changes: GET /api/tickets now rejects an omitted requesterId
+before querying, and API-03 covers search, filters, sorting, pagination,
+malformed values, inactive requesters, and missing context.
+```
+
+Me:
+```
+Request changes: validate Number.isSafeInteger for numeric query IDs so an
+oversized requesterId returns the documented 400 rather than Prisma's 500.
+```
+
+Partner:
+```
+Added positive safe-integer validation and an oversized requesterId regression
+test; server tests and build pass.
+```
+
+Me:
+```
+Approved. Required requester-context and query-bound validation are enforced
+and covered.
+```
+
+---
+
+[#28 feature/my-tickets-screen](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/28) @SupeemAFK
+Me:
+```
+Request changes: My Tickets renders without its onOpenTicket callback, so a
+selected ticket cannot open Ticket Detail. Wire the callback and add a UI test.
+```
+
+Partner:
+```
+Selecting a table row or mobile card now opens read-only Ticket Detail through
+the requester shell, with a Back to My Tickets action and UI coverage.
+```
+
+Me:
+```
+Request changes: clickable desktop table rows are not focusable or keyboard
+operable. Use a labelled native button or link for the open action.
+```
+
+Partner:
+```
+The desktop ticket number is now a labelled native button and the UI test opens
+the ticket through that accessible control.
+```
+
+Me:
+```
+Approved. The accessible open control and UI coverage are complete.
+```
+
+---
+
+[#29 feature/ticket-detail](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/29) @SupeemAFK
+Me:
+```
+Request changes: validate that the requester is active before Ticket Detail is
+loaded, returning the same safe 404 for inactive context. Also align tests.md
+and api-spec.md with the implemented detail scope.
+```
+
+Partner:
+```
+Ticket Detail now validates active requester context with regression coverage;
+the test plan and API contract were updated to match the implemented scope.
+```
+
+Me:
+```
+Approved. Active-requester validation and the Ticket Detail contract evidence
+are correct and tested.
+```
+
+---
+
+[#30 feature/attachment-lifecycle](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/30) @SupeemAFK
+Me:
+```
+Request changes: handle Multer's oversized-file failure as a safe 413 JSON
+response, implement upload/download/removal controls with confirmation, and add
+attachment API/UI behavior and ownership coverage before marking the rows Pass.
+```
+
+Partner:
+```
+The size-limit error is now a safe 413 response. Ticket Detail has upload,
+active download, removal reason, soft removal, and unavailable removed actions;
+API/UI coverage and tests.md were updated.
+```
+
+Me:
+```
+Request changes: enable the creation-time attachment workflow, retain a created
+ticket with a safe warning when its later upload fails, and complete successful
+upload/download/removal and non-owner behavioral coverage.
+```
+
+Partner:
+```
+Create Ticket now uploads an optional allowed attachment after creation and
+keeps the created ticket visible on upload failure. The missing behavioral
+coverage and documentation were added.
+```
+
+Me:
+```
+Approved. The creation-time upload, safe post-creation failure, ownership,
+size-limit, and removal-confirmation behavior are in place. A later PR will
+cover the remaining non-blocking active-download/removal regression evidence.
+```
+
+---
+
+[#31 feature/responsive-zen-green](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/31) @SupeemAFK
+Me:
+```
+Request changes: use Secondary Green (#0B7A46) for keyboard focus, remove the
+global horizontal-overflow mask, add automated style coverage, and capture the
+required responsive evidence.
+```
+
+Partner:
+```
+Focus now uses #0B7A46, global overflow suppression is removed, STYLE-01 was
+added, and populated 1440px/768px/375px requester screenshots were recorded.
+```
+
+Me:
+```
+Request changes: add populated Create Ticket, My Tickets, and Ticket Detail
+attachment screenshots at every required viewport and record the observations.
+```
+
+Partner:
+```
+All twelve artifact paths and responsive observations are now recorded,
+including validation, focus, mobile cards, active attachment actions, and the
+removed state.
+```
+
+Me:
+```
+Approved. Zen Green focus, responsive checks, and complete visual evidence are
+implemented and verified.
+```
+
+---
+
+[#32 feature/e2e-acceptance](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/32) @SupeemAFK
+Me:
+```
+Request changes: scope the soft-removal assertion to evidence.png's attachment
+row. The generic Removed text matches an existing fixture and does not prove
+the intended attachment was removed.
+```
+
+Partner:
+```
+The assertion now scopes to evidence.png and verifies that its Download and
+Remove controls are unavailable after soft removal. The Playwright suite passes.
+```
+
+Me:
+```
+Approved. The E2E assertion now verifies the correct attachment lifecycle and
+the complete test/build/whitespace verification passes.
+```
+
+---
+
+[#33 feature/release-evidence](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/33) @SupeemAFK
+Me:
+```
+Request changes: reviewer.md needs linked genuine peer-review evidence showing
+comments, author responses, and approvals. Do not fabricate this evidence.
+```
+
+Me:
+```
+Correction: collaborator evidence already exists on jarbbie/toktickit. Record
+the genuine reviews on PRs #17, #20–#26, including request-changes, responses,
+and approval outcomes.
+```
+
+Partner:
+```
+reviewer.md now links the eight genuine Lab 2 collaborator reviews and their
+outcomes; no evidence was invented.
+```
+
+Me:
+```
+Approved. The reviewer record, GitHub timelines, AI-use record, README, and
+verified application evidence are consistent.
+```
