@@ -21,7 +21,7 @@ inactive requester.
 | UI-02 | UI | AC-03–AC-05 | Create form validation, busy, success, and retained failure values | `client/tests/lab-02/CreateTicket.test.tsx` | Pass |
 | UI-03 | UI | AC-06, AC-08, AC-09 | My Tickets loading, filters, pagination, empty/no-results/error states | `client/tests/lab-02/MyTickets.test.tsx` | Pass |
 | UI-04 | UI | AC-10–AC-13 | Read-only detail and attachment action states | `client/tests/lab-02/RequesterTicketDetail.test.tsx` | Pass |
-| STYLE-01 | UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/ui-style.test.tsx` and visual checklist | Pass |
+| STYLE-01 | Manual UI style | AC-14 | Labels, asterisks, invalid classes, busy controls, and read-only treatment | `client/tests/lab-02/CreateTicket.test.tsx`, `client/tests/lab-02/RequesterTicketDetail.test.tsx`, and visual checklist | Pass (manual review) |
 | E2E-01 | E2E | AC-03, AC-06, AC-10 | Requester creates a ticket, finds/opens it, uploads, and removes an attachment | `client/e2e/lab-02/requester-ticket-flow.spec.ts` | Pass |
 | E2E-02 | E2E | AC-07, AC-14 | Requester switch hides A's data; desktop/tablet/mobile screens remain usable | `client/e2e/lab-02/requester-ownership-responsive.spec.ts` | Pass |
 
@@ -61,14 +61,17 @@ inactive requester.
 ## 5. Test Commands
 
 ```bash
-cd server && npm test && npm run build
-cd client && npm test && npm run build && npm run test:e2e
+npm test --prefix server
+npm run build --prefix server
+npm test --prefix client
+npm run build --prefix client
+npm run test:e2e --prefix client
 ```
 
 ## 6. Final Results
 
-API-01 and UI-01 pass on the requester-context feature branch. The remaining
-tests are planned and require their later implementation branches.
+The following history records verification at each implementation increment.
+The release-verification results below are the final result for Lab 2.
 
 Requester-context verification completed on `feature/7-requester-context`:
 

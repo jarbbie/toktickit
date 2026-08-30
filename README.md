@@ -98,8 +98,11 @@ Requester context for Lab 2 testing; it is not authentication.
 ## Test commands
 
 ```bash
-cd server && npm test && npm run build
-cd client && npm test && npm run build && npm run test:e2e
+npm test --prefix server
+npm run build --prefix server
+npm test --prefix client
+npm run build --prefix client
+npm run test:e2e --prefix client
 ```
 
 The Playwright command seeds the local database, runs the complete requester
