@@ -332,3 +332,17 @@ Approved. The required read-only treatment is now applied, and the new
 deferred-request test verifies the busy/disabled state prevents duplicate
 submission.
 ```
+
+---
+
+## Additional Lab 2 reviews I completed
+
+| PR | Review I gave | Partner response and outcome |
+|---|---|---|
+| [#27 — My Tickets API](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/27) | Requested required safe `requesterId` validation, complete list-query coverage, then safe-integer validation for oversized IDs. | The requester guard, query coverage, and safe-integer test were added; I approved the corrected PR. |
+| [#28 — My Tickets screen](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/28) | Requested Ticket Detail navigation from the list, then a keyboard-operable desktop open control. | The navigation callback and labelled native button with UI coverage were added; I approved. |
+| [#29 — Ticket Detail](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/29) | Requested active-requester validation before detail lookup and accurate API/test documentation. | The route now validates active context, tests it, and aligns the contract evidence; I approved. |
+| [#30 — Attachment lifecycle](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/30) | Requested safe Multer `413` handling, attachment controls and confirmation, creation-time upload, behavioral ownership/download/removal tests, and consistent test evidence. | The author addressed the blocking attachment workflow and safety issues; I approved after verifying 29 server tests, 17 client tests, and both builds. |
+| [#31 — Responsive Zen Green UI](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/31) | Requested the approved green focus color, no global overflow masking, a style test, and complete populated responsive evidence. | The style and responsive evidence were added across all required viewports; I approved. |
+| [#32 — E2E acceptance coverage](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/32) | Requested that the removal assertion target the uploaded attachment rather than an ambiguous `Removed` label. | The assertion was scoped to the intended row and verifies unavailable actions; I approved after the E2E suite passed. |
+| [#33 — Release evidence](https://github.com/SupeemAFK/TokTickIT-Individual-Sprints/pull/33) | Requested genuine collaborator-review evidence; I then corrected my initial assumption and directed the author to link the existing eight reviews on this repository. | `reviewer.md` now links those genuine reviews and outcomes; I approved the final release-evidence PR. |
