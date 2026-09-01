@@ -17,9 +17,15 @@ Cards have a subtle border and restrained shadow. Read-only fields use a
 distinct soft gray-green or warm ivory background. Labels sit above controls;
 required fields have a red asterisk and a message directly below the invalid
 control. Requested Priority and Current Status use compact text badges: pale
-green/amber/red by priority and green for `NEW`, with text always visible.
+green/amber/red by priority and green for `NEW`, with text always visible. Use
+a compact native sans-serif hierarchy: 15px body text, smaller control labels,
+and clearly heavier page headings.
 
 ## Application Shell
+
+The requester shell uses the reference-style compact green navigation bar,
+profile menu, breadcrumb, and read-only ticket-detail field grid. It retains
+only Lab 2 requester features; excluded IT staff actions are not shown.
 
 The shell uses a `#006B3C` header with white TokTickIT identity, navigation,
 selected requester name, and Change Requester action. The active route is a

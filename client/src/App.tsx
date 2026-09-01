@@ -23,14 +23,16 @@ function Shell({ requester, onChangeRequester, children }: { requester: Requeste
   return (
     <main className="app-shell min-vh-100">
       <header className="app-header">
-        <div className="container app-header-inner py-3 d-flex flex-wrap align-items-center gap-3">
-          <strong className="app-brand">TokTickIT</strong>
-          <nav className="d-flex gap-3" aria-label="Main navigation">
-            <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets">My Tickets</NavLink>
-            <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new">Create Ticket</NavLink>
+        <div className="container app-header-inner d-flex flex-wrap align-items-center gap-2">
+          <strong className="app-brand"><svg aria-hidden="true" className="app-logo-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" /><path d="M16 7.5v8.5H8.5" /><path d="M10.5 6.2 13 4.8" /></svg>TokTickIT</strong>
+          <nav className="d-flex align-items-center gap-1" aria-label="Main navigation">
+            <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets"><span aria-hidden="true" className="nav-icon">▣</span>My Tickets</NavLink>
+            <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new"><span aria-hidden="true" className="nav-icon nav-icon-add">+</span>Create Ticket</NavLink>
           </nav>
-          <span className="app-requester ms-md-auto">Requester: {requester.name}</span>
-          <button className="btn btn-sm btn-zen-header" onClick={onChangeRequester}>Change Requester</button>
+          <details className="app-profile ms-md-auto">
+            <summary><span aria-hidden="true" className="app-profile-mark" />Profile <span aria-hidden="true">⌄</span></summary>
+            <div className="app-profile-menu"><small>Testing requester</small><strong>{requester.name}</strong><button className="btn btn-sm btn-zen-primary w-100" onClick={onChangeRequester}>Change Requester</button></div>
+          </details>
         </div>
       </header>
       <div className="container app-content py-5">{children}</div>
@@ -175,12 +177,27 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
   if (failure) return <div className="alert alert-danger" role="alert">Unable to load ticket. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>;
   if (!ticket) return null;
   return <section>
-    <NavLink className="btn btn-sm btn-outline-success mb-3" to="/tickets">Back to My Tickets</NavLink>
-    <div className="card shadow-sm mb-4"><div className="card-body"><h1 className="h3">{ticket.ticketNumber}</h1><dl className="row mb-0"><dt className="col-sm-3">Summary</dt><dd className="col-sm-9">{ticket.summary}</dd><dt className="col-sm-3">Description</dt><dd className="col-sm-9" style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</dd><dt className="col-sm-3">Category</dt><dd className="col-sm-9">{ticket.category.name}</dd><dt className="col-sm-3">Related System</dt><dd className="col-sm-9">{ticket.relatedSystem.name}</dd><dt className="col-sm-3">Requested Priority</dt><dd className="col-sm-9">{priorityBadge(ticket.requestedPriority)}</dd><dt className="col-sm-3">Status</dt><dd className="col-sm-9">{statusBadge(ticket.status)}</dd></dl></div></div>
-    <div className="card shadow-sm"><div className="card-body"><h2 className="h4">Attachments</h2><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn btn-zen-primary mt-2" disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
+    <div className="ticket-breadcrumb d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><nav aria-label="Breadcrumb"><NavLink to="/tickets">My Tickets</NavLink><span aria-hidden="true">›</span><span>Ticket Details</span></nav><NavLink className="btn btn-sm btn-outline-success back-link" to="/tickets"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M16 10H4m5-5-5 5 5 5" /></svg>Back to My Tickets</NavLink></div>
+    <div className="card shadow-sm mb-3"><div className="card-body ticket-detail-card"><h1 className="visually-hidden">Ticket Details</h1><div className="row g-3">
+      <DetailField label="Ticket No." value={ticket.ticketNumber} />
+      <DetailField label="Ticket Date" value={new Date(ticket.createdAt).toLocaleString()} />
+      <DetailField label="Category" value={ticket.category.name} />
+      <DetailField label="Related System" value={ticket.relatedSystem.name} />
+      <DetailField label="Requester" value={requester.name} />
+      <DetailField label="Requested Priority" value={ticket.requestedPriority} />
+      <DetailField label="Current Status" value={ticket.status} />
+      <DetailField label="Last Updated" value={new Date(ticket.updatedAt).toLocaleString()} />
+      <DetailField className="col-12" label="Summary" value={ticket.summary} />
+      <DetailField className="col-12" label="Description" value={ticket.description} multiline />
+    </div></div></div>
+    <div className="card shadow-sm attachment-card"><div className="attachment-tabs" role="tablist" aria-label="Ticket sections"><button aria-controls="attachments-panel" aria-selected="true" className="attachment-tab" id="attachments-tab" role="tab" type="button"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m7.2 10.9 5.4-5.4a3 3 0 1 1 4.2 4.2l-7.5 7.5a4.5 4.5 0 0 1-6.4-6.4l7.1-7.1a2.5 2.5 0 0 1 3.5 3.5l-7 7a1 1 0 0 1-1.4-1.4l6.2-6.2" /></svg>Attachments <span className="badge zen-badge zen-badge-count">{ticket.attachments.length}</span></button></div><div aria-labelledby="attachments-tab" className="card-body attachment-panel" id="attachments-panel" role="tabpanel"><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn btn-zen-primary mt-2" disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
       {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge zen-badge zen-badge-removed">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id, requester.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
     </div></div>
   </section>;
+}
+
+function DetailField({ label, value, className = "col-md-3", multiline = false }: { label: string; value: string; className?: string; multiline?: boolean }) {
+  return <div className={className}><div className="form-label">{label}</div>{multiline ? <div className="readonly-field ticket-detail-value">{value}</div> : <input aria-label={label} className="form-control readonly-field" readOnly value={value} />}</div>;
 }
 
 function CreateTicket({ requester, data }: { requester: Requester; data: ReferenceData }) {

@@ -24,7 +24,7 @@ async function createTicket(page: Page, summary: string) {
   const row = page.locator("tr", { hasText: summary });
   await expect(row).toBeVisible();
   await row.getByRole("link", { name: "Open" }).click();
-  await expect(page.getByRole("heading", { name: /TKT-/ })).toBeVisible();
+  await expect(page.getByLabel("Ticket No.")).toHaveValue(/TKT-/);
   return new URL(page.url()).pathname;
 }
 

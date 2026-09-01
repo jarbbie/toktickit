@@ -38,10 +38,12 @@ describe("Development Requester selection", () => {
     await user.selectOptions(await screen.findByLabelText("Development Requester"), "1");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(screen.getByText("Requester: Nicha Somchai")).toBeInTheDocument();
+    expect(screen.getByText("Testing requester")).toBeInTheDocument();
+    expect(screen.getByText("Nicha Somchai")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
     expect(sessionStorage.getItem("toktickit.requesterId")).toBe("1");
 
+    await user.click(screen.getByText("Profile", { exact: true }));
     await user.click(screen.getByRole("button", { name: "Change Requester" }));
 
     expect(await screen.findByLabelText("Development Requester")).toBeInTheDocument();

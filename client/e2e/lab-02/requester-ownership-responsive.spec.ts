@@ -20,6 +20,7 @@ test("switching requesters hides another requester’s ticket", async ({ page })
   const row = page.locator("tr", { hasText: summary });
   const detailRoute = await row.getByRole("link", { name: "Open" }).getAttribute("href");
 
+  await page.locator(".app-profile summary").click();
   await page.getByRole("button", { name: "Change Requester" }).click();
   await page.getByLabel("Development Requester").selectOption({ label: "Anan Kittisak" });
   await page.getByRole("button", { name: "Continue" }).click();

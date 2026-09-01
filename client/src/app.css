@@ -1,23 +1,44 @@
 :root {
   color: #24342d;
   background: #f5f7f6;
+  font-family: "Segoe UI", "Noto Sans", Arial, sans-serif;
 }
 
 body {
   color: #24342d;
   background: #f5f7f6;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .app-shell { background: #f5f7f6; }
 .app-header { background: #006b3c; box-shadow: 0 1px 4px rgb(22 48 35 / 18%); }
-.app-header-inner { max-width: 1100px; }
-.app-brand { color: white; font-size: 1.2rem; letter-spacing: .01em; }
-.app-nav-link { border-radius: .25rem; color: white; padding: .35rem .5rem; text-decoration: none; }
+.app-header-inner { max-width: 1180px; min-height: 54px; padding: .45rem 1rem; }
+.app-brand { color: white; font-family: Georgia, "Times New Roman", serif; font-size: 1.3rem; font-weight: 700; letter-spacing: -.025em; white-space: nowrap; }
+.app-logo-mark { fill: none; height: 2rem; margin-right: .45rem; stroke: #eaf6ef; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vertical-align: -.55rem; width: 2rem; }
+.app-nav-link { align-items: center; border-radius: .2rem; color: white; display: inline-flex; font-size: .82rem; font-weight: 600; gap: .35rem; padding: .4rem .5rem; text-decoration: none; }
 .app-nav-link:hover, .app-nav-link:focus-visible { color: white; background: #0b7a46; }
 .app-nav-link.active { color: white; background: #0b7a46; font-weight: 600; text-decoration: underline; }
-.app-requester { color: white; }
-.app-content { max-width: 900px; }
+.nav-icon { color: #d9eee2; font-size: .9rem; line-height: 1; }
+.nav-icon-add { align-items: center; border: 1px solid currentColor; border-radius: 50%; display: inline-flex; font-size: .9rem; height: 1rem; justify-content: center; width: 1rem; }
+.app-profile { color: white; position: relative; }
+.app-profile summary { align-items: center; cursor: pointer; display: flex; font-size: .82rem; font-weight: 600; gap: .35rem; list-style: none; padding: .3rem .15rem; }
+.app-profile summary::-webkit-details-marker { display: none; }
+.app-profile-mark { background: #eaf6ef; border: 2px solid #b7dbc5; border-radius: 50%; display: inline-block; height: 1.35rem; position: relative; width: 1.35rem; }
+.app-profile-mark::before { background: #006b3c; border-radius: 50%; content: ""; height: .36rem; left: .31rem; position: absolute; top: .2rem; width: .36rem; }
+.app-profile-mark::after { background: #006b3c; border-radius: .4rem .4rem .18rem .18rem; bottom: .18rem; content: ""; height: .42rem; left: .2rem; position: absolute; width: .58rem; }
+.app-profile-menu { background: white; border: 1px solid #c9d9cf; border-radius: .25rem; box-shadow: 0 .25rem .6rem rgb(22 48 35 / 18%); color: #24342d; display: grid; gap: .3rem; min-width: 180px; padding: .7rem; position: absolute; right: 0; top: calc(100% + .25rem); z-index: 2; }
+.app-profile-menu small { color: #587064; font-weight: 600; text-transform: uppercase; }
+.app-content { max-width: 1120px; }
 .app-selector { max-width: 640px; }
+
+.app-content .h3, .app-selector .h3 { font-size: 1.75rem; font-weight: 650; letter-spacing: -.015em; }
+.app-content .h4, .app-selector .h4 { font-size: 1.2rem; font-weight: 650; }
+.form-label { font-size: .875rem; font-weight: 600; margin-bottom: .35rem; }
+.form-control, .form-select { font-size: .95rem; padding: .48rem .7rem; }
+.btn { font-size: .9rem; font-weight: 600; }
+.table { font-size: .9rem; }
+.table thead th { font-size: .84rem; letter-spacing: .01em; }
 
 .card { border-color: #d5dfd8; box-shadow: 0 .2rem .5rem rgb(22 48 35 / 12%) !important; }
 .card-header, .table thead th { background: #eaf6ef; color: #24342d; }
@@ -26,7 +47,7 @@ body {
   border-color: #0b7a46;
   box-shadow: 0 0 0 .2rem rgb(11 122 70 / 25%);
 }
-.readonly-field { background: #eaf6ef !important; color: #24342d; }
+.readonly-field { background: #f0f1f3 !important; border-color: #d7dadd; color: #3f4743; }
 .invalid-feedback { color: #8b1e2d; }
 .form-control.is-invalid, .form-select.is-invalid { border-color: #8b1e2d; }
 
@@ -40,9 +61,24 @@ body {
 .zen-priority-high, .zen-priority-urgent { background: #8b1e2d; color: white; }
 .zen-status-new { background: #0b7a46; color: white; }
 .zen-badge-removed { background: #6c757d; color: white; }
+.zen-badge-count { background: #d5dfd8; color: #24342d; }
+
+.ticket-breadcrumb { font-size: .8rem; }
+.ticket-breadcrumb nav { align-items: center; display: flex; gap: .55rem; }
+.ticket-breadcrumb a { color: #0b7a46; font-weight: 600; text-decoration: none; }
+.ticket-breadcrumb a:hover { text-decoration: underline; }
+.back-link { align-items: center; display: inline-flex; gap: .35rem; }
+.back-link svg { fill: none; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; width: 1rem; }
+.ticket-detail-card { padding: 1.1rem; }
+.ticket-detail-value { border: 1px solid #d7dadd; border-radius: .375rem; min-height: calc(1.45em + .96rem + 2px); padding: .48rem .7rem; white-space: pre-wrap; }
+.attachment-card { overflow: hidden; }
+.attachment-tabs { border-bottom: 1px solid #d7dadd; padding: 0 1rem; }
+.attachment-tab { align-items: center; background: transparent; border: 0; border-bottom: 3px solid #0b7a46; color: #006b3c; display: inline-flex; font-size: .95rem; font-weight: 700; gap: .4rem; margin-bottom: -1px; padding: .8rem .35rem .65rem; }
+.attachment-tab svg { fill: none; height: 1rem; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; width: 1rem; }
+.attachment-panel { padding-top: 1rem; }
 
 @media (max-width: 575.98px) {
   .app-header-inner { align-items: flex-start !important; }
-  .app-requester { width: 100%; }
+  .app-profile { margin-left: auto; }
   .app-content { padding-top: 2rem !important; padding-bottom: 2rem !important; }
 }
