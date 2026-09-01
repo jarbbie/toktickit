@@ -1,0 +1,48 @@
+:root {
+  color: #24342d;
+  background: #f5f7f6;
+}
+
+body {
+  color: #24342d;
+  background: #f5f7f6;
+}
+
+.app-shell { background: #f5f7f6; }
+.app-header { background: #006b3c; box-shadow: 0 1px 4px rgb(22 48 35 / 18%); }
+.app-header-inner { max-width: 1100px; }
+.app-brand { color: white; font-size: 1.2rem; letter-spacing: .01em; }
+.app-nav-link { border-radius: .25rem; color: white; padding: .35rem .5rem; text-decoration: none; }
+.app-nav-link:hover, .app-nav-link:focus-visible { color: white; background: #0b7a46; }
+.app-nav-link.active { color: white; background: #0b7a46; font-weight: 600; text-decoration: underline; }
+.app-requester { color: white; }
+.app-content { max-width: 900px; }
+.app-selector { max-width: 640px; }
+
+.card { border-color: #d5dfd8; box-shadow: 0 .2rem .5rem rgb(22 48 35 / 12%) !important; }
+.card-header, .table thead th { background: #eaf6ef; color: #24342d; }
+.form-control, .form-select { border-color: #bfcfc4; color: #24342d; }
+.form-control:focus, .form-select:focus, .btn:focus-visible, a:focus-visible {
+  border-color: #0b7a46;
+  box-shadow: 0 0 0 .2rem rgb(11 122 70 / 25%);
+}
+.readonly-field { background: #eaf6ef !important; color: #24342d; }
+.invalid-feedback { color: #8b1e2d; }
+.form-control.is-invalid, .form-select.is-invalid { border-color: #8b1e2d; }
+
+.btn-zen-primary { --bs-btn-color: white; --bs-btn-bg: #006b3c; --bs-btn-border-color: #006b3c; --bs-btn-hover-color: white; --bs-btn-hover-bg: #0b7a46; --bs-btn-hover-border-color: #0b7a46; --bs-btn-active-bg: #0b7a46; --bs-btn-active-border-color: #0b7a46; }
+.btn-zen-header { --bs-btn-color: white; --bs-btn-border-color: #eaf6ef; --bs-btn-hover-color: #24342d; --bs-btn-hover-bg: #eaf6ef; --bs-btn-hover-border-color: #eaf6ef; }
+.btn-outline-success { --bs-btn-color: #006b3c; --bs-btn-border-color: #006b3c; --bs-btn-hover-bg: #006b3c; --bs-btn-hover-border-color: #006b3c; --bs-btn-active-bg: #0b7a46; --bs-btn-active-border-color: #0b7a46; }
+
+.zen-badge { font-weight: 600; letter-spacing: .02em; padding: .42em .65em; }
+.zen-priority-low { background: #eaf6ef; color: #24342d; }
+.zen-priority-medium { background: #f5d99a; color: #5c4200; }
+.zen-priority-high, .zen-priority-urgent { background: #8b1e2d; color: white; }
+.zen-status-new { background: #0b7a46; color: white; }
+.zen-badge-removed { background: #6c757d; color: white; }
+
+@media (max-width: 575.98px) {
+  .app-header-inner { align-items: flex-start !important; }
+  .app-requester { width: 100%; }
+  .app-content { padding-top: 2rem !important; padding-bottom: 2rem !important; }
+}

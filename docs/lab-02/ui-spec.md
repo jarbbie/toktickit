@@ -16,14 +16,15 @@
 Cards have a subtle border and restrained shadow. Read-only fields use a
 distinct soft gray-green or warm ivory background. Labels sit above controls;
 required fields have a red asterisk and a message directly below the invalid
-control.
+control. Requested Priority and Current Status use compact text badges: pale
+green/amber/red by priority and green for `NEW`, with text always visible.
 
 ## Application Shell
 
-The shell displays TokTickIT, My Tickets, Create Ticket, selected requester
-name, and Change Requester. The active route has a non-color indicator as well
-as its green style. Change Requester clears requester-specific screen data and
-returns to the selector.
+The shell uses a `#006B3C` header with white TokTickIT identity, navigation,
+selected requester name, and Change Requester action. The active route is a
+`#0B7A46` tab with an underline; focus remains visible. Change Requester clears
+requester-specific screen data and returns to the selector.
 
 ## Development Requester Selector
 

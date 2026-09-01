@@ -6,6 +6,14 @@ type LoadState = "loading" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
 const requesterStorageKey = "toktickit.requesterId";
 
+function priorityBadge(priority: string) {
+  return <span className={`badge zen-badge zen-priority-${priority.toLowerCase()}`}>{priority}</span>;
+}
+
+function statusBadge(status: string) {
+  return <span className={`badge zen-badge zen-status-${status.toLowerCase()}`}>{status}</span>;
+}
+
 function savedRequesterId() {
   const id = Number(sessionStorage.getItem(requesterStorageKey));
   return Number.isInteger(id) && id > 0 ? id : null;
@@ -13,19 +21,19 @@ function savedRequesterId() {
 
 function Shell({ requester, onChangeRequester, children }: { requester: Requester; onChangeRequester: () => void; children: ReactNode }) {
   return (
-    <main className="min-vh-100" style={{ backgroundColor: "#F5F7F6" }}>
-      <header className="border-bottom bg-white">
-        <div className="container py-3 d-flex flex-wrap align-items-center gap-3" style={{ maxWidth: 1100 }}>
-          <strong style={{ color: "#006B3C" }}>TokTickIT</strong>
+    <main className="app-shell min-vh-100">
+      <header className="app-header">
+        <div className="container app-header-inner py-3 d-flex flex-wrap align-items-center gap-3">
+          <strong className="app-brand">TokTickIT</strong>
           <nav className="d-flex gap-3" aria-label="Main navigation">
-            <NavLink end className={({ isActive }) => isActive ? "fw-semibold text-success text-decoration-underline" : "text-decoration-none"} to="/tickets">My Tickets</NavLink>
-            <NavLink className={({ isActive }) => isActive ? "fw-semibold text-success text-decoration-underline" : "text-decoration-none"} to="/tickets/new">Create Ticket</NavLink>
+            <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets">My Tickets</NavLink>
+            <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new">Create Ticket</NavLink>
           </nav>
-          <span className="ms-md-auto">Requester: {requester.name}</span>
-          <button className="btn btn-sm btn-outline-success" onClick={onChangeRequester}>Change Requester</button>
+          <span className="app-requester ms-md-auto">Requester: {requester.name}</span>
+          <button className="btn btn-sm btn-zen-header" onClick={onChangeRequester}>Change Requester</button>
         </div>
       </header>
-      <div className="container py-5" style={{ maxWidth: 900 }}>{children}</div>
+      <div className="container app-content py-5">{children}</div>
     </main>
   );
 }
@@ -43,7 +51,7 @@ function RequesterSelector({ data, onSelected }: { data: ReferenceData; onSelect
   }
 
   return (
-    <main className="container py-5" style={{ maxWidth: 640 }}>
+    <main className="container app-selector py-5">
       <header className="mb-4"><h1 className="h3 mb-1" style={{ color: "#006B3C" }}>TokTickIT</h1><p className="text-secondary mb-0">IT Service Desk</p></header>
       <section className="card shadow-sm"><div className="card-body">
         <h2 className="h4">Select Development Requester</h2>
@@ -53,7 +61,7 @@ function RequesterSelector({ data, onSelected }: { data: ReferenceData; onSelect
           <option value="">Choose a requester</option>
           {data.requesters.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
         </select>
-        <button className="btn text-white" style={{ backgroundColor: "#006B3C" }} disabled={!pendingId} onClick={continueWithRequester}>Continue</button>
+        <button className="btn btn-zen-primary" disabled={!pendingId} onClick={continueWithRequester}>Continue</button>
       </div></section>
     </main>
   );
@@ -89,7 +97,7 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
 
   const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status);
   return <section>
-    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><h1 className="h3 mb-0">My Tickets</h1><NavLink className="btn text-white" style={{ backgroundColor: "#006B3C" }} to="/tickets/new">Create Ticket</NavLink></div>
+    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><h1 className="h3 mb-0">My Tickets</h1><NavLink className="btn btn-zen-primary" to="/tickets/new">Create Ticket</NavLink></div>
     <div className="card shadow-sm mb-4"><div className="card-body"><div className="row g-3">
       <div className="col-md-6"><label className="form-label" htmlFor="ticket-search">Search tickets</label><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div>
       <div className="col-md-3"><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
@@ -102,7 +110,7 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{ticket.requestedPriority}</td><td>{ticket.status}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><NavLink className="btn btn-sm btn-outline-success" to={`/tickets/${ticket.id}`}>Open</NavLink></td></tr>)}</tbody></table></div>}
+    {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><NavLink className="btn btn-sm btn-outline-success" to={`/tickets/${ticket.id}`}>Open</NavLink></td></tr>)}</tbody></table></div>}
     {result && result.totalPages > 1 && <nav className="d-flex justify-content-between align-items-center mt-3" aria-label="Ticket pagination"><button className="btn btn-outline-success" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>Previous</button><span>Page {result.page} of {result.totalPages}</span><button className="btn btn-outline-success" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next</button></nav>}
   </section>;
 }
@@ -168,9 +176,9 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
   if (!ticket) return null;
   return <section>
     <NavLink className="btn btn-sm btn-outline-success mb-3" to="/tickets">Back to My Tickets</NavLink>
-    <div className="card shadow-sm mb-4"><div className="card-body"><h1 className="h3">{ticket.ticketNumber}</h1><dl className="row mb-0"><dt className="col-sm-3">Summary</dt><dd className="col-sm-9">{ticket.summary}</dd><dt className="col-sm-3">Description</dt><dd className="col-sm-9" style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</dd><dt className="col-sm-3">Category</dt><dd className="col-sm-9">{ticket.category.name}</dd><dt className="col-sm-3">Related System</dt><dd className="col-sm-9">{ticket.relatedSystem.name}</dd><dt className="col-sm-3">Requested Priority</dt><dd className="col-sm-9">{ticket.requestedPriority}</dd><dt className="col-sm-3">Status</dt><dd className="col-sm-9">{ticket.status}</dd></dl></div></div>
-    <div className="card shadow-sm"><div className="card-body"><h2 className="h4">Attachments</h2><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn text-white mt-2" style={{ backgroundColor: "#006B3C" }} disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
-      {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge text-bg-secondary">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id, requester.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
+    <div className="card shadow-sm mb-4"><div className="card-body"><h1 className="h3">{ticket.ticketNumber}</h1><dl className="row mb-0"><dt className="col-sm-3">Summary</dt><dd className="col-sm-9">{ticket.summary}</dd><dt className="col-sm-3">Description</dt><dd className="col-sm-9" style={{ whiteSpace: "pre-wrap" }}>{ticket.description}</dd><dt className="col-sm-3">Category</dt><dd className="col-sm-9">{ticket.category.name}</dd><dt className="col-sm-3">Related System</dt><dd className="col-sm-9">{ticket.relatedSystem.name}</dd><dt className="col-sm-3">Requested Priority</dt><dd className="col-sm-9">{priorityBadge(ticket.requestedPriority)}</dd><dt className="col-sm-3">Status</dt><dd className="col-sm-9">{statusBadge(ticket.status)}</dd></dl></div></div>
+    <div className="card shadow-sm"><div className="card-body"><h2 className="h4">Attachments</h2><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn btn-zen-primary mt-2" disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
+      {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge zen-badge zen-badge-removed">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id, requester.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
     </div></div>
   </section>;
 }
@@ -212,7 +220,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     }
   }
 
-  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p><NavLink className="btn text-white" style={{ backgroundColor: "#006B3C" }} to="/tickets">View My Tickets</NavLink></div></section>;
+  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p><NavLink className="btn btn-zen-primary" to="/tickets">View My Tickets</NavLink></div></section>;
 
   const invalid = (name: string) => errors[name] ? "form-control is-invalid" : "form-control";
   const invalidSelect = (name: string) => errors[name] ? "form-select is-invalid" : "form-select";
@@ -222,9 +230,9 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
       {failure && <div className="alert alert-danger" role="alert">{failure}</div>}
       <form noValidate onSubmit={submit}>
         <div className="row g-3 mb-3">
-          <div className="col-md-4"><label className="form-label" htmlFor="ticket-requester">Requester</label><input className="form-control" id="ticket-requester" readOnly value={requester.name} style={{ backgroundColor: "#EAF6EF" }} /></div>
-          <div className="col-md-4"><label className="form-label" htmlFor="ticket-date">Ticket Date</label><input className="form-control" id="ticket-date" readOnly value="Generated on submission" style={{ backgroundColor: "#EAF6EF" }} /></div>
-          <div className="col-md-4"><label className="form-label" htmlFor="ticket-number">Ticket Number</label><input className="form-control" id="ticket-number" readOnly value="Generated after submission" style={{ backgroundColor: "#EAF6EF" }} /></div>
+          <div className="col-md-4"><label className="form-label" htmlFor="ticket-requester">Requester</label><input className="form-control readonly-field" id="ticket-requester" readOnly value={requester.name} /></div>
+          <div className="col-md-4"><label className="form-label" htmlFor="ticket-date">Ticket Date</label><input className="form-control readonly-field" id="ticket-date" readOnly value="Generated on submission" /></div>
+          <div className="col-md-4"><label className="form-label" htmlFor="ticket-number">Ticket Number</label><input className="form-control readonly-field" id="ticket-number" readOnly value="Generated after submission" /></div>
         </div>
         <div className="row g-3">
           <div className="col-md-6"><label className="form-label" htmlFor="category">Category <span className="text-danger">*</span></label><select className={invalidSelect("categoryId")} id="category" value={form.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">Choose a category</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>{errors.categoryId && <div className="invalid-feedback">{errors.categoryId}</div>}</div>
@@ -233,7 +241,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
           <div className="col-12"><label className="form-label" htmlFor="summary">Ticket Summary <span className="text-danger">*</span></label><input className={invalid("summary")} id="summary" value={form.summary} onChange={(event) => update("summary", event.target.value)} />{errors.summary && <div className="invalid-feedback">{errors.summary}</div>}</div>
           <div className="col-12"><label className="form-label" htmlFor="description">Description <span className={"text-danger"}>*</span></label><textarea className={invalid("description")} id="description" rows={5} value={form.description} onChange={(event) => update("description", event.target.value)} />{errors.description && <div className="invalid-feedback">{errors.description}</div>}</div>
         </div>
-        <button className="btn text-white mt-4" style={{ backgroundColor: "#006B3C" }} disabled={submitting} type="submit">{submitting ? "Submitting…" : "Submit Ticket"}</button>
+        <button className="btn btn-zen-primary mt-4" disabled={submitting} type="submit">{submitting ? "Submitting…" : "Submit Ticket"}</button>
       </form>
     </div></section>
   );
