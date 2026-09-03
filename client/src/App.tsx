@@ -30,7 +30,7 @@ function Shell({ requester, onChangeRequester, children }: { requester: Requeste
             <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new"><span aria-hidden="true" className="nav-icon nav-icon-add">+</span>Create Ticket</NavLink>
           </nav>
           <details className="app-profile ms-md-auto">
-            <summary><span aria-hidden="true" className="app-profile-mark" />Profile <span aria-hidden="true">⌄</span></summary>
+            <summary><span aria-hidden="true" className="app-profile-mark" /><span>Profile: {requester.name}</span> <span aria-hidden="true">⌄</span></summary>
             <div className="app-profile-menu"><small>Testing requester</small><strong>{requester.name}</strong><button className="btn btn-sm btn-zen-primary w-100" onClick={onChangeRequester}>Change Requester</button></div>
           </details>
         </div>
