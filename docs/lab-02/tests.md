@@ -48,7 +48,7 @@ inactive requester.
 
 | Check | Evidence and result |
 |---|---|
-| Desktop, tablet, mobile layout | Create Ticket, My Tickets, and removed Ticket Detail are captured at 1440×1000, 820×1180, and 390×844 under `artifacts/lab-02/screenshots/`. Pass. |
+| Desktop, tablet, mobile layout | Requester Selection, Create Ticket, My Tickets, and removed Ticket Detail are captured at 1440×1000, 820×1180, and 390×844 under `artifacts/lab-02/screenshots/`. Pass. |
 | Clipping and horizontal overflow | The E2E capture helper asserts `scrollWidth <= clientWidth` at every captured viewport; desktop My Tickets plus mobile Create Ticket and My Tickets were manually inspected. Pass. |
 | Zen Green states | Header/nav, labels, required markers, invalid and busy controls, pale read-only fields, and priority/status badges are covered by `CreateTicket.test.tsx` and `MyTickets.test.tsx`. Pass. |
 | Attachment controls and readable names | `ticket-detail-active/1440x1000.png` visibly shows `evidence.pdf` with Download/Remove; removed-detail screenshots retain metadata without Download. Pass. |
@@ -113,7 +113,7 @@ Release verification completed on `feature/12-lab2-verification`:
 - `cd client && npm test` — 15 tests passed.
 - `cd client && npm run build` — passed.
 - `cd client && npm run test:e2e` — 2 tests passed; it seeds the database,
-  verifies an active attachment download filename, and creates the ten
+  verifies an active attachment download filename, and creates the thirteen
   screenshots listed above.
 
 Zen Green UI alignment verification completed on `feature/29-zen-green-ui`:

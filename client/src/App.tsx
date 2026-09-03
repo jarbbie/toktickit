@@ -19,32 +19,29 @@ function savedRequesterId() {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
+function AppHeader({ requester, onChangeRequester }: { requester?: Requester; onChangeRequester?: () => void }) {
+  return <header className="app-header"><div className="container app-header-inner d-flex flex-wrap align-items-center gap-2">
+    <strong className="app-brand"><svg aria-hidden="true" className="app-logo-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" /><path d="M16 7.5v8.5H8.5" /><path d="M10.5 6.2 13 4.8" /></svg>TokTickIT</strong>
+    <nav className="app-main-nav d-flex align-items-center gap-1" aria-label="Main navigation">
+      <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets"><svg aria-hidden="true" className="nav-icon" viewBox="0 0 20 20"><path d="M5 2.5h7l3 3v12H5Z" /><path d="M12 2.5v3h3M7.5 9h5M7.5 12h5" /></svg>My Tickets</NavLink>
+      <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new"><span aria-hidden="true" className="nav-icon nav-icon-add">+</span>Create Ticket</NavLink>
+    </nav>
+    {requester && onChangeRequester ? <details className="app-profile ms-md-auto">
+      <summary><span aria-hidden="true" className="app-profile-mark" /><span>Profile: {requester.name}</span> <span aria-hidden="true">⌄</span></summary>
+      <div className="app-profile-menu"><small>Testing requester</small><strong>{requester.name}</strong><button className="btn btn-sm btn-zen-primary w-100" onClick={onChangeRequester}>Change Requester</button></div>
+    </details> : <span className="app-profile app-profile-static ms-md-auto"><span aria-hidden="true" className="app-profile-mark" />Profile <span aria-hidden="true">⌄</span></span>}
+  </div></header>;
+}
+
 function Shell({ requester, onChangeRequester, children }: { requester: Requester; onChangeRequester: () => void; children: ReactNode }) {
-  return (
-    <main className="app-shell min-vh-100">
-      <header className="app-header">
-        <div className="container app-header-inner d-flex flex-wrap align-items-center gap-2">
-          <strong className="app-brand"><svg aria-hidden="true" className="app-logo-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" /><path d="M16 7.5v8.5H8.5" /><path d="M10.5 6.2 13 4.8" /></svg>TokTickIT</strong>
-          <nav className="d-flex align-items-center gap-1" aria-label="Main navigation">
-            <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets"><span aria-hidden="true" className="nav-icon">▣</span>My Tickets</NavLink>
-            <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new"><span aria-hidden="true" className="nav-icon nav-icon-add">+</span>Create Ticket</NavLink>
-          </nav>
-          <details className="app-profile ms-md-auto">
-            <summary><span aria-hidden="true" className="app-profile-mark" /><span>Profile: {requester.name}</span> <span aria-hidden="true">⌄</span></summary>
-            <div className="app-profile-menu"><small>Testing requester</small><strong>{requester.name}</strong><button className="btn btn-sm btn-zen-primary w-100" onClick={onChangeRequester}>Change Requester</button></div>
-          </details>
-        </div>
-      </header>
-      <div className="container app-content py-5">{children}</div>
-    </main>
-  );
+  return <main className="app-shell min-vh-100"><AppHeader requester={requester} onChangeRequester={onChangeRequester} /><div className="container app-content py-5">{children}</div></main>;
 }
 
 function RequesterSelector({ data, onSelected }: { data: ReferenceData; onSelected: (id: number) => void }) {
   const [pendingId, setPendingId] = useState<number | null>(null);
   const navigate = useNavigate();
 
-  if (data.requesters.length === 0) return <main className="container py-5"><h1 className="h3" style={{ color: "#006B3C" }}>TokTickIT</h1><div className="alert alert-warning mt-4" role="status">No active Development Requesters are available.</div></main>;
+  if (data.requesters.length === 0) return <main className="app-shell min-vh-100"><AppHeader /><div className="container app-content py-5"><div className="alert alert-warning" role="status">No active Development Requesters are available.</div></div></main>;
 
   function continueWithRequester() {
     if (!pendingId) return;
@@ -52,21 +49,33 @@ function RequesterSelector({ data, onSelected }: { data: ReferenceData; onSelect
     navigate("/tickets");
   }
 
-  return (
-    <main className="container app-selector py-5">
-      <header className="mb-4"><h1 className="h3 mb-1" style={{ color: "#006B3C" }}>TokTickIT</h1><p className="text-secondary mb-0">IT Service Desk</p></header>
-      <section className="card shadow-sm"><div className="card-body">
-        <h2 className="h4">Select Development Requester</h2>
-        <p>This selector is for Lab 2 testing only. It is not a login screen.</p>
-        <label className="form-label fw-semibold" htmlFor="requester">Development Requester</label>
-        <select className="form-select mb-3" id="requester" value={pendingId ?? ""} onChange={(event) => setPendingId(Number(event.target.value) || null)}>
-          <option value="">Choose a requester</option>
-          {data.requesters.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-        </select>
-        <button className="btn btn-zen-primary" disabled={!pendingId} onClick={continueWithRequester}>Continue</button>
-      </div></section>
-    </main>
-  );
+  return <main className="app-shell min-vh-100">
+    <AppHeader />
+    <div className="container app-content selector-page py-4">
+      <nav className="selector-breadcrumb" aria-label="Breadcrumb"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m3 9 7-6 7 6v8h-5v-5H8v5H3Z" /></svg><span aria-hidden="true">›</span><strong>Development Requester Selection</strong></nav>
+      <section className="card requester-card mx-auto mt-4">
+        <div className="card-body requester-card-body">
+          <header className="requester-card-intro text-center">
+            <div className="requester-selector-icon" aria-hidden="true"><svg viewBox="0 0 28 28"><circle cx="12" cy="8" r="4" /><path d="M4.5 22v-3.2c0-3.2 3.4-5.8 7.5-5.8s7.5 2.6 7.5 5.8V22" /><path d="M21 15v6m-3-3h6" /></svg></div>
+            <h1 className="h3 mb-2">Select Development Requester</h1>
+            <p className="text-secondary mb-0">Choose a development requester to simulate the current requester context for Lab 2.</p>
+            <p className="text-secondary">This is for testing only and is not a login screen.</p>
+          </header>
+          <hr />
+          <div className="requester-form">
+            <label className="form-label" htmlFor="requester">Development Requester <span className="text-danger">*</span></label>
+            <select className="form-select" id="requester" value={pendingId ?? ""} onChange={(event) => setPendingId(Number(event.target.value) || null)}>
+              <option value="">Choose a requester</option>
+              {data.requesters.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <div className="selector-notice selector-notice-info"><svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" /><path d="M10 8v6M10 5.5v.2" /></svg><span>Only active development requesters are shown.</span></div>
+            <div className="selector-notice selector-notice-auth"><span aria-hidden="true" className="selector-shield"><svg viewBox="0 0 20 20"><path d="M10 2.5 16 5v4.5c0 3.8-2.5 6.5-6 8-3.5-1.5-6-4.2-6-8V5Z" /></svg></span><span><strong>Authentication coming in Lab 3</strong><small>In Lab 3, this selector will be replaced with secure authentication so you can access the system with your own account.</small></span></div>
+          </div>
+        </div>
+        <footer className="card-footer requester-card-footer"><button className="btn btn-outline-secondary" type="button" onClick={() => setPendingId(null)}>Cancel</button><button className="btn btn-zen-primary" disabled={!pendingId} onClick={continueWithRequester}>Continue <span aria-hidden="true">→</span></button></footer>
+      </section>
+    </div>
+  </main>;
 }
 
 const initialTicketFilters: TicketQuery = { search: "", categoryId: "", requestedPriority: "", status: "", sortBy: "updatedAt", direction: "desc", page: 1, pageSize: 10 };
@@ -98,22 +107,22 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
   }
 
   const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status);
+  const firstItem = result && result.items.length > 0 ? (result.page - 1) * result.pageSize + 1 : 0;
+  const lastItem = result ? Math.min(result.page * result.pageSize, result.totalItems) : 0;
   return <section>
-    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4"><h1 className="h3 mb-0">My Tickets</h1><NavLink className="btn btn-zen-primary" to="/tickets/new">Create Ticket</NavLink></div>
-    <div className="card shadow-sm mb-4"><div className="card-body"><div className="row g-3">
-      <div className="col-md-6"><label className="form-label" htmlFor="ticket-search">Search tickets</label><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div>
-      <div className="col-md-3"><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
-      <div className="col-md-3"><label className="form-label" htmlFor="ticket-priority">Requested Priority</label><select className="form-select" id="ticket-priority" value={filters.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as TicketQuery["requestedPriority"])}><option value="">All priorities</option>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((item) => <option key={item}>{item}</option>)}</select></div>
-      <div className="col-md-3"><label className="form-label" htmlFor="ticket-status">Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option><option value="NEW">NEW</option></select></div>
-      <div className="col-md-3"><label className="form-label" htmlFor="ticket-sort">Sort by</label><select className="form-select" id="ticket-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as TicketQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option></select></div>
-      <div className="col-md-3"><label className="form-label" htmlFor="ticket-direction">Direction</label><select className="form-select" id="ticket-direction" value={filters.direction} onChange={(event) => update("direction", event.target.value as TicketQuery["direction"])}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
-      <div className="col-md-3 d-flex align-items-end"><button className="btn btn-outline-success w-100" onClick={() => setFilters(initialTicketFilters)}>Clear filters</button></div>
-    </div></div></div>
+    <header className="ticket-list-heading d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div><h1 className="h3 mb-1">My Tickets</h1><p className="text-secondary mb-0">View and track all of your support requests.</p></div><div className="d-flex gap-2"><button className="btn btn-outline-secondary" onClick={() => setFilters(initialTicketFilters)}><span aria-hidden="true">↻</span> Clear Filters</button><NavLink className="btn btn-zen-primary" to="/tickets/new"><span aria-hidden="true">+</span> Create Ticket</NavLink></div></header>
+    <div className="card ticket-filter-card mb-4"><div className="card-body ticket-filter-grid">
+      <div className="ticket-filter-search"><label className="form-label" htmlFor="ticket-search">Search tickets</label><div className="search-control"><svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div></div>
+      <div><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+      <div><label className="form-label" htmlFor="ticket-priority">Requested Priority</label><select className="form-select" id="ticket-priority" value={filters.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as TicketQuery["requestedPriority"])}><option value="">All priorities</option>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((item) => <option key={item}>{item}</option>)}</select></div>
+      <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option><option value="NEW">NEW</option></select></div>
+      <div><label className="form-label" htmlFor="ticket-sort">Sort by</label><select className="form-select" id="ticket-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as TicketQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option></select></div>
+      <div><label className="form-label" htmlFor="ticket-direction">Direction</label><select className="form-select" id="ticket-direction" value={filters.direction} onChange={(event) => update("direction", event.target.value as TicketQuery["direction"])}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
+    </div></div>
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="table-responsive card shadow-sm"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Status</th><th>Last Updated</th><th><span className="visually-hidden">Open</span></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td>{ticket.ticketNumber}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td><td><NavLink className="btn btn-sm btn-outline-success" to={`/tickets/${ticket.id}`}>Open</NavLink></td></tr>)}</tbody></table></div>}
-    {result && result.totalPages > 1 && <nav className="d-flex justify-content-between align-items-center mt-3" aria-label="Ticket pagination"><button className="btn btn-outline-success" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>Previous</button><span>Page {result.page} of {result.totalPages}</span><button className="btn btn-outline-success" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next</button></nav>}
+    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Current Status</th><th>Last Updated</th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button><span className="current-page" aria-current="page">{result.page}</span><span>of {result.totalPages}</span><button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
   </section>;
 }
 

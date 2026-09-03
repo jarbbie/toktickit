@@ -36,7 +36,7 @@ describe("My Tickets", () => {
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
     expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2" }));
 
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: /Next/ }));
     await waitFor(() => expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2", page: 2 })));
   });
 

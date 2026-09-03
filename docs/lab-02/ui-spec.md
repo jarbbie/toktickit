@@ -14,7 +14,7 @@
 | Amber | Warnings only |
 
 Cards have a subtle border and restrained shadow. Read-only fields use a
-distinct soft gray-green or warm ivory background. Labels sit above controls;
+distinct soft gray background. Labels sit above controls;
 required fields have a red asterisk and a message directly below the invalid
 control. Requested Priority and Current Status use compact text badges: pale
 green/amber/red by priority and green for `NEW`, with text always visible. Use
@@ -28,16 +28,17 @@ profile menu, breadcrumb, and read-only ticket-detail field grid. It retains
 only Lab 2 requester features; excluded IT staff actions are not shown.
 
 The shell uses a `#006B3C` header with white TokTickIT identity, navigation,
-selected requester name, and Change Requester action. The active route is a
-`#0B7A46` tab with an underline; focus remains visible. Change Requester clears
+selected requester name, and Change Requester action. The active route uses a
+subtle tint and white underline; focus remains visible. Change Requester clears
 requester-specific screen data and returns to the selector.
 
 ## Development Requester Selector
 
-Show title, a statement that it is for Lab 2 testing only and not login,
-requester dropdown, Continue button, loading state, empty state, and API-error
-state. Continue is disabled until a requester is selected. All controls are
-keyboard accessible.
+Show the shared shell, breadcrumb, title, a statement that it is for Lab 2
+testing only and not login, requester dropdown, active-requester notice, Lab 3
+authentication notice, and Cancel/Continue actions. Continue is disabled until
+a requester is selected. Include loading, empty, and API-error states. All
+controls are keyboard accessible.
 
 ## Create Ticket
 
@@ -53,7 +54,8 @@ values. Invalid attachments show an adjacent file-specific message.
 
 Provide search, category/priority/status filters, sort control, clear filters,
 pagination, and Create Ticket action. Desktop shows Ticket Number, Summary,
-Category, Requested Priority, Status, Last Updated, and an open action.
+Category, Requested Priority, Status, and Last Updated; the Ticket Number opens
+the detail screen.
 Smaller screens use readable cards or an equivalent responsive representation.
 Use different wording for an empty requester with no tickets and a search with
 no matching tickets.
@@ -87,5 +89,7 @@ hidden buttons, or unreadable attachment names.
   no-results, active attachment, invalid attachment, and removed attachment
   states.
 - Capture desktop, tablet, and mobile screenshots under
-  `artifacts/lab-02/screenshots/` for Create Ticket `screenshots/create-ticket/`, My Tickets `screenshots/my-tickets/`, and Ticket
-  Detail `screenshots/ticket-detail/`.
+  `artifacts/lab-02/screenshots/` for Requester Selection
+  `screenshots/requester-selection/`, Create Ticket `screenshots/create-ticket/`,
+  My Tickets `screenshots/my-tickets/`, and Ticket Detail
+  `screenshots/ticket-detail/`.

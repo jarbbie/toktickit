@@ -35,7 +35,7 @@ describe("Development Requester selection", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.selectOptions(await screen.findByLabelText("Development Requester"), "1");
+    await user.selectOptions(await screen.findByLabelText(/Development Requester/), "1");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     const profile = screen.getByText("Profile: Nicha Somchai", { exact: true });
@@ -46,7 +46,7 @@ describe("Development Requester selection", () => {
     await user.click(profile);
     await user.click(screen.getByRole("button", { name: "Change Requester" }));
 
-    expect(await screen.findByLabelText("Development Requester")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Development Requester/)).toBeInTheDocument();
     expect(sessionStorage.getItem("toktickit.requesterId")).toBeNull();
   });
 
@@ -68,6 +68,6 @@ describe("Development Requester selection", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load requester and reference data.");
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByLabelText("Development Requester")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Development Requester/)).toBeInTheDocument();
   });
 });
