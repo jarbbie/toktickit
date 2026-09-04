@@ -7,7 +7,7 @@ const screenshots = fileURLToPath(new URL("../../../artifacts/lab-02/screenshots
 
 async function selectRequester(page: Page, name: string) {
   await page.goto("/");
-  await page.getByLabel("Development Requester").selectOption({ label: name });
+  await page.getByLabel(/Development Requester/).selectOption({ label: name });
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();
 }
@@ -23,8 +23,8 @@ async function createTicket(page: Page, summary: string) {
   await page.getByRole("link", { name: "View My Tickets" }).click();
   const row = page.locator("tr", { hasText: summary });
   await expect(row).toBeVisible();
-  await row.getByRole("link", { name: "Open" }).click();
-  await expect(page.getByRole("heading", { name: /TKT-/ })).toBeVisible();
+  await row.getByRole("link", { name: /TKT-/ }).click();
+  await expect(page.getByLabel("Ticket No.")).toHaveValue(/TKT-/);
   return new URL(page.url()).pathname;
 }
 
@@ -40,6 +40,9 @@ async function capture(page: Page, screen: string, viewport: { width: number; he
 
 test("requester creates, finds, opens, downloads, removes, and captures evidence", async ({ page }) => {
   const summary = `E2E VPN ${Date.now()}`;
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 820, height: 1180 }, { width: 390, height: 844 }]) {
+    await capture(page, "requester-selection", viewport, "/select");
+  }
   await selectRequester(page, "Nicha Somchai");
   const detailRoute = await createTicket(page, summary);
 

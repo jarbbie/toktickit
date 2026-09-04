@@ -29,12 +29,14 @@ describe("My Tickets", () => {
     renderMyTickets();
 
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
+    expect(document.querySelector(".zen-priority-high")).toHaveTextContent("HIGH");
+    expect(document.querySelector(".zen-status-new")).toHaveTextContent("NEW");
     await user.selectOptions(screen.getByLabelText("Category"), "2");
 
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
     expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2" }));
 
-    await user.click(screen.getByRole("button", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: /Next/ }));
     await waitFor(() => expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2", page: 2 })));
   });
 
