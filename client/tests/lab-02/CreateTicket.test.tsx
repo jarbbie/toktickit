@@ -48,7 +48,9 @@ describe("Create Ticket", () => {
 
     const requester = await screen.findByLabelText("Requester");
     expect(requester).toHaveAttribute("readonly");
-    expect(requester).toHaveStyle({ backgroundColor: "rgb(234, 246, 239)" });
+    expect(requester).toHaveClass("readonly-field");
+    expect(document.querySelector(".app-header")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "My Tickets" })).toHaveClass("app-nav-link");
     expect(document.querySelector('label[for="category"] .text-danger')).toHaveTextContent("*");
     await user.click(screen.getByRole("button", { name: "Submit Ticket" }));
     expect(screen.getByLabelText(/Category/)).toHaveClass("is-invalid");

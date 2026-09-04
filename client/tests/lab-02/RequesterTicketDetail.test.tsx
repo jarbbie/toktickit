@@ -26,7 +26,7 @@ describe("Requester Ticket Detail", () => {
     const user = userEvent.setup();
     renderDetail();
 
-    expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Ticket No.")).toHaveValue("TKT-2026-A1B2C3D4");
     await user.click(screen.getByRole("button", { name: "Remove" }));
     await user.type(screen.getByLabelText("Removal reason"), "Wrong file");
     await user.click(screen.getByRole("button", { name: "Confirm removal" }));
