@@ -13,6 +13,7 @@
 | [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
 | [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
 | [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Approved and merged |
+| [#30](https://github.com/jarbbie/toktickit/pull/30) | feature/29-zen-green-ui | Approved after changes and merged |
 
 ---
 
@@ -161,6 +162,46 @@ Reviewer approval:
 Approved. The E2E flow now downloads the active attachment and verifies the
 filename, captures the active Ticket Detail state before removal, retains the
 removed-download check, and records the updated responsive and test evidence.
+```
+
+The PR was merged into `lab2-staging` after approval.
+
+---
+
+[#30 feature/29-zen-green-ui](https://github.com/jarbbie/toktickit/pull/30)
+Reviewer comment I received:
+```
+Please make the selected requester name visible in the header before merging.
+
+- The header now only shows “Profile”; the selected requester name is hidden
+  inside the closed Profile menu.
+- Lab 2 requires the application shell to display the selected Development
+  Requester after selection.
+- Suggested fix: change the summary to something like “Profile: Nicha Somchai”
+  (or show the name beside the profile icon). The Change Requester button can
+  stay inside the menu.
+- Update the UI test so it checks the name before opening the Profile menu.
+
+The rest of the Zen Green styling update looks good.
+```
+
+How I responded: In commit `87073f3`, I changed the closed Profile summary to
+show `Profile: Nicha Somchai`, kept Change Requester inside the menu, and
+updated the requester-selection test to verify the visible name before opening
+the menu. Commit `bc7d7ba` then aligned the selector and My Tickets layouts more
+closely with the Lab 2 reference and refreshed the responsive evidence. I
+reported that all 15 client tests, the client build, and both Playwright E2E
+tests passed, then requested another review.
+
+Reviewer approval:
+```
+Approved.
+
+- The selected requester is now visible in the closed header as
+  “Profile: <name>”.
+- The requester-selection test verifies that visibility before the Profile
+  menu is opened.
+- Focused requester UI test passed: 4/4.
 ```
 
 The PR was merged into `lab2-staging` after approval.
