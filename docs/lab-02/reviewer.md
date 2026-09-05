@@ -3,17 +3,20 @@
 **Author:** Peeranat Ngamkiatkajorn — 67070503429 — GitHub: @jarbbie
 **Peer reviewer:** Peemmapat Sripongsai — 67070503436 — GitHub: @SupeemAFK
 
-## Pull Requests I authored (reviewed by my partner)
+## Pull Requests I authored
 | PR | Branch | Reviewer verdict |
 |----|--------|------------------|
 | [#17](https://github.com/jarbbie/toktickit/pull/17) | feature/5-lab2-contract | Approved |
 | [#20](https://github.com/jarbbie/toktickit/pull/20) | feature/6-db-seed | Approved |
 | [#21](https://github.com/jarbbie/toktickit/pull/21) | feature/7-requester-context | Approved |
+| [#22](https://github.com/jarbbie/toktickit/pull/22) | feature/8-ticket-create-api | Approved |
 | [#23](https://github.com/jarbbie/toktickit/pull/23) | feature/9-create-ticket-ui | Approved |
 | [#24](https://github.com/jarbbie/toktickit/pull/24) | feature/10-my-tickets | Approved |
 | [#25](https://github.com/jarbbie/toktickit/pull/25) | feature/11-ticket-detail-attachments | Approved after changes |
 | [#26](https://github.com/jarbbie/toktickit/pull/26) | feature/12-lab2-verification | Approved and merged |
 | [#30](https://github.com/jarbbie/toktickit/pull/30) | feature/29-zen-green-ui | Approved after changes and merged |
+| [#31](https://github.com/jarbbie/toktickit/pull/31) | docs/lab2-finalization | Documentation-only; merged without a separate review |
+| [#32](https://github.com/jarbbie/toktickit/pull/32) | lab2-staging | Final release approved and merged |
 
 ---
 
@@ -96,6 +99,29 @@ whitespace errors. No CI checks are configured on this branch.
 
 How I responded: No changes were requested. The PR was merged into
 `lab2-staging` after approval.
+
+---
+
+[#22 feature/8-ticket-create-api](https://github.com/jarbbie/toktickit/pull/22)
+Reviewer approval:
+```
+Approved.
+
+The ticket-creation API matches the Lab 2 contract:
+
+- It validates and trims required fields, checks active requester and reference
+  data, and defaults priority to MEDIUM.
+- It creates tickets with backend-generated numbers and NEW status.
+- It returns safe errors for invalid fields, inactive or missing references,
+  malformed JSON, and unexpected failures.
+- It retries a duplicate ticket-number conflict.
+
+I verified the new Lab 2 test suite: 15 tests passed. The diff also has no
+whitespace errors. No CI checks are configured on this branch.
+```
+
+How I responded: No changes were requested. The approved PR was merged into
+`lab2-staging`.
 
 ---
 
@@ -205,6 +231,45 @@ Approved.
 ```
 
 The PR was merged into `lab2-staging` after approval.
+
+---
+
+[#31 docs/lab2-finalization](https://github.com/jarbbie/toktickit/pull/31)
+
+This documentation-only PR recorded the already-completed PR #30 review. It
+was merged without a separate review. This is recorded transparently and is
+not presented as peer-reviewed feature work.
+
+---
+
+[#32 lab2-staging](https://github.com/jarbbie/toktickit/pull/32)
+Reviewer approval:
+```
+Approved.
+
+I reviewed this final Lab 2 release promotion and its prior reviewed staging
+changes. The requester context is visible in the closed header, the Zen Green
+UI and responsive evidence are documented, and the release remains within the
+requester-only Lab 2 scope. The test plan records the final server, client,
+build, and Playwright verification.
+
+No CI checks are configured on this repository; the documented local
+verification and linked peer-review record are consistent with the release
+evidence.
+```
+
+How I responded: No changes were requested. PR #32 was merged into `main` after
+approval.
+
+## Workflow clarification
+
+PRs #24 and #25 used a stacked dependency flow: My Tickets was reviewed against
+the Create Ticket branch, and Ticket Detail/Attachments was reviewed against My
+Tickets. Their reviewed commits entered `lab2-staging` together through the
+approved release-verification PR #26. PR #28 was the first staging promotion;
+after the additional Zen Green correction, PR #32 was reviewed and became the
+final Lab 2 release. These existing GitHub records were preserved rather than
+rewritten.
 
 ---
 

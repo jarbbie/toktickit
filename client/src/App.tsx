@@ -1,17 +1,28 @@
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { Fragment, type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { type CreatedTicket, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, attachmentDownloadUrl, createTicket, loadReferenceData, loadTicket, loadTickets, removeAttachment, uploadAttachment } from "./api.js";
 
 type LoadState = "loading" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
 const requesterStorageKey = "toktickit.requesterId";
+const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
+function attachmentValidationError(file: File) {
+  if (!attachmentTypes.includes(file.type)) return "Choose a JPG, PNG, WEBP, or PDF file.";
+  if (file.size > 5 * 1024 * 1024) return "Attachment must be no larger than 5 MB.";
+  return "";
+}
+
+function enumLabel(value: string) {
+  return value[0] + value.slice(1).toLowerCase();
+}
 
 function priorityBadge(priority: string) {
-  return <span className={`badge zen-badge zen-priority-${priority.toLowerCase()}`}>{priority}</span>;
+  return <span className={`badge zen-badge zen-priority-${priority.toLowerCase()}`}>{enumLabel(priority)}</span>;
 }
 
 function statusBadge(status: string) {
-  return <span className={`badge zen-badge zen-status-${status.toLowerCase()}`}>{status}</span>;
+  return <span className={`badge zen-badge zen-status-${status.toLowerCase()}`}>{enumLabel(status)}</span>;
 }
 
 function savedRequesterId() {
@@ -33,8 +44,8 @@ function AppHeader({ requester, onChangeRequester }: { requester?: Requester; on
   </div></header>;
 }
 
-function Shell({ requester, onChangeRequester, children }: { requester: Requester; onChangeRequester: () => void; children: ReactNode }) {
-  return <main className="app-shell min-vh-100"><AppHeader requester={requester} onChangeRequester={onChangeRequester} /><div className="container app-content py-5">{children}</div></main>;
+function Shell({ requester, onChangeRequester, children, wide = false }: { requester: Requester; onChangeRequester: () => void; children: ReactNode; wide?: boolean }) {
+  return <main className="app-shell min-vh-100"><AppHeader requester={requester} onChangeRequester={onChangeRequester} /><div className={`container app-content${wide ? " app-content-wide" : ""} py-5`}>{children}</div></main>;
 }
 
 function RequesterSelector({ data, onSelected }: { data: ReferenceData; onSelected: (id: number) => void }) {
@@ -106,23 +117,30 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     setFilters((current) => ({ ...current, page }));
   }
 
+  function changeSort(sortBy: TicketQuery["sortBy"]) {
+    setFilters((current) => ({ ...current, sortBy, direction: current.sortBy === sortBy && current.direction === "asc" ? "desc" : "asc", page: 1 }));
+  }
+
+  function sortMark(sortBy: TicketQuery["sortBy"]) {
+    return filters.sortBy === sortBy ? filters.direction === "asc" ? "↑" : "↓" : "↕";
+  }
+
   const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status);
   const firstItem = result && result.items.length > 0 ? (result.page - 1) * result.pageSize + 1 : 0;
   const lastItem = result ? Math.min(result.page * result.pageSize, result.totalItems) : 0;
-  return <section>
+  const visiblePages = result ? Array.from({ length: result.totalPages }, (_, index) => index + 1).filter((page) => result.totalPages <= 7 || page === 1 || page === result.totalPages || result.page <= 3 && page <= 5 || result.page >= result.totalPages - 2 && page >= result.totalPages - 4 || Math.abs(page - result.page) <= 1) : [];
+  return <section className="my-tickets-page">
     <header className="ticket-list-heading d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div><h1 className="h3 mb-1">My Tickets</h1><p className="text-secondary mb-0">View and track all of your support requests.</p></div><div className="d-flex gap-2"><button className="btn btn-outline-secondary" onClick={() => setFilters(initialTicketFilters)}><span aria-hidden="true">↻</span> Clear Filters</button><NavLink className="btn btn-zen-primary" to="/tickets/new"><span aria-hidden="true">+</span> Create Ticket</NavLink></div></header>
     <div className="card ticket-filter-card mb-4"><div className="card-body ticket-filter-grid">
       <div className="ticket-filter-search"><label className="form-label" htmlFor="ticket-search">Search tickets</label><div className="search-control"><svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div></div>
       <div><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div><label className="form-label" htmlFor="ticket-priority">Requested Priority</label><select className="form-select" id="ticket-priority" value={filters.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as TicketQuery["requestedPriority"])}><option value="">All priorities</option>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((item) => <option key={item}>{item}</option>)}</select></div>
       <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option><option value="NEW">NEW</option></select></div>
-      <div><label className="form-label" htmlFor="ticket-sort">Sort by</label><select className="form-select" id="ticket-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as TicketQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option></select></div>
-      <div><label className="form-label" htmlFor="ticket-direction">Direction</label><select className="form-select" id="ticket-direction" value={filters.direction} onChange={(event) => update("direction", event.target.value as TicketQuery["direction"])}><option value="desc">Newest first</option><option value="asc">Oldest first</option></select></div>
     </div></div>
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th>Ticket Number</th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Current Status</th><th>Last Updated</th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button><span className="current-page" aria-current="page">{result.page}</span><span>of {result.totalPages}</span><button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
+    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Current Status</th><th><button aria-label={`Sort by Last Updated ${filters.sortBy === "updatedAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("updatedAt")}>Last Updated <span aria-hidden="true">{sortMark("updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
   </section>;
 }
 
@@ -148,8 +166,9 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
 
   async function upload() {
     if (!file || !ticket) return;
-    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setUploadError("Choose a JPG, PNG, WEBP, or PDF file no larger than 5 MB.");
+    const validationError = attachmentValidationError(file);
+    if (validationError) {
+      setUploadError(validationError);
       return;
     }
     setUploading(true);
@@ -215,6 +234,9 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState("");
   const [created, setCreated] = useState<CreatedTicket | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
+  const [attachmentWarning, setAttachmentWarning] = useState("");
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -227,6 +249,8 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     if (!form.relatedSystemId) next.relatedSystemId = "Related System is required.";
     if (form.summary.trim().length < 5 || form.summary.trim().length > 200) next.summary = "Ticket Summary must be between 5 and 200 characters.";
     if (form.description.trim().length < 10 || form.description.trim().length > 4000) next.description = "Description must be between 10 and 4000 characters.";
+    if (file) next.attachment = attachmentValidationError(file);
+    if (!next.attachment) delete next.attachment;
     return next;
   }
 
@@ -238,7 +262,15 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
     try {
-      setCreated(await createTicket({ requesterId: requester.id, categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description }));
+      const ticket = await createTicket({ requesterId: requester.id, categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description });
+      if (file) {
+        try {
+          await uploadAttachment(ticket.id, requester.id, file);
+        } catch (error) {
+          setAttachmentWarning(error instanceof Error ? error.message : "Unable to upload attachment.");
+        }
+      }
+      setCreated(ticket);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Unable to create ticket.");
     } finally {
@@ -246,7 +278,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     }
   }
 
-  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p><NavLink className="btn btn-zen-primary" to="/tickets">View My Tickets</NavLink></div></section>;
+  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p>{attachmentWarning && <div className="alert alert-warning" role="alert">Ticket created, but the attachment could not be uploaded: {attachmentWarning}</div>}<div className="d-flex flex-wrap gap-2"><NavLink className="btn btn-zen-primary" to="/tickets">View My Tickets</NavLink><NavLink className="btn btn-outline-success" to={`/tickets/${created.id}`}>View Ticket Details</NavLink></div></div></section>;
 
   const invalid = (name: string) => errors[name] ? "form-control is-invalid" : "form-control";
   const invalidSelect = (name: string) => errors[name] ? "form-select is-invalid" : "form-select";
@@ -266,6 +298,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
           <div className="col-md-6"><label className="form-label" htmlFor="requested-priority">Requested Priority <span className="text-danger">*</span></label><select className="form-select" id="requested-priority" value={form.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as FormValues["requestedPriority"])}>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((priority) => <option key={priority}>{priority}</option>)}</select></div>
           <div className="col-12"><label className="form-label" htmlFor="summary">Ticket Summary <span className="text-danger">*</span></label><input className={invalid("summary")} id="summary" value={form.summary} onChange={(event) => update("summary", event.target.value)} />{errors.summary && <div className="invalid-feedback">{errors.summary}</div>}</div>
           <div className="col-12"><label className="form-label" htmlFor="description">Description <span className={"text-danger"}>*</span></label><textarea className={invalid("description")} id="description" rows={5} value={form.description} onChange={(event) => update("description", event.target.value)} />{errors.description && <div className="invalid-feedback">{errors.description}</div>}</div>
+          <div className="col-12"><label className="form-label" htmlFor="create-attachment">Attachment <span className="text-secondary">(optional)</span></label><input accept={attachmentTypes.join(",")} className={`form-control${attachmentError || errors.attachment ? " is-invalid" : ""}`} id="create-attachment" type="file" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); setAttachmentError(selected ? attachmentValidationError(selected) : ""); setErrors((current) => ({ ...current, attachment: "" })); }} />{(attachmentError || errors.attachment) && <div className="invalid-feedback">{attachmentError || errors.attachment}</div>}<div className="form-text">JPG, PNG, WEBP, or PDF; maximum 5 MB. More files can be added from Ticket Details.</div></div>
         </div>
         <button className="btn btn-zen-primary mt-4" disabled={submitting} type="submit">{submitting ? "Submitting…" : "Submit Ticket"}</button>
       </form>
@@ -302,7 +335,7 @@ export default function App() {
   const changeRequester = () => { sessionStorage.removeItem(requesterStorageKey); setRequesterId(null); };
   return <Routes>
     <Route path="/select" element={<Navigate replace to="/tickets" />} />
-    <Route path="/tickets" element={<Shell requester={requester} onChangeRequester={changeRequester}><MyTickets requester={requester} data={referenceData} /></Shell>} />
+    <Route path="/tickets" element={<Shell requester={requester} onChangeRequester={changeRequester} wide><MyTickets requester={requester} data={referenceData} /></Shell>} />
     <Route path="/tickets/new" element={<Shell requester={requester} onChangeRequester={changeRequester}><CreateTicket requester={requester} data={referenceData} /></Shell>} />
     <Route path="/tickets/:ticketId" element={<Shell requester={requester} onChangeRequester={changeRequester}><TicketRoute requester={requester} /></Shell>} />
     <Route path="*" element={<Navigate replace to="/tickets" />} />

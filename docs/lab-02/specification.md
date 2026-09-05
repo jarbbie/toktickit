@@ -36,7 +36,8 @@ The backend must still enforce ownership using that selected requester ID.
 - **FR-02:** The application shall show the selected requester and provide a
   Change Requester action.
 - **FR-03:** A selected active requester shall create a ticket with Category,
-  Related System, Requested Priority, Summary, Description, and optional files.
+  Related System, Requested Priority, Summary, Description, and one optional
+  attachment. More attachments may be added from Ticket Detail.
 - **FR-04:** The backend shall generate a unique, read-only Ticket Number and
   set the initial status to `NEW`.
 - **FR-05:** My Tickets shall return only tickets owned by the selected
@@ -71,7 +72,8 @@ The backend must still enforce ownership using that selected requester ID.
   The list supports Category, Requested Priority, and Status filters.
 - **BR-09:** Ticket lists default to newest updated first. Allowed sort fields
   are `updatedAt`, `createdAt`, `ticketNumber`, and `requestedPriority`; page is
-  one-based and allowed page sizes are 5, 10, and 20.
+  one-based and allowed page sizes are 5, 10, and 20. The ticket ID is the
+  deterministic secondary sort in the same direction as the selected field.
 - **BR-10:** Allowed attachment types are JPG/JPEG, PNG, WEBP, and PDF. Each
   file is at most 5 MB, and a Ticket has at most five active attachments.
 - **BR-11:** An attachment is stored under a generated server-side key; the
@@ -79,7 +81,10 @@ The backend must still enforce ownership using that selected requester ID.
   `removedAt`, and a required 1–500 character removal reason, but cannot be
   downloaded or previewed.
 - **BR-12:** Submit/upload controls are disabled while their request is pending.
-  Form values remain visible after a failed create or upload request.
+  Form values and the selected file remain visible after a failed create request.
+  Creation-time attachment upload occurs only after the Ticket is saved. If that
+  upload fails, the Ticket remains saved and its official number is shown with a
+  safe warning and a Ticket Detail action for retrying the attachment.
 - **BR-13:** An inactive requester is never offered for selection and cannot be
   used as `requesterId`.
 
@@ -93,8 +98,7 @@ and Ticket Detail handle loading, empty, no-results, success, and failure states
 
 ## 7. Data Changes
 
-Add these Prisma enums and models. This is the approved target schema; the
-implementation branch will turn it into a migration.
+The implemented Prisma migration adds these approved enums and models:
 
 ```prisma
 enum RequestedPriority {
@@ -217,6 +221,9 @@ checks.
 - **AC-14:** Given desktop, tablet, or mobile viewports, when each required
   screen is used, then labels, controls, messages, and attachments remain usable
   without clipping, overlap, or horizontal page scrolling.
+- **AC-15:** Given a valid Ticket and optional attachment, when Ticket creation
+  succeeds but attachment upload fails, then the Ticket remains stored, its
+  official number is displayed, and a safe attachment warning is shown.
 
 ## 10. Definition of Done
 

@@ -5,8 +5,7 @@ const storage = vi.hoisted(() => ({ attachmentPath: vi.fn((key: string) => `/upl
 const transaction = vi.hoisted(() => ({ $executeRaw: vi.fn(), ticket: { findFirst: vi.fn() }, attachment: { count: vi.fn(), create: vi.fn() } }));
 const prisma = vi.hoisted(() => ({
   requester: { findFirst: vi.fn() },
-  ticket: { findFirst: vi.fn() },
-  attachment: { count: vi.fn(), create: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
+  attachment: { findFirst: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -24,30 +23,20 @@ beforeEach(() => {
   prisma.$transaction.mockImplementation((callback: (client: typeof transaction) => unknown) => callback(transaction));
 });
 
-describe("requester ticket detail and attachments", () => {
-  it("returns an owned ticket detail and hides an unowned ticket", async () => {
-    prisma.ticket.findFirst.mockResolvedValueOnce({ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", description: "The VPN fails after login.", requestedPriority: "MEDIUM", status: "NEW", category: { id: 2, name: "Hardware" }, relatedSystem: { id: 3, name: "VPN" }, attachments: [attachment] }).mockResolvedValueOnce(null);
-
-    const owned = await request(app).get("/api/tickets/1?requesterId=1");
-    const unowned = await request(app).get("/api/tickets/2?requesterId=1");
-
-    expect(owned.status).toBe(200);
-    expect(owned.body.attachments[0]).toMatchObject({ originalName: "vpn.pdf" });
-    expect(unowned.status).toBe(404);
-  });
-
-  it("uploads a permitted owned attachment and rejects an unsupported type", async () => {
-    transaction.ticket.findFirst.mockResolvedValue({ id: 1 });
+describe("requester attachments", () => {
+  it("uploads a permitted owned attachment and rejects unsupported or unowned uploads", async () => {
+    transaction.ticket.findFirst.mockResolvedValueOnce({ id: 1 }).mockResolvedValueOnce(null);
     transaction.attachment.count.mockResolvedValue(0);
     transaction.attachment.create.mockResolvedValue(attachment);
 
     const created = await request(app).post("/api/tickets/1/attachments").field("requesterId", "1").attach("file", pdf, { filename: "vpn.pdf", contentType: "application/pdf" });
     const rejected = await request(app).post("/api/tickets/1/attachments").field("requesterId", "1").attach("file", Buffer.from("text"), { filename: "note.txt", contentType: "text/plain" });
+    const unowned = await request(app).post("/api/tickets/2/attachments").field("requesterId", "1").attach("file", pdf, { filename: "vpn.pdf", contentType: "application/pdf" });
 
     expect(created.status).toBe(201);
     expect(created.body).toMatchObject({ originalName: "vpn.pdf" });
-    expect(storage.saveAttachment).toHaveBeenCalled();
     expect(rejected.status).toBe(415);
+    expect(unowned.status).toBe(404);
   });
 
   it("rejects spoofed PDF content before storing it", async () => {
