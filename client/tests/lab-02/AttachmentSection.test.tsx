@@ -18,21 +18,27 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Requester Ticket Detail", () => {
-  it("shows owned ticket data and preserves removed attachment metadata", async () => {
+describe("Attachment Section", () => {
+  it("shows the active owned download action", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
-    vi.spyOn(api, "removeAttachment").mockResolvedValue({ ...ticket.attachments[0], removedAt: "2026-08-26T00:00:00.000Z", removalReason: "Wrong file" });
+    renderDetail();
+
+    expect(await screen.findByRole("link", { name: "Download" })).toHaveAttribute("href", expect.stringContaining("/api/attachments/4/download?requesterId=1"));
+  });
+
+  it("keeps the selected file after an upload error", async () => {
+    vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
+    vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
+    vi.spyOn(api, "uploadAttachment").mockRejectedValue(new Error("Unable to upload attachment."));
     const user = userEvent.setup();
     renderDetail();
 
-    expect(await screen.findByLabelText("Ticket No.")).toHaveValue("TKT-2026-A1B2C3D4");
-    await user.click(screen.getByRole("button", { name: "Remove" }));
-    await user.type(screen.getByLabelText("Removal reason"), "Wrong file");
-    await user.click(screen.getByRole("button", { name: "Confirm removal" }));
+    const input = await screen.findByLabelText("Add attachment");
+    await user.upload(input, new File(["%PDF-1.4"], "vpn.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Upload attachment" }));
 
-    expect(await screen.findByText("Removed")).toBeInTheDocument();
-    expect(screen.getByText("Reason: Wrong file")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Download" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to upload attachment.");
+    expect(input).toHaveValue("C:\\fakepath\\vpn.pdf");
   });
 });

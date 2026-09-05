@@ -24,19 +24,23 @@ afterEach(() => {
 describe("My Tickets", () => {
   it("shows the requester’s ticket and sends filter changes to the API", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
-    const loadTickets = vi.spyOn(api, "loadTickets").mockImplementation(async (_requesterId, query) => ({ items: [{ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", requestedPriority: "HIGH", status: "NEW", category: { id: 2, name: "Hardware" }, updatedAt: "2026-08-25T00:00:00.000Z" }], page: query.page ?? 1, pageSize: 10, totalItems: 11, totalPages: 2 }));
+    const loadTickets = vi.spyOn(api, "loadTickets").mockImplementation(async (_requesterId, query) => ({ items: [{ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", requestedPriority: "HIGH", status: "NEW", category: { id: 2, name: "Hardware" }, createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z" }], page: query.page ?? 1, pageSize: 10, totalItems: 100, totalPages: 10 }));
     const user = userEvent.setup();
     renderMyTickets();
 
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
-    expect(document.querySelector(".zen-priority-high")).toHaveTextContent("HIGH");
-    expect(document.querySelector(".zen-status-new")).toHaveTextContent("NEW");
+    expect(document.querySelector(".zen-priority-high")).toHaveTextContent("High");
+    expect(document.querySelector(".zen-status-new")).toHaveTextContent("New");
+    expect(screen.getByText("…")).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Category"), "2");
 
     expect(await screen.findByText("TKT-2026-A1B2C3D4")).toBeInTheDocument();
     expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2" }));
 
-    await user.click(screen.getByRole("button", { name: /Next/ }));
+    await user.click(screen.getByRole("button", { name: /Sort by Ticket Number/ }));
+    await waitFor(() => expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ sortBy: "ticketNumber", direction: "asc" })));
+
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
     await waitFor(() => expect(loadTickets).toHaveBeenLastCalledWith(1, expect.objectContaining({ categoryId: "2", page: 2 })));
   });
 

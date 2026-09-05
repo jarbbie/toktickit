@@ -81,6 +81,15 @@ describe("POST /api/tickets", () => {
     expect(response.body).toEqual({ error: "Malformed JSON request body." });
   });
 
+  it("returns safe JSON for an oversized request body", async () => {
+    const response = await request(app).post("/api/tickets").send({ value: "a".repeat(110 * 1024) });
+
+    expect(response.status).toBe(413);
+    expect(response.type).toBe("application/json");
+    expect(response.body).toEqual({ error: "Request body exceeds the size limit." });
+    expect(response.text).not.toContain(process.cwd());
+  });
+
   it("retries a duplicate ticket number", async () => {
     mockActiveReferences();
     prisma.ticket.create
