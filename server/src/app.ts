@@ -31,7 +31,7 @@ class RequestError extends Error {
 }
 
 function requiredId(value: unknown, name: string) {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) {
     throw new RequestError(`${name} must be a positive integer.`);
   }
   return value;
@@ -91,6 +91,10 @@ app.use(express.json());
 app.use((error: Error & { type?: string }, _req: Request, res: Response, next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
     res.status(400).json({ error: "Malformed JSON request body." });
+    return;
+  }
+  if (error.type === "entity.too.large") {
+    res.status(413).json({ error: "Request body exceeds the size limit." });
     return;
   }
   next(error);
@@ -161,7 +165,7 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
     const prisma = getPrisma();
     await requireActiveRequester(prisma, requesterId);
     const [items, totalItems] = await Promise.all([
-      prisma.ticket.findMany({ where, orderBy: { [sortBy]: direction }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, summary: true, requestedPriority: true, status: true, updatedAt: true, category: { select: { id: true, name: true } } } }),
+      prisma.ticket.findMany({ where, orderBy: [{ [sortBy]: direction }, { id: direction }], skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, summary: true, requestedPriority: true, status: true, updatedAt: true, category: { select: { id: true, name: true } } } }),
       prisma.ticket.count({ where }),
     ]);
     res.json({ items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) });
@@ -355,7 +359,11 @@ app.use((error: Error, _req: Request, res: Response, next: NextFunction) => {
     res.status(415).json({ error: "Attachment type is not permitted." });
     return;
   }
-  next(error);
+  if (res.headersSent) {
+    next(error);
+    return;
+  }
+  res.status(500).json({ error: "Unexpected server error." });
 });
 
 export default app;

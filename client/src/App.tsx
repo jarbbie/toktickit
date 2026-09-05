@@ -5,6 +5,13 @@ import { type CreatedTicket, type ReferenceData, type Requester, type TicketDeta
 type LoadState = "loading" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
 const requesterStorageKey = "toktickit.requesterId";
+const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
+function attachmentValidationError(file: File) {
+  if (!attachmentTypes.includes(file.type)) return "Choose a JPG, PNG, WEBP, or PDF file.";
+  if (file.size > 5 * 1024 * 1024) return "Attachment must be no larger than 5 MB.";
+  return "";
+}
 
 function priorityBadge(priority: string) {
   return <span className={`badge zen-badge zen-priority-${priority.toLowerCase()}`}>{priority}</span>;
@@ -148,8 +155,9 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
 
   async function upload() {
     if (!file || !ticket) return;
-    if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setUploadError("Choose a JPG, PNG, WEBP, or PDF file no larger than 5 MB.");
+    const validationError = attachmentValidationError(file);
+    if (validationError) {
+      setUploadError(validationError);
       return;
     }
     setUploading(true);
@@ -215,6 +223,9 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
   const [submitting, setSubmitting] = useState(false);
   const [failure, setFailure] = useState("");
   const [created, setCreated] = useState<CreatedTicket | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
+  const [attachmentWarning, setAttachmentWarning] = useState("");
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -227,6 +238,8 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     if (!form.relatedSystemId) next.relatedSystemId = "Related System is required.";
     if (form.summary.trim().length < 5 || form.summary.trim().length > 200) next.summary = "Ticket Summary must be between 5 and 200 characters.";
     if (form.description.trim().length < 10 || form.description.trim().length > 4000) next.description = "Description must be between 10 and 4000 characters.";
+    if (file) next.attachment = attachmentValidationError(file);
+    if (!next.attachment) delete next.attachment;
     return next;
   }
 
@@ -238,7 +251,15 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
     try {
-      setCreated(await createTicket({ requesterId: requester.id, categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description }));
+      const ticket = await createTicket({ requesterId: requester.id, categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description });
+      if (file) {
+        try {
+          await uploadAttachment(ticket.id, requester.id, file);
+        } catch (error) {
+          setAttachmentWarning(error instanceof Error ? error.message : "Unable to upload attachment.");
+        }
+      }
+      setCreated(ticket);
     } catch (error) {
       setFailure(error instanceof Error ? error.message : "Unable to create ticket.");
     } finally {
@@ -246,7 +267,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     }
   }
 
-  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p><NavLink className="btn btn-zen-primary" to="/tickets">View My Tickets</NavLink></div></section>;
+  if (created) return <section className="card shadow-sm"><div className="card-body"><h1 className="h3">Ticket created: {created.ticketNumber}</h1><p>Your ticket is saved with status New.</p>{attachmentWarning && <div className="alert alert-warning" role="alert">Ticket created, but the attachment could not be uploaded: {attachmentWarning}</div>}<div className="d-flex flex-wrap gap-2"><NavLink className="btn btn-zen-primary" to="/tickets">View My Tickets</NavLink><NavLink className="btn btn-outline-success" to={`/tickets/${created.id}`}>View Ticket Details</NavLink></div></div></section>;
 
   const invalid = (name: string) => errors[name] ? "form-control is-invalid" : "form-control";
   const invalidSelect = (name: string) => errors[name] ? "form-select is-invalid" : "form-select";
@@ -266,6 +287,7 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
           <div className="col-md-6"><label className="form-label" htmlFor="requested-priority">Requested Priority <span className="text-danger">*</span></label><select className="form-select" id="requested-priority" value={form.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as FormValues["requestedPriority"])}>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((priority) => <option key={priority}>{priority}</option>)}</select></div>
           <div className="col-12"><label className="form-label" htmlFor="summary">Ticket Summary <span className="text-danger">*</span></label><input className={invalid("summary")} id="summary" value={form.summary} onChange={(event) => update("summary", event.target.value)} />{errors.summary && <div className="invalid-feedback">{errors.summary}</div>}</div>
           <div className="col-12"><label className="form-label" htmlFor="description">Description <span className={"text-danger"}>*</span></label><textarea className={invalid("description")} id="description" rows={5} value={form.description} onChange={(event) => update("description", event.target.value)} />{errors.description && <div className="invalid-feedback">{errors.description}</div>}</div>
+          <div className="col-12"><label className="form-label" htmlFor="create-attachment">Attachment <span className="text-secondary">(optional)</span></label><input accept={attachmentTypes.join(",")} className={`form-control${attachmentError || errors.attachment ? " is-invalid" : ""}`} id="create-attachment" type="file" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); setAttachmentError(selected ? attachmentValidationError(selected) : ""); setErrors((current) => ({ ...current, attachment: "" })); }} />{(attachmentError || errors.attachment) && <div className="invalid-feedback">{attachmentError || errors.attachment}</div>}<div className="form-text">JPG, PNG, WEBP, or PDF; maximum 5 MB. More files can be added from Ticket Details.</div></div>
         </div>
         <button className="btn btn-zen-primary mt-4" disabled={submitting} type="submit">{submitting ? "Submitting…" : "Submit Ticket"}</button>
       </form>

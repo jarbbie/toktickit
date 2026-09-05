@@ -21,7 +21,7 @@ describe("GET /api/tickets", () => {
     expect(response.body).toMatchObject({ page: 2, pageSize: 5, totalItems: 6, totalPages: 2, items: [{ id: 7, ticketNumber: "TKT-2026-A1B2C3D4", category: { name: "Hardware" } }] });
     expect(prisma.ticket.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ requesterId: 1, categoryId: 2, requestedPriority: "HIGH", status: "NEW" }),
-      orderBy: { ticketNumber: "asc" }, skip: 5, take: 5,
+      orderBy: [{ ticketNumber: "asc" }, { id: "asc" }], skip: 5, take: 5,
     }));
   });
 

@@ -44,11 +44,14 @@ controls are keyboard accessible.
 
 Display requester and system-generated fields as read-only. Editable controls
 are Category, Related System, Requested Priority, Summary, Description, and
-Attachments. Category/Related System show reference-data loading and failure
+one optional Attachment. Additional files are added from Ticket Detail.
+Category/Related System show reference-data loading and failure
 states. Submit is the primary green action and becomes disabled with visible
 busy text while saving. On success, show the generated Ticket Number and a
 clear My Tickets next action. On API failure, show a safe error and keep form
-values. Invalid attachments show an adjacent file-specific message.
+values and the selected file. Invalid attachments show an adjacent file-specific
+message. If the Ticket is created but its attachment upload fails, show the
+official Ticket Number, a warning, and a Ticket Detail action for retrying.
 
 ## My Tickets
 
