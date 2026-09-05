@@ -21,6 +21,26 @@ green/amber/red by priority and green for `NEW`, with text always visible. Use
 a compact native sans-serif hierarchy: 15px body text, smaller control labels,
 and clearly heavier page headings.
 
+Spacing uses a 4px base rhythm: 8px for tightly related controls, 12–16px
+inside compact groups, 20–24px between cards or major sections, and 32–48px
+for page-level vertical padding. Table rows use compact 8px vertical cell
+padding with thin separators rather than artificial row margins.
+
+## Buttons and Component States
+
+| Role | Style |
+|---|---|
+| Primary | Solid `#006B3C`, white text; reserved for Submit, Continue, Create, and confirmation actions |
+| Secondary | White or transparent with a green outline; used for navigation and non-destructive alternatives |
+| Tertiary | Text or neutral-outline treatment for Clear, Cancel, and low-emphasis actions |
+| Destructive | White/red outline before confirmation and solid dark red for the confirmed removal action |
+| Disabled | Reduced contrast, unavailable pointer behavior, and native `disabled` semantics |
+| Busy | Keeps visible action text, changes it to an active verb, and remains disabled until completion |
+
+Priority and status badges are compact title-case pills with fully rounded
+corners, a pale semantic background, matching thin border, and readable dark
+text. My Tickets uses secondary-green header text and charcoal-green body text.
+
 ## Application Shell
 
 The requester shell uses the reference-style compact green navigation bar,
@@ -55,10 +75,10 @@ official Ticket Number, a warning, and a Ticket Detail action for retrying.
 
 ## My Tickets
 
-Provide search, category/priority/status filters, sort control, clear filters,
-pagination, and Create Ticket action. Desktop shows Ticket Number, Summary,
-Category, Requested Priority, Status, and Last Updated; the Ticket Number opens
-the detail screen.
+Provide search, category/priority/status filters, sortable table headers, clear
+filters, numbered pagination, and Create Ticket action. Desktop shows Ticket
+Number, Created Date, Summary, Category, Requested Priority, Status, and Last
+Updated; the Ticket Number opens the detail screen.
 Smaller screens use readable cards or an equivalent responsive representation.
 Use different wording for an empty requester with no tickets and a search with
 no matching tickets.

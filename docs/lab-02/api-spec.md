@@ -48,7 +48,8 @@ Creates one ticket. The JSON body is:
 `ticketNumber`, supplied foreign keys and text, `requestedPriority`, `status`,
 `createdAt`, and `updatedAt`. `400` is returned for invalid fields or
 inactive/missing reference data. Malformed JSON returns `400`; JSON over the
-parser limit returns safe JSON with `413`; unexpected failures return `500`.
+explicit 100 KB parser limit returns safe JSON with `413`; unexpected failures
+return `500`.
 
 The optional Create Ticket attachment is uploaded afterward through the
 Attachment endpoint. If that upload fails, the client retains the already-created
@@ -78,6 +79,7 @@ selected primary sort.
     "requestedPriority": "MEDIUM",
     "status": "NEW",
     "category": { "id": 1, "name": "Hardware" },
+    "createdAt": "2026-08-20T00:00:00.000Z",
     "updatedAt": "2026-08-21T00:00:00.000Z"
   }],
   "page": 1,

@@ -137,8 +137,7 @@ test("requester creates, finds, opens, downloads, removes, and captures evidence
   await page.getByLabel("Category").selectOption({ label: "Hardware" });
   await page.getByLabel("Requested Priority").selectOption("MEDIUM");
   await page.getByLabel("Current Status").selectOption("NEW");
-  await page.getByLabel("Sort by").selectOption("ticketNumber");
-  await page.getByLabel("Direction").selectOption("asc");
+  await page.getByRole("button", { name: /Sort by Ticket Number/ }).click();
   await expect(page.getByRole("button", { name: /Next/ })).toBeEnabled();
   await captureState(page, "my-tickets-filter-sort-pagination-page-1");
   await page.getByRole("button", { name: /Next/ }).click();

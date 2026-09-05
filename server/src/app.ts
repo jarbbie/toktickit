@@ -87,7 +87,7 @@ async function requireActiveRequester(prisma: PrismaClient, requesterId: number)
 export const app = express();
 
 app.use(cors());          // already wired: lets the Vite dev server call this API
-app.use(express.json());
+app.use(express.json({ limit: "100kb" }));
 app.use((error: Error & { type?: string }, _req: Request, res: Response, next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
     res.status(400).json({ error: "Malformed JSON request body." });
@@ -165,7 +165,7 @@ app.get("/api/tickets", async (req: Request, res: Response) => {
     const prisma = getPrisma();
     await requireActiveRequester(prisma, requesterId);
     const [items, totalItems] = await Promise.all([
-      prisma.ticket.findMany({ where, orderBy: [{ [sortBy]: direction }, { id: direction }], skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, summary: true, requestedPriority: true, status: true, updatedAt: true, category: { select: { id: true, name: true } } } }),
+      prisma.ticket.findMany({ where, orderBy: [{ [sortBy]: direction }, { id: direction }], skip: (page - 1) * pageSize, take: pageSize, select: { id: true, ticketNumber: true, summary: true, requestedPriority: true, status: true, createdAt: true, updatedAt: true, category: { select: { id: true, name: true } } } }),
       prisma.ticket.count({ where }),
     ]);
     res.json({ items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) });

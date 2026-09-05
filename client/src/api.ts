@@ -37,6 +37,7 @@ export interface TicketListItem {
   requestedPriority: TicketInput["requestedPriority"];
   status: "NEW";
   category: ReferenceItem;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -61,7 +62,6 @@ export interface Attachment {
 export interface TicketDetail extends TicketListItem {
   requesterId: number;
   description: string;
-  createdAt: string;
   relatedSystem: ReferenceItem;
   attachments: Attachment[];
 }

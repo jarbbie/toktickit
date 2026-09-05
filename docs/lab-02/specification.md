@@ -98,8 +98,7 @@ and Ticket Detail handle loading, empty, no-results, success, and failure states
 
 ## 7. Data Changes
 
-Add these Prisma enums and models. This is the approved target schema; the
-implementation branch will turn it into a migration.
+The implemented Prisma migration adds these approved enums and models:
 
 ```prisma
 enum RequestedPriority {
