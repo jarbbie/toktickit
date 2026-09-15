@@ -9,7 +9,7 @@ the complete required surface; no staff user-directory endpoint is needed.
 
 - JSON request/response bodies use `application/json`, except multipart uploads,
   downloaded bytes, and `204` responses. JSON parser limit is 100 KiB.
-- Password hashing uses Argon2id with memory 65536 KiB, iterations 3,
+- Password hashing uses Argon2id with memory 19456 KiB, iterations 2,
   parallelism 1, and an independent random salt of at least 16 bytes per hash.
 - Use an opaque `toktickit_session` cookie, `Path=/`, no Domain attribute,
   `HttpOnly`, `SameSite=Lax`, `Max-Age=28800`, with matching eight-hour Expires.
