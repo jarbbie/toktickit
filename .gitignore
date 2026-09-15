@@ -21,3 +21,7 @@ server/uploads/
 # Editor and operating-system files
 .DS_Store
 .vscode/
+
+# Local agent and worktree scratch space
+.worktrees/
+.superpowers/sdd/
