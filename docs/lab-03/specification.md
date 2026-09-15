@@ -215,41 +215,28 @@ and last-admin protection require transactional service validation, not just FKs
 
 ### Migration sequence and legacy initial passwords
 
-1. Back up the local database and upload directory. On a populated Lab 2 copy,
-   capture row counts, IDs, Ticket numbers, requester links, timestamps, and
-   Attachment metadata/file checksums. Preflight normalized-email collisions;
-   stop with a safe actionable report for manual correction rather than merge or
-   drop people. Leave the old database usable if preflight fails.
-2. During a local maintenance window, stop application writes. Rename/evolve
-   Requester to User while preserving IDs, sequence ownership, names, activation,
-   timestamps, and Ticket.requesterId FK targets. Add role REQUESTER and
-   mustChangePassword true. Add passwordHash as nullable during backfill only.
-   Normalize collision-free email addresses and add the normalization check.
-3. Extend the status enum in a migration boundary before any fixture uses new
-   values. Add nullable owner/indication fields and IT Priority, backfill
-   itPriority from requestedPriority without changing existing Ticket.updatedAt,
-   and then enforce its non-null constraint. Add Session, PublicComment,
-   InternalNote, their FKs, and indexes.
-4. Run the local credential bootstrap while the application remains stopped.
-   Read `LAB3_LEGACY_INITIAL_PASSWORD` from an untracked local environment value,
-   require the password rules, and hash it separately for each legacy User with
-   a fresh Argon2id salt. Populate only missing hashes, including inactive users;
-   preserve activation and require first-login change. Do not place the value
-   in migration SQL, logs, client configuration, or source control. The local
-   operator communicates it directly to the lab tester; there is no email flow.
-5. Apply the follow-up migration making User.passwordHash non-null only after
-   checking every backfill succeeded. This ordered expand/bootstrap/harden
-   process is part of the migration command/runbook; do not run the hardening
-   migration ahead of bootstrap. Runtime startup refuses an incomplete upgrade.
-6. Verify preservation against the snapshot; apply the idempotent seed and run
-   regression tests. Remove `/api/requesters`, selector routes/UI/types, and all
-   identity inputs. Delete the obsolete `toktickit.requesterId` browser storage
-   key during client initialization; it must never establish identity.
+1. On a populated Lab 2 database, record representative IDs, Ticket numbers,
+   requester links, timestamps, and Attachment metadata before migrating. If
+   normalized email values collide, stop with a clear local error; never delete
+   or merge user data automatically.
+2. Rename/evolve `Requester` to `User` while preserving IDs, names, activation,
+   timestamps, sequence ownership, and `Ticket.requesterId` foreign keys. Add
+   role `REQUESTER`, `mustChangePassword=true`, and the new workflow tables,
+   fields, enums, foreign keys, and indexes. Backfill IT Priority from Requested
+   Priority without changing existing Ticket timestamps.
+3. Run one idempotent local bootstrap command after migration. It gives every
+   legacy User a distinct Argon2id hash of the documented disposable development
+   password `Lab3-Initial-2026!`, sets `mustChangePassword=true`, and fills only
+   missing hashes. The command is part of the repository setup instructions;
+   it never logs a password or replaces an existing hash.
+4. Enforce non-null password hashes after bootstrap, verify the preserved sample
+   data and a clean installation, then run the idempotent seed and regression
+   tests. Remove `/api/requesters`, selector routes/UI/types, and identity inputs.
+   Delete the obsolete `toktickit.requesterId` browser-storage key at startup.
 
-Rehearse both a populated upgrade and a clean database installation. Rollback
-before reopening the application uses the explicit backup if necessary; never
-use destructive reset commands to satisfy migration tests. Ordinary seed reruns
-must not redo credential bootstrap or replace existing hashes.
+This local-course migration is rehearsed against a populated copy and a clean
+database. It must never reset or recreate a populated database. Ordinary seed
+reruns never redo credential bootstrap or replace changed passwords.
 
 ### Idempotent local seed data
 
@@ -260,10 +247,10 @@ Categories/six Related Systems. Add three active staff (`support.one`,
 active Administrator (`admin`), each at `@toktickit.test`. Fixture names are
 fictional. On a fresh seed each new account is marked for password change.
 
-Use `LAB3_SEED_INITIAL_PASSWORD` for newly created local fixture accounts; its
-documented development-only fallback is `Lab3-Initial-2026!`. This is a disposable
-lab credential, never a real account secret. Legacy bootstrap uses its separate
-required environment input and does not silently substitute the seed fallback.
+Use the documented development-only password `Lab3-Initial-2026!` for newly
+created fixture accounts and migrated legacy users. It is a disposable lab
+credential, never a real account secret, and every account must change it at
+first login.
 
 Seed at least 24 realistic tickets using stable fixture Ticket Numbers, spread
 across the four Requesters, all eight statuses, all four priorities, and assigned
@@ -334,7 +321,7 @@ staff can assign tickets without access to User Management.
 - All FRs, BRs, matrix rules, and ACs are implemented within included scope;
   approved contract changes are reflected in API/UI/test documents together.
 - Populated and clean migration, credential bootstrap, preservation comparison,
-  seed idempotence, and rollback procedure have reproducible evidence.
+  and seed idempotence have reproducible evidence.
 - Planned unit, migration/regression, API/integration, authorization/security,
   UI/style/responsive, and E2E checks pass on final `main`; both TypeScript builds
   pass. Each test result links an actual path and identifies the verified commit.
@@ -373,9 +360,9 @@ staff can assign tickets without access to User Management.
 - Resolution indication is a repeat-safe Requester signal, never formal status.
   Staff ownership does not gate other staff's access. Submitted ticket fields
   remain read-only after creation.
-- The existing `client/e2e/` location is retained for Lab 3 browser tests, with
-  Playwright discovery extended to both labs; the handout's E2E directory example
-  is adapted to this repository rather than duplicated at its root.
+- Lab 3 browser tests live in the handout-aligned `e2e/lab-03/` directory. The
+  existing client Playwright configuration is updated to discover that directory
+  as well as retained Lab 2 browser tests.
 - Only four genuine user prompts are available at initial contract authoring;
   the AI-use log will grow through implementation to meet final submission
   requirements without inventing conversation or review evidence.
