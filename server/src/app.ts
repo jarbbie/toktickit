@@ -592,16 +592,28 @@ app.post("/api/tickets/:ticketId/resolution-indication", ...requesterAuthenticat
     const user = authenticatedUser(req);
     const allowedStatuses = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"] as const;
     const result = await prisma.$transaction(async (transaction) => {
-      const ticket = await transaction.ticket.findFirst({
-        where: { id: ticketId, requesterId: user.id },
-        select: { id: true, status: true, resolutionIndicatedAt: true, updatedAt: true },
-      });
-      if (!ticket) throw new TicketNotFoundError();
-      if (!allowedStatuses.includes(ticket.status as typeof allowedStatuses[number])) throw new ResolutionConflictError();
-      if (ticket.resolutionIndicatedAt) return { ticketId: ticket.id, resolutionIndicatedAt: ticket.resolutionIndicatedAt, status: ticket.status, updatedAt: ticket.updatedAt };
-      const now = new Date();
-      const updated = await transaction.ticket.update({ where: { id: ticketId }, data: { resolutionIndicatedAt: now, updatedAt: now }, select: { id: true, status: true, resolutionIndicatedAt: true, updatedAt: true } });
-      return { ticketId: updated.id, resolutionIndicatedAt: updated.resolutionIndicatedAt, status: updated.status, updatedAt: updated.updatedAt };
+      // The conditional update is the first-writer-wins guard. A concurrent
+      // request may read the same null value, but only one updateMany can
+      // claim the still-null row; the loser re-reads and returns that value.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const ticket = await transaction.ticket.findFirst({
+          where: { id: ticketId, requesterId: user.id },
+          select: { id: true, status: true, resolutionIndicatedAt: true, updatedAt: true },
+        });
+        if (!ticket) throw new TicketNotFoundError();
+        if (!allowedStatuses.includes(ticket.status as typeof allowedStatuses[number])) throw new ResolutionConflictError();
+        if (ticket.resolutionIndicatedAt) return { ticketId: ticket.id, resolutionIndicatedAt: ticket.resolutionIndicatedAt, status: ticket.status, updatedAt: ticket.updatedAt };
+
+        const now = new Date();
+        const claimed = await transaction.ticket.updateMany({
+          where: { id: ticketId, requesterId: user.id, resolutionIndicatedAt: null, status: { in: [...allowedStatuses] } },
+          data: { resolutionIndicatedAt: now, updatedAt: now },
+        });
+        if (claimed.count === 1) {
+          return { ticketId: ticket.id, resolutionIndicatedAt: now, status: ticket.status, updatedAt: now };
+        }
+      }
+      throw new Error("Resolution indication could not be recorded.");
     });
     noStore(res);
     res.json(result);
@@ -645,7 +657,7 @@ app.post("/api/tickets", ...requesterAuthentication, async (req: Request, res: R
         const ticket = await prisma.ticket.create({
           data: {
             ticketNumber: generateTicketNumber(), requesterId, categoryId, relatedSystemId,
-            requestedPriority: priority, status: "NEW", summary, description,
+            requestedPriority: priority, itPriority: priority, status: "NEW", summary, description,
           },
         });
         noStore(res);

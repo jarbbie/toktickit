@@ -24,7 +24,7 @@ function mockActiveReferences() {
   prisma.relatedSystem.findFirst.mockResolvedValue({ id: 3 });
 }
 
-function postTicket(body = validTicket) {
+function postTicket(body: Record<string, unknown> = validTicket) {
   return request(app).post("/api/tickets").set("Origin", "http://localhost:5173").set("Cookie", "toktickit_session=token").send(body);
 }
 
@@ -48,8 +48,19 @@ describe("POST /api/tickets", () => {
     expect(response.body).toMatchObject({ ticketNumber: "TKT-2026-A1B2C3D4", requesterId: 1, status: "NEW", requestedPriority: "MEDIUM" });
     expect(prisma.ticket.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
       requesterId: 1, categoryId: 2, relatedSystemId: 3, summary: "VPN cannot connect",
-      description: "The VPN fails after entering my university credentials.", requestedPriority: "MEDIUM", status: "NEW",
+      description: "The VPN fails after entering my university credentials.", requestedPriority: "MEDIUM", itPriority: "MEDIUM", status: "NEW",
     }) }));
+  });
+
+  it("copies a submitted requested priority into IT priority", async () => {
+    mockActiveReferences();
+    prisma.ticket.create.mockResolvedValue({ id: 2, ticketNumber: "TKT-2026-HIGH1234", requesterId: 1, requestedPriority: "HIGH", itPriority: "HIGH", status: "NEW" });
+
+    const response = await postTicket({ ...validTicket, requestedPriority: "HIGH" });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({ requestedPriority: "HIGH", itPriority: "HIGH" });
+    expect(prisma.ticket.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestedPriority: "HIGH", itPriority: "HIGH" }) }));
   });
 
   it.each([

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const transaction = vi.hoisted(() => ({
-  ticket: { findFirst: vi.fn(), update: vi.fn() },
+  ticket: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   publicComment: { create: vi.fn() },
 }));
 const prisma = vi.hoisted(() => ({
@@ -25,6 +25,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   prisma.session.findUnique.mockResolvedValue({ expiresAt: new Date("2099-01-01"), user: requester });
   prisma.$transaction.mockImplementation((callback: (client: typeof transaction) => unknown) => callback(transaction));
+  transaction.ticket.updateMany.mockResolvedValue({ count: 1 });
 });
 
 describe("authenticated requester regression", () => {
@@ -80,18 +81,48 @@ describe("authenticated requester regression", () => {
 
   it("records resolution indication once, preserves its first timestamp, and leaves status unchanged", async () => {
     const first = { id: 4, status: "IN_PROGRESS", resolutionIndicatedAt: null, updatedAt: new Date("2026-09-18T09:00:00.000Z") };
-    const indicatedAt = new Date("2026-09-18T10:00:00.000Z");
-    transaction.ticket.findFirst.mockResolvedValueOnce(first).mockResolvedValueOnce({ ...first, resolutionIndicatedAt: indicatedAt, updatedAt: new Date("2026-09-18T10:01:00.000Z") });
-    transaction.ticket.update.mockResolvedValue({ id: 4, status: "IN_PROGRESS", resolutionIndicatedAt: indicatedAt, updatedAt: indicatedAt });
+    let firstTimestamp: Date | undefined;
+    transaction.ticket.findFirst
+      .mockResolvedValueOnce(first)
+      .mockImplementationOnce(async () => ({ ...first, resolutionIndicatedAt: firstTimestamp, updatedAt: firstTimestamp }));
+    transaction.ticket.updateMany.mockImplementationOnce(async ({ data }: { data: { resolutionIndicatedAt: Date } }) => {
+      firstTimestamp = data.resolutionIndicatedAt;
+      return { count: 1 };
+    });
 
     const created = await request(app).post("/api/tickets/4/resolution-indication").set("Origin", origin).set("Cookie", cookie).send({});
     const repeated = await request(app).post("/api/tickets/4/resolution-indication").set("Origin", origin).set("Cookie", cookie).send({});
 
     expect(created.status).toBe(200);
-    expect(created.body).toMatchObject({ ticketId: 4, status: "IN_PROGRESS", resolutionIndicatedAt: indicatedAt.toISOString() });
+    expect(created.body).toMatchObject({ ticketId: 4, status: "IN_PROGRESS" });
     expect(repeated.status).toBe(200);
-    expect(repeated.body.resolutionIndicatedAt).toBe(indicatedAt.toISOString());
-    expect(transaction.ticket.update).toHaveBeenCalledTimes(1);
+    expect(repeated.body.resolutionIndicatedAt).toBe(created.body.resolutionIndicatedAt);
+    expect(transaction.ticket.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the first timestamp when concurrent indications race", async () => {
+    const first = { id: 4, status: "IN_PROGRESS", resolutionIndicatedAt: null, updatedAt: new Date("2026-09-18T09:00:00.000Z") };
+    let reads = 0;
+    let firstTimestamp: Date | undefined;
+    transaction.ticket.findFirst.mockImplementation(async () => {
+      reads += 1;
+      return reads <= 2 ? first : { ...first, resolutionIndicatedAt: firstTimestamp, updatedAt: firstTimestamp };
+    });
+    transaction.ticket.updateMany
+      .mockImplementationOnce(async ({ data }: { data: { resolutionIndicatedAt: Date } }) => {
+        firstTimestamp = data.resolutionIndicatedAt;
+        return { count: 1 };
+      })
+      .mockResolvedValueOnce({ count: 0 });
+
+    const responses = await Promise.all([
+      request(app).post("/api/tickets/4/resolution-indication").set("Origin", origin).set("Cookie", cookie).send({}),
+      request(app).post("/api/tickets/4/resolution-indication").set("Origin", origin).set("Cookie", cookie).send({}),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(responses[0].body.resolutionIndicatedAt).toBe(responses[1].body.resolutionIndicatedAt);
+    expect(transaction.ticket.updateMany).toHaveBeenCalledTimes(2);
   });
 
   it("rejects resolution indication for terminal tickets", async () => {
@@ -101,6 +132,6 @@ describe("authenticated requester regression", () => {
 
     expect(response.status).toBe(409);
     expect(response.body.code).toBe("CONFLICT");
-    expect(transaction.ticket.update).not.toHaveBeenCalled();
+    expect(transaction.ticket.updateMany).not.toHaveBeenCalled();
   });
 });
