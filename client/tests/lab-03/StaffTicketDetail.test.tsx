@@ -132,4 +132,20 @@ describe("Staff Ticket Detail", () => {
     expect(await screen.findByRole("heading", { name: "Access denied" })).toBeInTheDocument();
     expect(screen.queryByText("Ticket Operations")).not.toBeInTheDocument();
   });
+
+  it("keeps the authenticated shell navigation and logout on the staff detail route", async () => {
+    mockLoads();
+    vi.spyOn(api, "currentUser").mockResolvedValue({ user: staff, expiresAt: "2026-09-19T00:00:00.000Z" });
+    const signOut = vi.spyOn(api, "logout").mockResolvedValue();
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/staff/tickets/4"]}><App /></MemoryRouter>);
+
+    expect(await screen.findByRole("heading", { name: "Ticket TKT-2026-A1B2C3D4" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Ticket Queue" })[0]).toBeInTheDocument();
+    const profileSummary = document.querySelector(".app-profile summary");
+    expect(profileSummary).not.toBeNull();
+    await user.click(profileSummary!);
+    await user.click(screen.getByRole("button", { name: "Logout" }));
+    expect(signOut).toHaveBeenCalledOnce();
+  });
 });

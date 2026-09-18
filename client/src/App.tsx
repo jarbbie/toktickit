@@ -461,7 +461,7 @@ export default function App() {
     <Route path="/tickets/new" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <CreateTicket requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffQueue /></Shell>} />
-    <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <StaffTicketDetailRoute />} />
+    <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffTicketDetailRoute /></Shell>} />
     <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <FutureWorkspace {...commonShell} title="User Management" /> : <AccessDenied {...commonShell} />} />
     <Route path="*" element={<Navigate replace to={roleHome(user)} />} />
   </Routes>;
