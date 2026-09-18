@@ -78,7 +78,7 @@ function hasAttachmentSignature(file: { mimetype: string; buffer: Buffer }) {
 }
 
 async function requireActiveRequester(prisma: PrismaClient, requesterId: number) {
-  const requester = await prisma.requester.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } });
+  const requester = await prisma.user.findFirst({ where: { id: requesterId, isActive: true, role: "REQUESTER" }, select: { id: true } });
   if (!requester) throw new RequestError("Requester is unavailable.");
 }
 
@@ -124,8 +124,8 @@ app.get("/api/categories", async (_req: Request, res: Response) => {
 
 app.get("/api/requesters", async (_req: Request, res: Response) => {
   try {
-    const requesters = await getPrisma().requester.findMany({
-      where: { isActive: true },
+    const requesters = await getPrisma().user.findMany({
+      where: { isActive: true, role: "REQUESTER" },
       orderBy: { name: "asc" },
       select: { id: true, name: true, email: true },
     });
@@ -320,7 +320,7 @@ app.post("/api/tickets", async (req: Request, res: Response) => {
     const priority = requestedPriority(req.body?.requestedPriority);
     const prisma = getPrisma();
     const [requester, category, relatedSystem] = await Promise.all([
-      prisma.requester.findFirst({ where: { id: requesterId, isActive: true }, select: { id: true } }),
+      prisma.user.findFirst({ where: { id: requesterId, isActive: true, role: "REQUESTER" }, select: { id: true } }),
       prisma.category.findFirst({ where: { id: categoryId, isActive: true }, select: { id: true } }),
       prisma.relatedSystem.findFirst({ where: { id: relatedSystemId, isActive: true }, select: { id: true } }),
     ]);

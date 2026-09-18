@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
+
+config({ path: fileURLToPath(new URL("../.env", import.meta.url)) });
 
 // Lazy singleton: the client is created on first use, not at import time.
 // This keeps route modules and tests that don't touch the DB (e.g. /api/health)

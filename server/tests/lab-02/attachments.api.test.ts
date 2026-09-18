@@ -4,7 +4,7 @@ import request from "supertest";
 const storage = vi.hoisted(() => ({ attachmentPath: vi.fn((key: string) => `/uploads/${key}`), discardAttachment: vi.fn(), saveAttachment: vi.fn() }));
 const transaction = vi.hoisted(() => ({ $executeRaw: vi.fn(), ticket: { findFirst: vi.fn() }, attachment: { count: vi.fn(), create: vi.fn() } }));
 const prisma = vi.hoisted(() => ({
-  requester: { findFirst: vi.fn() },
+  user: { findFirst: vi.fn() },
   attachment: { findFirst: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(),
 }));
@@ -19,7 +19,7 @@ const pdf = Buffer.from("%PDF-1.4\n");
 
 beforeEach(() => {
   vi.resetAllMocks();
-  prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+  prisma.user.findFirst.mockResolvedValue({ id: 1 });
   prisma.$transaction.mockImplementation((callback: (client: typeof transaction) => unknown) => callback(transaction));
 });
 

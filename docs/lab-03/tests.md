@@ -33,9 +33,9 @@ the case intentionally tests origin rejection.
 | UNIT-03 | Unit | BR-08; AC-02 | Normalized-email/IP key, fifth/sixth attempt, 15-minute boundary, success clearing and restart behavior | Fifth failure is 401, next attempt throttles, window expiry/success clears, unrelated key remains independent | `server/tests/lab-03/login-limiter.test.ts` | Planned |
 | UNIT-04 | Unit | BR-18; AC-23 | Enumerate every pair in the 8×8 status matrix and unknown value | Only documented transitions pass; same/disallowed/unknown values fail | `server/tests/lab-03/ticket-status.test.ts` | Planned |
 | UNIT-05 | Unit | BR-25, BR-26; AC-12, AC-18 | Requester/queue query defaults, unknown/repeated fields, ID/page/offset limits, allowed sorts and sizes | Exact parsed defaults or documented validation; stable ordering definition | `server/tests/lab-03/ticket-query.test.ts` | Planned |
-| MIG-01 | Migration/regression | BR-32; AC-40 | Populate old schema, snapshot all IDs/links/timestamps and attachment file checksums, upgrade, compare; clean install; email collisions | No row/file loss; identities/relationships preserved; IT Priority copied; collisions stop before conflicting rewrite | `server/tests/lab-03/migration.test.ts` | Planned |
-| MIG-02 | Migration/security | BR-02, BR-04, BR-32; AC-03, AC-05, AC-40 | Ordered legacy credential bootstrap, incomplete-upgrade refusal, inactive users, retry without hash replacement | Every legacy User receives a hash and required-change state; app cannot expose incomplete upgrade; retry preserves initialized hashes | `server/tests/lab-03/migration.test.ts` | Planned |
-| SEED-01 | Migration/regression | BR-33; AC-41 | Fresh minimum fixture counts and diversity; seed twice after editing password/status/owner/activation and adding user data | Minimum role/activation/ticket fixtures exist; second seed creates no duplicates and preserves all changed values | `server/tests/lab-03/database-seed.test.ts` | Planned |
+| MIG-01 | Migration/regression | BR-32; AC-40 | Populate old schema, snapshot all IDs/links/timestamps and attachment file checksums, upgrade, compare; clean install; email collisions | No row/file loss; identities/relationships preserved; IT Priority copied; collisions stop before conflicting rewrite | `server/tests/lab-03/migration.test.ts` | Pass — Issue #37 |
+| MIG-02 | Migration/security | BR-02, BR-04, BR-32; AC-03, AC-05, AC-40 | Ordered legacy credential bootstrap, incomplete-upgrade refusal, inactive users, retry without hash replacement | Every legacy User receives a hash and required-change state; app cannot expose incomplete upgrade; retry preserves initialized hashes | `server/tests/lab-03/migration.test.ts` | Partial — bootstrap passes; auth gate remains Issue #38 |
+| SEED-01 | Migration/regression | BR-33; AC-41 | Fresh minimum fixture counts and diversity; seed twice after editing password/status/owner/activation and adding user data | Minimum role/activation/ticket fixtures exist; second seed creates no duplicates and preserves all changed values | `server/tests/lab-03/database-seed.test.ts` | Pass — Issue #37 |
 | API-01 | API/integration | FR-01; AC-01, AC-02, AC-05 | Active normalized-email login, wrong/unknown/inactive credentials, limits, cookie attributes, secret exclusion | Safe AuthResult/cookie on success; generic 401 or 429 with Retry-After; no secret fields | `server/tests/lab-03/auth.api.test.ts` | Planned |
 | API-02 | API/integration | FR-02, FR-03; AC-03, AC-04, AC-06 | Initial gate, me, current/new password boundaries and reuse, logout repeat, expiry, replacement session, multiple-session revocation | Only allowed gate endpoints work; password change is atomic; old/expired/logged-out sessions fail | `server/tests/lab-03/auth.api.test.ts` | Planned |
 | SEC-01 | Security/API | BR-07; AC-07 | Configured/missing/null/foreign Origin for JSON and multipart mutations; login CSRF; preflight and credentialed CORS | Valid origin succeeds; forbidden origin cannot mutate; credentials never granted to wildcard/foreign origin | `server/tests/lab-03/authorization.api.test.ts` | Planned |
@@ -172,9 +172,12 @@ and screenshots rather than reporting an unverified completion assertion.
 
 ## 6. Results and Known Limits
 
-At contract authoring, Lab 3 implementation tests have not been run. All planned
-test rows and visual checks remain Planned. The existing Lab 2 results document
-the previous increment and do not establish Lab 3 correctness.
+Issue #37 completed MIG-01 and SEED-01. The populated-schema migration test
+preserves User/Ticket/Attachment IDs, relationships, and timestamps, checks
+priority backfill, and rejects normalized-email collisions. The seed test covers
+minimum fixtures, distinct Argon2id hashes, repeat safety, and preservation of
+changed account and Ticket data. MIG-02 remains partial until Issue #38 adds the
+runtime incomplete-upgrade/password-change gate. Other rows remain Planned.
 
 The login limiter is one-process memory only; restart/distribution behavior is
 documented and unit-tested as a limitation. Local attachment storage and a

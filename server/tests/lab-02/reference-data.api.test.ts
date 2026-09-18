@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
-  requester: { findMany: vi.fn() },
+  user: { findMany: vi.fn() },
   category: { findMany: vi.fn() },
   relatedSystem: { findMany: vi.fn() },
 }));
@@ -15,14 +15,14 @@ describe("Lab 2 reference-data APIs", () => {
   beforeEach(() => vi.resetAllMocks());
 
   it("returns active requesters ordered by name", async () => {
-    prisma.requester.findMany.mockResolvedValue([{ id: 2, name: "Anan", email: "anan@example.test" }]);
+    prisma.user.findMany.mockResolvedValue([{ id: 2, name: "Anan", email: "anan@example.test" }]);
 
     const response = await request(app).get("/api/requesters");
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual([{ id: 2, name: "Anan", email: "anan@example.test" }]);
-    expect(prisma.requester.findMany).toHaveBeenCalledWith({
-      where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, email: true },
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: { isActive: true, role: "REQUESTER" }, orderBy: { name: "asc" }, select: { id: true, name: true, email: true },
     });
   });
 
@@ -46,7 +46,7 @@ describe("Lab 2 reference-data APIs", () => {
   });
 
   it("returns a safe error when reference data cannot be loaded", async () => {
-    prisma.requester.findMany.mockRejectedValue(new Error("database unavailable"));
+    prisma.user.findMany.mockRejectedValue(new Error("database unavailable"));
 
     const response = await request(app).get("/api/requesters");
 
