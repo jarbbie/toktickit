@@ -10,9 +10,30 @@ export interface Requester extends ReferenceItem {
 }
 
 export interface ReferenceData {
-  requesters: Requester[];
   categories: ReferenceItem[];
   relatedSystems: ReferenceItem[];
+}
+
+export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  mustChangePassword: boolean;
+}
+
+export interface AuthResult {
+  user: AuthUser;
+  expiresAt: string;
+}
+
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number, readonly code?: string, readonly fieldErrors?: Record<string, string>, readonly retryAfter?: number) {
+    super(message);
+  }
 }
 
 export interface TicketInput {
@@ -77,25 +98,52 @@ export interface TicketQuery {
   pageSize?: number;
 }
 
-async function loadJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`);
-  if (!response.ok) throw new Error("Reference data request failed");
-  return response.json() as Promise<T>;
+async function loadJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, { credentials: "include", ...init });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiError(
+      typeof body.error === "string" ? body.error : "Unable to complete the request.", response.status,
+      typeof body.code === "string" ? body.code : undefined,
+      body.fieldErrors && typeof body.fieldErrors === "object" ? body.fieldErrors as Record<string, string> : undefined,
+      Number(response.headers.get("Retry-After")) || undefined,
+    );
+  }
+  return body as T;
 }
 
 export async function loadReferenceData(): Promise<ReferenceData> {
-  const [requesters, categories, relatedSystems] = await Promise.all([
-    loadJson<Requester[]>("/api/requesters"),
+  const [categories, relatedSystems] = await Promise.all([
     loadJson<ReferenceItem[]>("/api/categories"),
     loadJson<ReferenceItem[]>("/api/related-systems"),
   ]);
 
-  return { requesters, categories, relatedSystems };
+  return { categories, relatedSystems };
+}
+
+export function login(email: string, password: string) {
+  return loadJson<AuthResult>("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+}
+
+export function currentUser() {
+  return loadJson<AuthResult>("/api/auth/me");
+}
+
+export async function logout() {
+  const response = await fetch(`${API_URL}/api/auth/logout`, { method: "POST", credentials: "include" });
+  if (response.status === 204) return;
+  const body = await response.json().catch(() => ({}));
+  throw new ApiError(typeof body.error === "string" ? body.error : "Unable to sign out.", response.status, typeof body.code === "string" ? body.code : undefined);
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return loadJson<AuthResult>("/api/auth/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currentPassword, newPassword }) });
 }
 
 export async function createTicket(ticket: TicketInput): Promise<CreatedTicket> {
   const response = await fetch(`${API_URL}/api/tickets`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(ticket),
   });
@@ -107,14 +155,14 @@ export async function createTicket(ticket: TicketInput): Promise<CreatedTicket> 
 export async function loadTickets(requesterId: number, query: TicketQuery): Promise<TicketListResponse> {
   const params = new URLSearchParams({ requesterId: String(requesterId) });
   for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== "") params.set(key, String(value));
-  const response = await fetch(`${API_URL}/api/tickets?${params}`);
+  const response = await fetch(`${API_URL}/api/tickets?${params}`, { credentials: "include" });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load tickets.");
   return body as TicketListResponse;
 }
 
 export async function loadTicket(ticketId: number, requesterId: number): Promise<TicketDetail> {
-  const response = await fetch(`${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`);
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`, { credentials: "include" });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load ticket.");
   return body as TicketDetail;
@@ -124,14 +172,14 @@ export async function uploadAttachment(ticketId: number, requesterId: number, fi
   const form = new FormData();
   form.set("requesterId", String(requesterId));
   form.set("file", file);
-  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, { method: "POST", body: form });
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, { method: "POST", credentials: "include", body: form });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to upload attachment.");
   return body as Attachment;
 }
 
 export async function removeAttachment(attachmentId: number, requesterId: number, reason: string): Promise<Attachment> {
-  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId, reason }) });
+  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}`, { method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId, reason }) });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to remove attachment.");
   return body as Attachment;
