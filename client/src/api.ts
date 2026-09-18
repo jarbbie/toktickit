@@ -86,6 +86,12 @@ export interface StaffQueueResponse {
   totalPages: number;
 }
 
+export interface StaffOwnerOption {
+  id: number;
+  name: string;
+  role: Exclude<UserRole, "REQUESTER">;
+}
+
 export interface Attachment {
   id: number;
   originalName: string;
@@ -110,7 +116,19 @@ export interface TicketDetail extends TicketListItem {
   attachments: Attachment[];
 }
 
+export interface StaffTicketDetail extends TicketDetail {
+  ownerOptions: StaffOwnerOption[];
+}
+
 export interface PublicComment {
+  id: number;
+  ticketId: number;
+  body: string;
+  author: { id: number; name: string };
+  createdAt: string;
+}
+
+export interface InternalNote {
   id: number;
   ticketId: number;
   body: string;
@@ -211,6 +229,26 @@ export function loadStaffTickets(query: StaffQueueQuery) {
   return loadJson<StaffQueueResponse>(`/api/staff/tickets?${params}`);
 }
 
+export function loadStaffTicket(ticketId: number) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}`);
+}
+
+export function claimStaffTicket(ticketId: number) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/claim`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+}
+
+export function assignStaffTicket(ticketId: number, ownerId: number | null) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/owner`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ownerId }) });
+}
+
+export function updateStaffItPriority(ticketId: number, itPriority: TicketInput["requestedPriority"]) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/it-priority`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itPriority }) });
+}
+
+export function updateStaffTicketStatus(ticketId: number, status: TicketStatus) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+}
+
 export async function loadTicket(ticketId: number): Promise<TicketDetail> {
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, { credentials: "include" });
   const body = await response.json().catch(() => ({}));
@@ -244,6 +282,14 @@ export function loadPublicComments(ticketId: number) {
 
 export function addPublicComment(ticketId: number, body: string) {
   return loadJson<PublicComment>(`/api/tickets/${ticketId}/public-comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+}
+
+export function loadInternalNotes(ticketId: number) {
+  return loadJson<InternalNote[]>(`/api/staff/tickets/${ticketId}/internal-notes`);
+}
+
+export function addInternalNote(ticketId: number, body: string) {
+  return loadJson<InternalNote>(`/api/staff/tickets/${ticketId}/internal-notes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
 }
 
 export function indicateResolution(ticketId: number) {

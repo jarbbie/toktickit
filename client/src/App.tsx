@@ -2,6 +2,7 @@ import { Fragment, type FormEvent, type ReactNode, useEffect, useState } from "r
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type PublicComment, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, addPublicComment, attachmentDownloadUrl, changePassword, createTicket, currentUser, indicateResolution, loadPublicComments, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
 import StaffQueue from "./StaffQueue.js";
+import StaffTicketDetail from "./StaffTicketDetail.js";
 
 type SessionState = "checking" | "guest" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
@@ -460,7 +461,7 @@ export default function App() {
     <Route path="/tickets/new" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <CreateTicket requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffQueue /></Shell>} />
-    <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <FutureWorkspace {...commonShell} title="Ticket Detail" />} />
+    <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <StaffTicketDetailRoute />} />
     <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <FutureWorkspace {...commonShell} title="User Management" /> : <AccessDenied {...commonShell} />} />
     <Route path="*" element={<Navigate replace to={roleHome(user)} />} />
   </Routes>;
@@ -469,4 +470,9 @@ export default function App() {
 function TicketRoute({ requester }: { requester: Requester }) {
   const ticketId = Number(useParams().ticketId);
   return Number.isInteger(ticketId) && ticketId > 0 ? <TicketDetailPage requester={requester} ticketId={ticketId} /> : <Navigate replace to="/tickets" />;
+}
+
+function StaffTicketDetailRoute() {
+  const ticketId = Number(useParams().ticketId);
+  return Number.isInteger(ticketId) && ticketId > 0 ? <StaffTicketDetail ticketId={ticketId} /> : <Navigate replace to="/staff/tickets" />;
 }
