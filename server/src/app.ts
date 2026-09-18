@@ -6,6 +6,12 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
 import { generateTicketNumber } from "./ticket-number.js";
 import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
+import {
+  clearSessionCookie, configuredClientOrigin, hashPassword, hashSessionToken,
+  identity, loadAuthentication, loginLimiter, noStore, normalizeEmail,
+  passwordError, requireAllowedOrigin, sessionExpiry, setSessionCookie,
+  generateSessionToken, verifyPassword,
+} from "./auth.js";
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 const statuses = ["NEW"] as const;
@@ -86,7 +92,14 @@ async function requireActiveRequester(prisma: PrismaClient, requesterId: number)
 // Supertest can import `app` without opening a port. Do not merge these files.
 export const app = express();
 
-app.use(cors());          // already wired: lets the Vite dev server call this API
+app.use(cors({
+  credentials: true,
+  origin(origin, callback) {
+    callback(null, !origin || origin === configuredClientOrigin());
+  },
+  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+}));
 app.use(express.json({ limit: "100kb" }));
 app.use((error: Error & { type?: string }, _req: Request, res: Response, next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
@@ -107,6 +120,150 @@ app.use((error: Error & { type?: string }, _req: Request, res: Response, next: N
 // ---------------------------------------------------------------------------
 app.get("/api/health", (_req: Request, res: Response) => {
   res.json({ status: "ok", service: "TokTickIT API" });
+});
+
+function validAuthBody(value: unknown, fields: readonly string[]) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.keys(value).every((key) => fields.includes(key));
+}
+
+function loginFailure(response: Response) {
+  noStore(response);
+  response.status(401).json({ error: "Unable to sign in. Check your credentials or contact an administrator.", code: "INVALID_CREDENTIALS" });
+}
+
+app.post("/api/auth/login", async (req: Request, res: Response) => {
+  if (!requireAllowedOrigin(req, res)) return;
+  if (!validAuthBody(req.body, ["email", "password"])) {
+    res.status(400).json({ error: "Email and password are required.", code: "VALIDATION_ERROR" });
+    return;
+  }
+  const email = normalizeEmail(req.body.email);
+  const passwordProblem = passwordError(req.body.password);
+  if (!email || passwordProblem) {
+    res.status(400).json({ error: "Please correct the highlighted fields.", code: "VALIDATION_ERROR", fieldErrors: {
+      ...(!email ? { email: "Enter a valid email address." } : {}),
+      ...(passwordProblem ? { password: passwordProblem } : {}),
+    } });
+    return;
+  }
+  const ip = req.socket.remoteAddress ?? "unknown";
+  const retryAfter = loginLimiter.retryAfter(email, ip);
+  if (retryAfter > 0) {
+    noStore(res);
+    res.set("Retry-After", String(retryAfter)).status(429).json({ error: "Too many sign-in attempts. Please try again later.", code: "LOGIN_THROTTLED" });
+    return;
+  }
+  try {
+    const prisma = getPrisma();
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true, passwordHash: true },
+    });
+    const validPassword = await verifyPassword(user?.passwordHash ?? null, req.body.password);
+    if (!user || !user.isActive || !validPassword) {
+      loginLimiter.failure(email, ip);
+      loginFailure(res);
+      return;
+    }
+    loginLimiter.success(email, ip);
+    const token = generateSessionToken();
+    const tokenHash = hashSessionToken(token);
+    const expiresAt = sessionExpiry();
+    const priorAuth = await loadAuthentication(prisma, req as import("./auth.js").AuthenticatedRequest);
+    await prisma.$transaction(async (transaction) => {
+      if (priorAuth) await transaction.session.delete({ where: { tokenHash: priorAuth.tokenHash } });
+      await transaction.session.create({ data: { userId: user.id, tokenHash, expiresAt } });
+    });
+    setSessionCookie(res, token, expiresAt);
+    noStore(res);
+    res.json({ user: identity(user), expiresAt });
+  } catch {
+    res.status(500).json({ error: "Unable to sign in." });
+  }
+});
+
+app.get("/api/auth/me", async (req: Request, res: Response) => {
+  try {
+    const auth = await loadAuthentication(getPrisma(), req as import("./auth.js").AuthenticatedRequest);
+    if (!auth) {
+      noStore(res);
+      res.status(401).json({ error: "Authentication is required.", code: "UNAUTHENTICATED" });
+      return;
+    }
+    noStore(res);
+    res.json({ user: identity(auth.user), expiresAt: auth.expiresAt });
+  } catch {
+    res.status(500).json({ error: "Unable to retrieve the current user." });
+  }
+});
+
+app.post("/api/auth/logout", async (req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+    const auth = await loadAuthentication(prisma, req as import("./auth.js").AuthenticatedRequest);
+    if (auth && !requireAllowedOrigin(req, res)) return;
+    if (auth) await prisma.session.delete({ where: { tokenHash: auth.tokenHash } });
+    clearSessionCookie(res);
+    noStore(res);
+    res.status(204).end();
+  } catch {
+    res.status(500).json({ error: "Unable to sign out." });
+  }
+});
+
+app.post("/api/auth/change-password", async (req: Request, res: Response) => {
+  try {
+    const prisma = getPrisma();
+    const auth = await loadAuthentication(prisma, req as import("./auth.js").AuthenticatedRequest);
+    if (!auth) {
+      noStore(res);
+      res.status(401).json({ error: "Authentication is required.", code: "UNAUTHENTICATED" });
+      return;
+    }
+    if (!requireAllowedOrigin(req, res)) return;
+    if (!validAuthBody(req.body, ["currentPassword", "newPassword"])) {
+      res.status(400).json({ error: "Please correct the highlighted fields.", code: "VALIDATION_ERROR" });
+      return;
+    }
+    const currentProblem = passwordError(req.body.currentPassword);
+    const newProblem = passwordError(req.body.newPassword);
+    if (currentProblem || newProblem) {
+      res.status(400).json({ error: "Please correct the highlighted fields.", code: "VALIDATION_ERROR", fieldErrors: {
+        ...(currentProblem ? { currentPassword: currentProblem } : {}),
+        ...(newProblem ? { newPassword: newProblem } : {}),
+      } });
+      return;
+    }
+    const current = await prisma.user.findUnique({ where: { id: auth.user.id }, select: { passwordHash: true } });
+    if (!current || !await verifyPassword(current.passwordHash, req.body.currentPassword)) {
+      res.status(400).json({ error: "Please correct the highlighted fields.", code: "VALIDATION_ERROR", fieldErrors: { currentPassword: "Current password is incorrect." } });
+      return;
+    }
+    if (await verifyPassword(current.passwordHash, req.body.newPassword)) {
+      res.status(400).json({ error: "Please correct the highlighted fields.", code: "VALIDATION_ERROR", fieldErrors: { newPassword: "New password must differ from the current password." } });
+      return;
+    }
+    const token = generateSessionToken();
+    const tokenHash = hashSessionToken(token);
+    const expiresAt = sessionExpiry();
+    const passwordHash = await hashPassword(req.body.newPassword);
+    const user = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.user.update({
+        where: { id: auth.user.id },
+        data: { passwordHash, mustChangePassword: false },
+        select: { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true },
+      });
+      await transaction.session.deleteMany({ where: { userId: auth.user.id } });
+      await transaction.session.create({ data: { userId: auth.user.id, tokenHash, expiresAt } });
+      return updated;
+    });
+    setSessionCookie(res, token, expiresAt);
+    noStore(res);
+    res.json({ user: identity(user), expiresAt });
+  } catch {
+    res.status(500).json({ error: "Unable to change password." });
+  }
 });
 
 app.get("/api/categories", async (_req: Request, res: Response) => {

@@ -13,3 +13,9 @@ export function getPrisma(): PrismaClient {
   if (!client) client = new PrismaClient();
   return client;
 }
+
+// Test-only injection keeps integration tests on disposable schemas rather than
+// resetting the developer's working database. Production code never calls this.
+export function setPrismaForTests(testClient: PrismaClient | null) {
+  client = testClient;
+}
