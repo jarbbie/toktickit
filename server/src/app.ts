@@ -2,7 +2,7 @@ import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient, UserRole } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
 import { generateTicketNumber } from "./ticket-number.js";
 import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
@@ -22,8 +22,11 @@ const ownershipFilters = ["all", "mine", "assigned", "unassigned"] as const;
 const priorityRank: Record<typeof priorities[number], number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 const statusRank: Record<typeof statuses[number], number> = Object.fromEntries(statuses.map((status, index) => [status, index])) as Record<typeof statuses[number], number>;
 const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const userRoles = ["REQUESTER", "IT_STAFF", "ADMINISTRATOR"] as const;
+const userAccountLockKey = 44044;
 const attachmentSelect = { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true, removedAt: true, removalReason: true } as const;
 const personSelect = { id: true, name: true } as const;
+const adminUserSelect = { id: true, name: true, email: true, role: true, isActive: true, mustChangePassword: true, createdAt: true, updatedAt: true } as const;
 
 class AttachmentTypeError extends Error {}
 class AttachmentLimitError extends Error {}
@@ -32,6 +35,11 @@ class ResolutionConflictError extends Error {}
 class TicketAlreadyAssignedError extends Error {}
 class OwnerUnavailableError extends Error {}
 class InvalidStatusTransitionError extends Error {}
+class UserNotFoundError extends Error {}
+class EmailInUseError extends Error {}
+class AdminSafetyConflictError extends Error {
+  constructor(readonly code: "SELF_DEACTIVATION" | "LAST_ACTIVE_ADMINISTRATOR" | "ASSIGNED_TICKET_OWNER", message: string) { super(message); }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -43,7 +51,7 @@ const upload = multer({
 });
 
 class RequestError extends Error {
-  constructor(readonly message: string) { super(message); }
+  constructor(readonly message: string, readonly field?: string) { super(message); }
 }
 
 function requiredId(value: unknown, name: string) {
@@ -58,6 +66,49 @@ function requiredText(value: unknown, name: string, min: number, max: number) {
   const text = value.trim();
   if (text.length < min || text.length > max) throw new RequestError(`${name} must be between ${min} and ${max} characters.`);
   return text;
+}
+
+function adminName(value: unknown) {
+  if (typeof value !== "string") throw new RequestError("Name is required.", "name");
+  const name = value.trim();
+  if (name.length < 1 || name.length > 100) throw new RequestError("Name must be between 1 and 100 characters.", "name");
+  return name;
+}
+
+function adminEmail(value: unknown) {
+  const email = normalizeEmail(value);
+  if (!email) throw new RequestError("Enter a valid email address.", "email");
+  return email;
+}
+
+function adminRole(value: unknown) {
+  if (typeof value !== "string" || !userRoles.includes(value as typeof userRoles[number])) {
+    throw new RequestError("Role must be REQUESTER, IT_STAFF, or ADMINISTRATOR.", "role");
+  }
+  return value as UserRole;
+}
+
+function adminActive(value: unknown) {
+  if (typeof value !== "boolean") throw new RequestError("isActive must be a boolean.", "isActive");
+  return value;
+}
+
+function adminPassword(value: unknown) {
+  const problem = passwordError(value);
+  if (problem) throw new RequestError(problem, "initialPassword");
+  return value as string;
+}
+
+function validationResponse(response: Response, error: RequestError) {
+  response.status(400).json({
+    error: error.message,
+    code: "VALIDATION_ERROR",
+    ...(error.field ? { fieldErrors: { [error.field]: error.message } } : {}),
+  });
+}
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
 function validateObject(value: unknown, allowed: readonly string[], name = "request body") {
@@ -126,6 +177,7 @@ function authenticateCurrent(request: Request, response: Response, next: NextFun
 const completedAuthentication = [authenticateCurrent, requirePasswordChanged];
 const requesterAuthentication = [authenticateCurrent, requirePasswordChanged, requireRole("REQUESTER")];
 const staffAuthentication = [authenticateCurrent, requirePasswordChanged, requireRole("IT_STAFF", "ADMINISTRATOR")];
+const adminAuthentication = [authenticateCurrent, requirePasswordChanged, requireRole("ADMINISTRATOR")];
 
 function authenticatedUser(request: Request) {
   return (request as AuthenticatedRequest).auth!.user;
@@ -141,6 +193,10 @@ function conflict(res: Response, message: string) {
 
 function conflictWithCode(res: Response, message: string, code: string) {
   res.status(409).json({ error: message, code });
+}
+
+function conflictWithField(res: Response, message: string, code: string, field: string) {
+  res.status(409).json({ error: message, code, fieldErrors: { [field]: message } });
 }
 
 async function findReadableTicket(prisma: PrismaClient, ticketId: number, request: Request) {
@@ -418,6 +474,171 @@ app.post("/api/auth/change-password", async (req: Request, res: Response) => {
   }
 });
 
+app.get("/api/admin/users", ...adminAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, ["search", "role"]);
+    const search = req.query.search === undefined
+      ? undefined
+      : typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : (() => { throw new RequestError("search is invalid.", "search"); })();
+    if (search !== undefined && search.length > 200) throw new RequestError("Search must be no longer than 200 characters.", "search");
+    const role = optionalQueryChoice(req.query.role, "role", userRoles);
+    const where: Prisma.UserWhereInput = {
+      ...(role ? { role } : {}),
+      ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { email: { contains: search, mode: "insensitive" } }] } : {}),
+    };
+    const users = await getPrisma().user.findMany({
+      where,
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: adminUserSelect,
+    });
+    noStore(res);
+    res.json(users);
+  } catch (error) {
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to load users." });
+  }
+});
+
+app.post("/api/admin/users", ...adminAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["name", "email", "role", "isActive", "initialPassword"]);
+    for (const field of ["name", "email", "role", "isActive", "initialPassword"] as const) {
+      if (!Object.prototype.hasOwnProperty.call(body, field)) throw new RequestError(`${field} is required.`, field);
+    }
+    const name = adminName(body.name);
+    const email = adminEmail(body.email);
+    const role = adminRole(body.role);
+    const isActive = adminActive(body.isActive);
+    const initialPassword = adminPassword(body.initialPassword);
+    if (!requireAllowedOrigin(req, res)) return;
+    const user = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${userAccountLockKey})`;
+      const existing = await transaction.user.findUnique({ where: { email }, select: { id: true } });
+      if (existing) throw new EmailInUseError();
+      const passwordHash = await hashPassword(initialPassword);
+      try {
+        return await transaction.user.create({
+          data: { name, email, role, isActive, passwordHash, mustChangePassword: true },
+          select: adminUserSelect,
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) throw new EmailInUseError();
+        throw error;
+      }
+    });
+    noStore(res);
+    res.status(201).json(user);
+  } catch (error) {
+    if (error instanceof EmailInUseError || isUniqueViolation(error)) {
+      conflictWithField(res, "Email is already in use.", "EMAIL_IN_USE", "email");
+      return;
+    }
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to create user." });
+  }
+});
+
+app.patch("/api/admin/users/:userId", ...adminAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["name", "email", "role", "isActive"]);
+    if (Object.keys(body).length === 0) throw new RequestError("At least one user field is required.");
+    const userId = queryInteger(req.params.userId, "userId");
+    const changes: Prisma.UserUpdateInput = {};
+    if (Object.prototype.hasOwnProperty.call(body, "name")) changes.name = adminName(body.name);
+    if (Object.prototype.hasOwnProperty.call(body, "email")) changes.email = adminEmail(body.email);
+    if (Object.prototype.hasOwnProperty.call(body, "role")) changes.role = adminRole(body.role);
+    if (Object.prototype.hasOwnProperty.call(body, "isActive")) changes.isActive = adminActive(body.isActive);
+    if (!requireAllowedOrigin(req, res)) return;
+    const actor = authenticatedUser(req);
+    const user = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${userAccountLockKey})`;
+      const current = await transaction.user.findUnique({ where: { id: userId }, select: { ...adminUserSelect } });
+      if (!current) throw new UserNotFoundError();
+      const nextRole = (changes.role as UserRole | undefined) ?? current.role;
+      const nextIsActive = (changes.isActive as boolean | undefined) ?? current.isActive;
+      const roleChanged = nextRole !== current.role;
+      const deactivating = current.isActive && !nextIsActive;
+      if (actor.id === current.id && deactivating) {
+        throw new AdminSafetyConflictError("SELF_DEACTIVATION", "An Administrator cannot deactivate their own account.");
+      }
+      const removingActiveAdministrator = current.role === "ADMINISTRATOR" && current.isActive && (nextRole !== "ADMINISTRATOR" || !nextIsActive);
+      if (removingActiveAdministrator && await transaction.user.count({ where: { role: "ADMINISTRATOR", isActive: true } }) <= 1) {
+        throw new AdminSafetyConflictError("LAST_ACTIVE_ADMINISTRATOR", "The last active Administrator cannot be removed.");
+      }
+      if ((roleChanged || deactivating) && await transaction.ticket.count({ where: { ownerId: userId } }) > 0) {
+        throw new AdminSafetyConflictError("ASSIGNED_TICKET_OWNER", "Reassign this user's Tickets before changing their role or deactivating the account.");
+      }
+      const updated = await transaction.user.update({ where: { id: userId }, data: changes, select: adminUserSelect });
+      if (roleChanged || deactivating) await transaction.session.deleteMany({ where: { userId } });
+      return updated;
+    });
+    noStore(res);
+    res.json(user);
+  } catch (error) {
+    if (error instanceof UserNotFoundError) {
+      notFound(res, "User not found.");
+      return;
+    }
+    if (error instanceof AdminSafetyConflictError) {
+      conflictWithCode(res, error.message, error.code);
+      return;
+    }
+    if (error instanceof EmailInUseError || isUniqueViolation(error)) {
+      conflictWithField(res, "Email is already in use.", "EMAIL_IN_USE", "email");
+      return;
+    }
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to update user." });
+  }
+});
+
+app.post("/api/admin/users/:userId/initial-password", ...adminAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["initialPassword"]);
+    if (!Object.prototype.hasOwnProperty.call(body, "initialPassword")) throw new RequestError("initialPassword is required.", "initialPassword");
+    const userId = queryInteger(req.params.userId, "userId");
+    const initialPassword = adminPassword(body.initialPassword);
+    if (!requireAllowedOrigin(req, res)) return;
+    const actor = authenticatedUser(req);
+    const user = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${userAccountLockKey})`;
+      const current = await transaction.user.findUnique({ where: { id: userId }, select: { ...adminUserSelect, passwordHash: true } });
+      if (!current) throw new UserNotFoundError();
+      if (await verifyPassword(current.passwordHash, initialPassword)) {
+        throw new RequestError("New initial password must differ from the current password.", "initialPassword");
+      }
+      const passwordHash = await hashPassword(initialPassword);
+      const updated = await transaction.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true }, select: adminUserSelect });
+      await transaction.session.deleteMany({ where: { userId } });
+      return updated;
+    });
+    if (actor.id === user.id) clearSessionCookie(res);
+    noStore(res);
+    res.json(user);
+  } catch (error) {
+    if (error instanceof UserNotFoundError) {
+      notFound(res, "User not found.");
+      return;
+    }
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to set initial password." });
+  }
+});
+
 app.get("/api/categories", ...completedAuthentication, async (_req: Request, res: Response) => {
   try {
     const categories = await getPrisma().category.findMany({
@@ -584,6 +805,7 @@ app.post("/api/staff/tickets/:ticketId/claim", ...staffAuthentication, async (re
     if (!requireAllowedOrigin(req, res)) return;
     const user = authenticatedUser(req);
     const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${userAccountLockKey})`;
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
       const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, ownerId: true } });
       if (!ticket) throw new TicketNotFoundError();
@@ -628,6 +850,7 @@ app.patch("/api/staff/tickets/:ticketId/owner", ...staffAuthentication, async (r
     const ownerId = body.ownerId === null ? null : requiredId(body.ownerId, "ownerId");
     if (!requireAllowedOrigin(req, res)) return;
     const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${userAccountLockKey})`;
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
       const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, ownerId: true } });
       if (!ticket) throw new TicketNotFoundError();

@@ -2,12 +2,13 @@
 
 ## 1. Pre-Implementation Strategy
 
-This plan is written with the engineering contract before Lab 3 implementation.
-Every row is `Planned`: its file is the intended actual repository path, not a
-claim that it already exists or passes. Implement behavioral tests before the
-corresponding feature, observe the expected failure, then implement and verify.
-When a row passes, record its actual file, command, result, and commit; do not
-copy earlier Lab 2 results into Lab 3 completion evidence.
+This plan was written with the engineering contract before Lab 3 implementation.
+Rows began as `Planned`: their paths are intended repository paths, not claims
+that tests already existed or passed. As each increment is implemented, the
+row records `Pass` or `Partial` with the issue and remaining evidence instead of
+copying earlier Lab 2 results into Lab 3 completion evidence. Implement
+behavioral tests before the corresponding feature, observe the expected failure,
+then implement and verify.
 
 Use Vitest for unit tests, Vitest/Supertest for Express API tests, React Testing
 Library for components, and Playwright for browser flows and responsive/style
@@ -50,9 +51,9 @@ the case intentionally tests origin rejection.
 | API-09 | PostgreSQL integration | BR-16; AC-20 | Two authenticated staff claim one unassigned ticket concurrently; already-owned and repeat claims | Exactly one 200 and one 409, one eligible owner, no status change | `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — transaction-scoped advisory-lock assertion and already-assigned conflict pass in Issue #42; disposable PostgreSQL race remains required |
 | API-10 | API/integration | FR-09; AC-23, AC-24 | All status pairs via API, unknown/same values, Requester denial, indication first/repeat/prohibited state and Reopened clearing | Matrix enforced atomically; no partial mutations; indication is independent and repeat-safe | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — requester indication behavior passes in Issue #40; staff transition validation, Reopened clearing, and safe errors pass in Issue #42; exhaustive matrix regression remains |
 | API-11 | API/integration | FR-10, FR-11; AC-25, AC-26 | Public Comment/Internal Note limits 0/1/max/max+1 and whitespace-only, authorship spoofing, chronological ties, all statuses, unsupported edit/delete | Trimmed append-only entries with server author/time; wrong roles/ownership denied; no writable metadata | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — Public Comment behavior passes in Issue #40; staff-only Internal Note retrieval, privacy denial, backend authorship, trimming, and atomic updatedAt pass in Issue #42; full boundary matrix remains |
-| API-12 | API/integration | FR-12; AC-28, AC-29, AC-30 | User list active/inactive/search/one-role filter, create/basic patch, required fields, normalization and invalid role arrays | Safe users only, correct filtered order, one role, hashed initial credentials, exact validation/conflicts | `server/tests/lab-03/users-admin.api.test.ts` | Planned |
-| API-13 | PostgreSQL integration | BR-03, BR-28; AC-21, AC-29, AC-31 | Duplicate-email concurrent creates; simultaneous last-admin changes; owner assignment versus deactivation/role change; self-deactivation | At least one active Admin remains; no duplicate email or ineligible owner; conflicts preserve prior data | `server/tests/lab-03/users-admin.api.test.ts` | Planned |
-| API-14 | API/integration | FR-13; AC-30, AC-31, AC-32 | Assigned-owner guards in every status, deactivation/reactivation, role/session changes, reset/reuse, inactive reset, self-role/self-reset | Guard conflicts; deactivation/reset revoke sessions; reactivation needs login; reset always requires next-login change | `server/tests/lab-03/users-admin.api.test.ts` | Planned |
+| API-12 | API/integration | FR-12; AC-28, AC-29, AC-30 | User list active/inactive/search/one-role filter, create/basic patch, required fields, normalization and invalid role arrays | Safe users only, correct filtered order, one role, hashed initial credentials, exact validation/conflicts | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers list/search/filter, create, patch, duplicate email, validation, and safe fields; remaining exhaustive boundary evidence is tracked for #46 |
+| API-13 | PostgreSQL integration | BR-03, BR-28; AC-21, AC-29, AC-31 | Duplicate-email concurrent creates; simultaneous last-admin changes; owner assignment versus deactivation/role change; self-deactivation | At least one active Admin remains; no duplicate email or ineligible owner; conflicts preserve prior data | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers transaction lock and safety-rule paths with direct API tests; real PostgreSQL concurrency evidence remains for #46 |
+| API-14 | API/integration | FR-13; AC-30, AC-31, AC-32 | Assigned-owner guards in every status, deactivation/reactivation, role/session changes, reset/reuse, inactive reset, self-role/self-reset | Guard conflicts; deactivation/reset revoke sessions; reactivation needs login; reset always requires next-login change | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers reset hashing, required-change state, session revocation, and self-reset cookie clearing; full account lifecycle matrix remains for #46 |
 | SEC-04 | Security/API | BR-30; AC-33 | Malformed/oversized JSON, invalid numeric/type/unknown input; injected database/hash/storage failures for each route group; forbidden resource probes | Safe JSON error/status with no token/hash/password/path/SQL/stack or protected count; no partial writes | `server/tests/lab-03/safe-errors.api.test.ts` | Planned |
 | UI-01 | UI component | FR-01, FR-14; AC-02, AC-34 | Login fields/rules, normalized email, invalid/inactive/throttle/error/success, deferred request and repeated click | Labelled form; generic failure; preserved email; one request while busy; role/gate destination | `client/tests/lab-03/Login.test.tsx` | Partial — validation, safe credential failure, and mandatory-route continuation pass in Issue #39; browser throttle/busy evidence remains E2E |
 | UI-02 | UI component | FR-02, FR-14; AC-03, AC-04, AC-34 | Mandatory/voluntary password modes, exact confirmation, wrong/reused/boundary password, busy/error/success | Gate cannot be bypassed; no confirmation field sent; inputs stay masked; valid result continues | `client/tests/lab-03/ChangePassword.test.tsx` | Partial — mandatory gate, exact confirmation, API shape, and successful continuation pass in Issue #39; server-boundary variants remain API/E2E |
@@ -183,12 +184,22 @@ mutations, and the documented in-memory login limiter. Its integration test uses
 a disposable PostgreSQL schema and proves old sessions are removed atomically on
 password change. The Lab 2 Requester routes intentionally retain their temporary
 identity inputs until Issue #40 converts them to authenticated ownership; their
-full password-change/role gate coverage therefore remains planned there. Other
-rows remain Planned.
+full password-change/role gate coverage therefore remains planned there.
+
+Issue #44 adds the Administrator User Management API for listing, searching,
+role filtering, creation, basic edits, account activation changes, and initial
+password reset. Direct tests cover Administrator-only authorization, normalized
+duplicate-email conflicts, password hashing, session revocation, self-
+deactivation, last-active-Administrator protection, assigned-owner protection,
+safe response fields, and self-reset cookie clearing. The mocked transaction
+tests do not replace the required disposable PostgreSQL concurrency evidence;
+that evidence remains planned for Issue #46.
 
 The login limiter is one-process memory only; restart/distribution behavior is
 documented and unit-tested as a limitation. Local attachment storage and a
 single configured browser origin are the supported lab setup. Email delivery,
 MFA/SSO, Actions Taken, production deployment, and other excluded scope do not
 require implementation tests in this sprint. Peer approvals and final-main
-results are recorded only when the underlying work has occurred.
+results are recorded only when the underlying work has occurred. Remaining
+`Planned` rows are not completion claims; `Partial` rows identify behavior that
+still needs integration, concurrency, browser, or visual evidence.
