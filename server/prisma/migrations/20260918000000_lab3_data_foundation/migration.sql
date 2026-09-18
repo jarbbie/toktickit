@@ -35,7 +35,7 @@ ALTER TYPE "TicketStatus" ADD VALUE IF NOT EXISTS 'CANCELLED';
 ALTER TABLE "Ticket"
   ADD COLUMN "ownerId" INTEGER,
   ADD COLUMN "itPriority" "RequestedPriority" NOT NULL DEFAULT 'MEDIUM',
-  ADD COLUMN "problemAppearsResolvedAt" TIMESTAMP(3);
+  ADD COLUMN "resolutionIndicatedAt" TIMESTAMP(3);
 UPDATE "Ticket" SET "itPriority" = "requestedPriority";
 ALTER TABLE "Ticket" ADD CONSTRAINT "Ticket_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 CREATE INDEX "Ticket_ownerId_updatedAt_idx" ON "Ticket"("ownerId", "updatedAt");

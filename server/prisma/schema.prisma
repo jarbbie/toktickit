@@ -82,27 +82,27 @@ model RelatedSystem {
 }
 
 model Ticket {
-  id                       Int               @id @default(autoincrement())
-  ticketNumber             String            @unique @db.VarChar(32)
-  requesterId              Int
-  ownerId                  Int?
-  categoryId               Int
-  relatedSystemId          Int
-  requestedPriority        RequestedPriority @default(MEDIUM)
-  itPriority               RequestedPriority @default(MEDIUM)
-  status                   TicketStatus      @default(NEW)
-  problemAppearsResolvedAt DateTime?
-  summary                  String            @db.VarChar(200)
-  description              String            @db.VarChar(4000)
-  createdAt                DateTime          @default(now())
-  updatedAt                DateTime          @updatedAt
-  requester                User              @relation("RequesterTickets", fields: [requesterId], references: [id])
-  owner                    User?             @relation("OwnerTickets", fields: [ownerId], references: [id], onDelete: Restrict)
-  category                 Category          @relation(fields: [categoryId], references: [id])
-  relatedSystem            RelatedSystem     @relation(fields: [relatedSystemId], references: [id])
-  attachments              Attachment[]
-  publicComments           PublicComment[]
-  internalNotes            InternalNote[]
+  id                    Int               @id @default(autoincrement())
+  ticketNumber          String            @unique @db.VarChar(32)
+  requesterId           Int
+  ownerId               Int?
+  categoryId            Int
+  relatedSystemId       Int
+  requestedPriority     RequestedPriority @default(MEDIUM)
+  itPriority            RequestedPriority @default(MEDIUM)
+  status                TicketStatus      @default(NEW)
+  resolutionIndicatedAt DateTime?
+  summary               String            @db.VarChar(200)
+  description           String            @db.VarChar(4000)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  requester             User              @relation("RequesterTickets", fields: [requesterId], references: [id])
+  owner                 User?             @relation("OwnerTickets", fields: [ownerId], references: [id], onDelete: Restrict)
+  category              Category          @relation(fields: [categoryId], references: [id])
+  relatedSystem         RelatedSystem     @relation(fields: [relatedSystemId], references: [id])
+  attachments           Attachment[]
+  publicComments        PublicComment[]
+  internalNotes         InternalNote[]
 
   @@index([requesterId, updatedAt])
   @@index([ownerId, updatedAt])

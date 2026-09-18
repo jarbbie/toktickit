@@ -76,7 +76,7 @@ export async function seedDatabase(prisma: SeedClient) {
         requesterId: requesterRows[fixture.requesterIndex].id, ownerId: fixture.ownerIndex === null ? null : ownerRows[fixture.ownerIndex].id,
         categoryId: categoryRows[fixture.categoryIndex].id, relatedSystemId: systemRows[fixture.relatedSystemIndex].id,
         requestedPriority: fixture.requestedPriority, itPriority: fixture.itPriority, status: fixture.status,
-        problemAppearsResolvedAt: fixture.status === "WAITING_FOR_REQUESTER" ? new Date("2026-09-01T00:00:00.000Z") : null,
+        resolutionIndicatedAt: fixture.status === "WAITING_FOR_REQUESTER" ? new Date("2026-09-01T00:00:00.000Z") : null,
       },
     });
   }
