@@ -3,6 +3,7 @@ import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
   user: { findMany: vi.fn() },
+  session: { findUnique: vi.fn() },
   category: { findMany: vi.fn() },
   relatedSystem: { findMany: vi.fn() },
 }));
@@ -12,18 +13,16 @@ vi.mock("../../src/prisma.js", () => ({ getPrisma: () => prisma }));
 import { app } from "../../src/app.js";
 
 describe("Lab 2 reference-data APIs", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.session.findUnique.mockResolvedValue({ expiresAt: new Date("2099-01-01"), user: { id: 1, name: "Nicha", email: "nicha@toktickit.test", role: "REQUESTER", isActive: true, mustChangePassword: false } });
+  });
 
-  it("returns active requesters ordered by name", async () => {
-    prisma.user.findMany.mockResolvedValue([{ id: 2, name: "Anan", email: "anan@example.test" }]);
-
+  it("removes the obsolete requester reference endpoint", async () => {
     const response = await request(app).get("/api/requesters");
 
-    expect(response.status).toBe(200);
-    expect(response.body).toEqual([{ id: 2, name: "Anan", email: "anan@example.test" }]);
-    expect(prisma.user.findMany).toHaveBeenCalledWith({
-      where: { isActive: true, role: "REQUESTER" }, orderBy: { name: "asc" }, select: { id: true, name: true, email: true },
-    });
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: "Not found.", code: "NOT_FOUND" });
   });
 
   it("returns only active categories and related systems ordered by name", async () => {
@@ -31,8 +30,8 @@ describe("Lab 2 reference-data APIs", () => {
     prisma.relatedSystem.findMany.mockResolvedValue([{ id: 3, name: "VPN" }]);
 
     const [categories, relatedSystems] = await Promise.all([
-      request(app).get("/api/categories"),
-      request(app).get("/api/related-systems"),
+      request(app).get("/api/categories").set("Cookie", "toktickit_session=token"),
+      request(app).get("/api/related-systems").set("Cookie", "toktickit_session=token"),
     ]);
 
     expect(categories.body).toEqual([{ id: 1, name: "Hardware" }]);
@@ -46,11 +45,11 @@ describe("Lab 2 reference-data APIs", () => {
   });
 
   it("returns a safe error when reference data cannot be loaded", async () => {
-    prisma.user.findMany.mockRejectedValue(new Error("database unavailable"));
+    prisma.category.findMany.mockRejectedValue(new Error("database unavailable"));
 
-    const response = await request(app).get("/api/requesters");
+    const response = await request(app).get("/api/categories").set("Cookie", "toktickit_session=token");
 
     expect(response.status).toBe(500);
-    expect(response.body).toEqual({ error: "Unable to load requesters." });
+    expect(response.body).toEqual({ error: "Unable to load request categories." });
   });
 });

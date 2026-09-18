@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
-  user: { findFirst: vi.fn() },
+  session: { findUnique: vi.fn() },
   category: { findFirst: vi.fn() },
   relatedSystem: { findFirst: vi.fn() },
   ticket: { create: vi.fn() },
@@ -13,7 +13,6 @@ vi.mock("../../src/prisma.js", () => ({ getPrisma: () => prisma }));
 import { app } from "../../src/app.js";
 
 const validTicket = {
-  requesterId: 1,
   categoryId: 2,
   relatedSystemId: 3,
   summary: "  VPN cannot connect  ",
@@ -21,13 +20,19 @@ const validTicket = {
 };
 
 function mockActiveReferences() {
-  prisma.user.findFirst.mockResolvedValue({ id: 1 });
   prisma.category.findFirst.mockResolvedValue({ id: 2 });
   prisma.relatedSystem.findFirst.mockResolvedValue({ id: 3 });
 }
 
+function postTicket(body = validTicket) {
+  return request(app).post("/api/tickets").set("Origin", "http://localhost:5173").set("Cookie", "toktickit_session=token").send(body);
+}
+
 describe("POST /api/tickets", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    prisma.session.findUnique.mockResolvedValue({ expiresAt: new Date("2099-01-01"), user: { id: 1, name: "Nicha", email: "nicha@toktickit.test", role: "REQUESTER", isActive: true, mustChangePassword: false } });
+  });
 
   it("creates a trimmed New ticket with a backend ticket number and default priority", async () => {
     mockActiveReferences();
@@ -37,7 +42,7 @@ describe("POST /api/tickets", () => {
       description: "The VPN fails after entering my university credentials.",
     });
 
-    const response = await request(app).post("/api/tickets").send(validTicket);
+    const response = await postTicket();
 
     expect(response.status).toBe(201);
     expect(response.body).toMatchObject({ ticketNumber: "TKT-2026-A1B2C3D4", requesterId: 1, status: "NEW", requestedPriority: "MEDIUM" });
@@ -48,14 +53,14 @@ describe("POST /api/tickets", () => {
   });
 
   it.each([
-    ["requesterId", { requesterId: 0 }, "requesterId must be a positive integer."],
+    ["requesterId", { requesterId: 0 }, "requesterId is not allowed."],
     ["categoryId", { categoryId: 0 }, "categoryId must be a positive integer."],
     ["relatedSystemId", { relatedSystemId: 0 }, "relatedSystemId must be a positive integer."],
     ["summary", { summary: "bad" }, "summary must be between 5 and 200 characters."],
     ["description", { description: "bad" }, "description must be between 10 and 4000 characters."],
     ["requestedPriority", { requestedPriority: "NOW" }, "requestedPriority must be LOW, MEDIUM, HIGH, or URGENT."],
   ])("rejects invalid %s without storing a ticket", async (_field, invalidValue, error) => {
-    const response = await request(app).post("/api/tickets").send({ ...validTicket, ...invalidValue });
+    const response = await postTicket({ ...validTicket, ...invalidValue });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error });
@@ -63,26 +68,25 @@ describe("POST /api/tickets", () => {
   });
 
   it("rejects inactive or missing references without storing a ticket", async () => {
-    prisma.user.findFirst.mockResolvedValue(null);
-    prisma.category.findFirst.mockResolvedValue({ id: 2 });
+    prisma.category.findFirst.mockResolvedValue(null);
     prisma.relatedSystem.findFirst.mockResolvedValue({ id: 3 });
 
-    const response = await request(app).post("/api/tickets").send(validTicket);
+    const response = await postTicket();
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: "Requester or reference data is unavailable." });
+    expect(response.body).toEqual({ error: "Reference data is unavailable." });
     expect(prisma.ticket.create).not.toHaveBeenCalled();
   });
 
   it("returns a safe JSON error for malformed JSON", async () => {
-    const response = await request(app).post("/api/tickets").set("Content-Type", "application/json").send('{');
+    const response = await request(app).post("/api/tickets").set("Origin", "http://localhost:5173").set("Cookie", "toktickit_session=token").set("Content-Type", "application/json").send('{');
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({ error: "Malformed JSON request body." });
   });
 
   it("returns safe JSON for an oversized request body", async () => {
-    const response = await request(app).post("/api/tickets").send({ value: "a".repeat(110 * 1024) });
+    const response = await request(app).post("/api/tickets").set("Origin", "http://localhost:5173").set("Cookie", "toktickit_session=token").send({ value: "a".repeat(110 * 1024) });
 
     expect(response.status).toBe(413);
     expect(response.type).toBe("application/json");
@@ -96,7 +100,7 @@ describe("POST /api/tickets", () => {
       .mockRejectedValueOnce({ code: "P2002" })
       .mockResolvedValueOnce({ id: 1, ticketNumber: "TKT-2026-A1B2C3D4", status: "NEW" });
 
-    const response = await request(app).post("/api/tickets").send(validTicket);
+    const response = await postTicket();
 
     expect(response.status).toBe(201);
     expect(prisma.ticket.create).toHaveBeenCalledTimes(2);

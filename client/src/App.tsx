@@ -1,6 +1,6 @@
 import { Fragment, type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
-import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, attachmentDownloadUrl, changePassword, createTicket, currentUser, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
+import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type PublicComment, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, addPublicComment, attachmentDownloadUrl, changePassword, createTicket, currentUser, indicateResolution, loadPublicComments, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
 
 type SessionState = "checking" | "guest" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
@@ -13,7 +13,7 @@ function attachmentValidationError(file: File) {
 }
 
 function enumLabel(value: string) {
-  return value[0] + value.slice(1).toLowerCase();
+  return value.split("_").map((part) => part[0] + part.slice(1).toLowerCase()).join(" ");
 }
 
 function priorityBadge(priority: string) {
@@ -54,7 +54,7 @@ function Shell({ user, onLogout, logoutError, children, wide = false }: { user: 
 
 const initialTicketFilters: TicketQuery = { search: "", categoryId: "", requestedPriority: "", status: "", sortBy: "updatedAt", direction: "desc", page: 1, pageSize: 10 };
 
-function MyTickets({ requester, data }: { requester: Requester; data: ReferenceData }) {
+function MyTickets({ data }: { data: ReferenceData }) {
   const [filters, setFilters] = useState<TicketQuery>(initialTicketFilters);
   const [result, setResult] = useState<TicketListResponse | null>(null);
   const [failure, setFailure] = useState(false);
@@ -64,13 +64,13 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
     let cancelled = false;
     setResult(null);
     setFailure(false);
-    void loadTickets(requester.id, filters).then((data) => {
+    void loadTickets(filters).then((data) => {
       if (!cancelled) setResult(data);
     }).catch(() => {
       if (!cancelled) setFailure(true);
     });
     return () => { cancelled = true; };
-  }, [requester.id, filters, retry]);
+  }, [filters, retry]);
 
   function update<K extends keyof TicketQuery>(key: K, value: TicketQuery[K]) {
     setFilters((current) => ({ ...current, [key]: value, page: 1 }));
@@ -98,12 +98,12 @@ function MyTickets({ requester, data }: { requester: Requester; data: ReferenceD
       <div className="ticket-filter-search"><label className="form-label" htmlFor="ticket-search">Search tickets</label><div className="search-control"><svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div></div>
       <div><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div><label className="form-label" htmlFor="ticket-priority">Requested Priority</label><select className="form-select" id="ticket-priority" value={filters.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as TicketQuery["requestedPriority"])}><option value="">All priorities</option>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((item) => <option key={item}>{item}</option>)}</select></div>
-      <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option><option value="NEW">NEW</option></select></div>
+      <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option>{["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</select></div>
     </div></div>
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>Current Status</th><th><button aria-label={`Sort by Last Updated ${filters.sortBy === "updatedAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("updatedAt")}>Last Updated <span aria-hidden="true">{sortMark("updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
+    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>IT Priority</th><th>Current Status</th><th><button aria-label={`Sort by Last Updated ${filters.sortBy === "updatedAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("updatedAt")}>Last Updated <span aria-hidden="true">{sortMark("updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{priorityBadge(ticket.itPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
   </section>;
 }
 
@@ -118,14 +118,24 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
   const [removalReason, setRemovalReason] = useState("");
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState("");
+  const [comments, setComments] = useState<PublicComment[] | null>(null);
+  const [commentsFailure, setCommentsFailure] = useState(false);
+  const [commentBody, setCommentBody] = useState("");
+  const [commentError, setCommentError] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [resolutionError, setResolutionError] = useState("");
+  const [resolutionSubmitting, setResolutionSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setTicket(null);
     setFailure(false);
-    void loadTicket(ticketId, requester.id).then((data) => { if (!cancelled) setTicket(data); }).catch(() => { if (!cancelled) setFailure(true); });
+    setComments(null);
+    setCommentsFailure(false);
+    void loadTicket(ticketId).then((data) => { if (!cancelled) setTicket(data); }).catch(() => { if (!cancelled) setFailure(true); });
+    void loadPublicComments(ticketId).then((data) => { if (!cancelled) setComments(data); }).catch(() => { if (!cancelled) setCommentsFailure(true); });
     return () => { cancelled = true; };
-  }, [requester.id, retry, ticketId]);
+  }, [retry, ticketId]);
 
   async function upload() {
     if (!file || !ticket) return;
@@ -137,7 +147,7 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
     setUploading(true);
     setUploadError("");
     try {
-      const attachment = await uploadAttachment(ticket.id, requester.id, file);
+      const attachment = await uploadAttachment(ticket.id, file);
       setTicket({ ...ticket, attachments: [attachment, ...ticket.attachments] });
       setFile(null);
     } catch (error) {
@@ -153,7 +163,7 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
     setRemoving(true);
     setRemoveError("");
     try {
-      const updated = await removeAttachment(removingId, requester.id, removalReason);
+      const updated = await removeAttachment(removingId, removalReason);
       setTicket({ ...ticket, attachments: ticket.attachments.map((item) => item.id === updated.id ? updated : item) });
       setRemovingId(null);
       setRemovalReason("");
@@ -161,6 +171,41 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
       setRemoveError(error instanceof Error ? error.message : "Unable to remove attachment.");
     } finally {
       setRemoving(false);
+    }
+  }
+
+  async function postComment(event: FormEvent) {
+    event.preventDefault();
+    if (!ticket) return;
+    const body = commentBody.trim();
+    if (body.length < 1 || body.length > 2_000 || commentSubmitting) {
+      setCommentError("Comment must be between 1 and 2000 characters.");
+      return;
+    }
+    setCommentSubmitting(true);
+    setCommentError("");
+    try {
+      const created = await addPublicComment(ticket.id, body);
+      setComments((current) => [...(current ?? []), created]);
+      setCommentBody("");
+    } catch (error) {
+      setCommentError(error instanceof Error ? error.message : "Unable to add public comment.");
+    } finally {
+      setCommentSubmitting(false);
+    }
+  }
+
+  async function indicateProblemResolved() {
+    if (!ticket || resolutionSubmitting) return;
+    setResolutionSubmitting(true);
+    setResolutionError("");
+    try {
+      const result = await indicateResolution(ticket.id);
+      setTicket({ ...ticket, resolutionIndicatedAt: result.resolutionIndicatedAt, updatedAt: result.updatedAt });
+    } catch (error) {
+      setResolutionError(error instanceof Error ? error.message : "Unable to record the resolution indication.");
+    } finally {
+      setResolutionSubmitting(false);
     }
   }
 
@@ -174,15 +219,18 @@ function TicketDetailPage({ requester, ticketId }: { requester: Requester; ticke
       <DetailField label="Ticket Date" value={new Date(ticket.createdAt).toLocaleString()} />
       <DetailField label="Category" value={ticket.category.name} />
       <DetailField label="Related System" value={ticket.relatedSystem.name} />
-      <DetailField label="Requester" value={requester.name} />
+      <DetailField label="Requester" value={ticket.requester?.name ?? requester.name} />
       <DetailField label="Requested Priority" value={ticket.requestedPriority} />
+      <DetailField label="IT Priority" value={ticket.itPriority} />
       <DetailField label="Current Status" value={ticket.status} />
       <DetailField label="Last Updated" value={new Date(ticket.updatedAt).toLocaleString()} />
       <DetailField className="col-12" label="Summary" value={ticket.summary} />
       <DetailField className="col-12" label="Description" value={ticket.description} multiline />
     </div></div></div>
+    <div className="card shadow-sm mb-3 public-comments-card"><div className="card-body"><div className="d-flex align-items-center gap-2 mb-3"><h2 className="h5 mb-0">Public Comments</h2><span className="badge zen-badge zen-badge-count">{comments?.length ?? 0}</span></div>{!comments && !commentsFailure && <p role="status">Loading comments…</p>}{commentsFailure && <div className="alert alert-danger" role="alert">Unable to load public comments. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}{comments && comments.length === 0 && <p className="text-secondary">No public comments yet.</p>}{comments && comments.length > 0 && <ul className="list-group mb-3">{comments.map((comment) => <li className="list-group-item" key={comment.id}><div className="d-flex justify-content-between gap-2"><strong>{comment.author.name}</strong><small className="text-secondary">{new Date(comment.createdAt).toLocaleString()}</small></div><p className="mb-0 text-break" style={{ whiteSpace: "pre-wrap" }}>{comment.body}</p></li>)}</ul>}<form onSubmit={postComment}><label className="form-label" htmlFor="public-comment">Add public comment</label><textarea className="form-control" id="public-comment" rows={3} maxLength={2_000} value={commentBody} onChange={(event) => setCommentBody(event.target.value)} />{commentError && <div className="text-danger mt-1" role="alert">{commentError}</div>}<button className="btn btn-zen-primary mt-2" disabled={commentSubmitting} type="submit">{commentSubmitting ? "Posting…" : "Post Comment"}</button></form></div></div>
+    <div className="card shadow-sm mb-3"><div className="card-body d-flex flex-wrap align-items-center gap-2"><div className="me-auto"><strong>Problem appears resolved?</strong>{ticket.resolutionIndicatedAt && <p className="text-secondary mb-0">Indicated on {new Date(ticket.resolutionIndicatedAt).toLocaleString()}. Current status remains {enumLabel(ticket.status)}.</p>}</div>{!ticket.resolutionIndicatedAt && ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"].includes(ticket.status) && <button className="btn btn-outline-success" disabled={resolutionSubmitting} onClick={() => void indicateProblemResolved()}>{resolutionSubmitting ? "Saving…" : "Problem appears resolved"}</button>}{resolutionError && <div className="text-danger w-100" role="alert">{resolutionError}</div>}</div></div>
     <div className="card shadow-sm attachment-card"><div className="attachment-tabs" role="tablist" aria-label="Ticket sections"><button aria-controls="attachments-panel" aria-selected="true" className="attachment-tab" id="attachments-tab" role="tab" type="button"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="m7.2 10.9 5.4-5.4a3 3 0 1 1 4.2 4.2l-7.5 7.5a4.5 4.5 0 0 1-6.4-6.4l7.1-7.1a2.5 2.5 0 0 1 3.5 3.5l-7 7a1 1 0 0 1-1.4-1.4l6.2-6.2" /></svg>Attachments <span className="badge zen-badge zen-badge-count">{ticket.attachments.length}</span></button></div><div aria-labelledby="attachments-tab" className="card-body attachment-panel" id="attachments-panel" role="tabpanel"><div className="mb-4"><label className="form-label" htmlFor="attachment-file">Add attachment</label><input className="form-control" id="attachment-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />{uploadError && <div className="text-danger mt-1" role="alert">{uploadError}</div>}<button className="btn btn-zen-primary mt-2" disabled={!file || uploading} onClick={() => void upload()}>{uploading ? "Uploading…" : "Upload attachment"}</button></div>
-      {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge zen-badge zen-badge-removed">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id, requester.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
+      {ticket.attachments.length === 0 ? <p className="text-secondary mb-0">No attachments yet.</p> : <ul className="list-group">{ticket.attachments.map((attachment) => <li className="list-group-item" key={attachment.id}><div className="d-flex flex-wrap gap-2 align-items-center"><span className="me-auto text-break">{attachment.originalName} ({Math.ceil(attachment.sizeBytes / 1024)} KB)</span>{attachment.removedAt ? <span className="badge zen-badge zen-badge-removed">Removed</span> : <><a className="btn btn-sm btn-outline-success" href={attachmentDownloadUrl(attachment.id)}>Download</a><button className="btn btn-sm btn-outline-danger" onClick={() => setRemovingId(attachment.id)}>Remove</button></>}</div>{attachment.removedAt && <small className="text-secondary">Reason: {attachment.removalReason}</small>}{removingId === attachment.id && <div className="mt-2"><label className="form-label" htmlFor="removal-reason">Removal reason</label><input className="form-control" id="removal-reason" maxLength={500} value={removalReason} onChange={(event) => setRemovalReason(event.target.value)} />{removeError && <div className="text-danger mt-1" role="alert">{removeError}</div>}<button className="btn btn-danger btn-sm mt-2 me-2" disabled={removing || removalReason.trim().length === 0} onClick={() => void remove()}>{removing ? "Removing…" : "Confirm removal"}</button><button className="btn btn-outline-secondary btn-sm mt-2" disabled={removing} onClick={() => setRemovingId(null)}>Cancel</button></div>}</li>)}</ul>}
     </div></div>
   </section>;
 }
@@ -225,10 +273,10 @@ function CreateTicket({ requester, data }: { requester: Requester; data: Referen
     if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
     try {
-      const ticket = await createTicket({ requesterId: requester.id, categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description });
+      const ticket = await createTicket({ categoryId: Number(form.categoryId), relatedSystemId: Number(form.relatedSystemId), requestedPriority: form.requestedPriority, summary: form.summary, description: form.description });
       if (file) {
         try {
-          await uploadAttachment(ticket.id, requester.id, file);
+          await uploadAttachment(ticket.id, file);
         } catch (error) {
           setAttachmentWarning(error instanceof Error ? error.message : "Unable to upload attachment.");
         }
@@ -406,7 +454,7 @@ export default function App() {
   return <Routes>
     <Route path="/login" element={<Navigate replace to={roleHome(user)} />} />
     <Route path="/change-password" element={<ChangePassword user={user} mandatory={false} onLogout={() => void signOut()} onChanged={(result) => { setAuth(result); setState("ready"); }} />} />
-    <Route path="/tickets" element={user.role === "REQUESTER" ? <Shell {...commonShell} wide>{requesterContent ?? <MyTickets requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
+    <Route path="/tickets" element={user.role === "REQUESTER" ? <Shell {...commonShell} wide>{requesterContent ?? <MyTickets data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/new" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <CreateTicket requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <FutureWorkspace {...commonShell} title="Ticket Queue" />} />

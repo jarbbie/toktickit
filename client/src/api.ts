@@ -15,6 +15,7 @@ export interface ReferenceData {
 }
 
 export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
+export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "RESOLVED" | "CLOSED" | "REOPENED" | "CANCELLED";
 
 export interface AuthUser {
   id: number;
@@ -37,7 +38,6 @@ export class ApiError extends Error {
 }
 
 export interface TicketInput {
-  requesterId: number;
   categoryId: number;
   relatedSystemId: number;
   requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
@@ -48,7 +48,7 @@ export interface TicketInput {
 export interface CreatedTicket {
   id: number;
   ticketNumber: string;
-  status: "NEW";
+  status: TicketStatus;
 }
 
 export interface TicketListItem {
@@ -56,7 +56,8 @@ export interface TicketListItem {
   ticketNumber: string;
   summary: string;
   requestedPriority: TicketInput["requestedPriority"];
-  status: "NEW";
+  itPriority: TicketInput["requestedPriority"];
+  status: TicketStatus;
   category: ReferenceItem;
   createdAt: string;
   updatedAt: string;
@@ -82,16 +83,31 @@ export interface Attachment {
 
 export interface TicketDetail extends TicketListItem {
   requesterId: number;
+  requester: { id: number; name: string };
   description: string;
+  categoryId: number;
+  relatedSystemId: number;
   relatedSystem: ReferenceItem;
+  itPriority: TicketInput["requestedPriority"];
+  ownerId: number | null;
+  owner: { id: number; name: string; role: UserRole } | null;
+  resolutionIndicatedAt: string | null;
   attachments: Attachment[];
+}
+
+export interface PublicComment {
+  id: number;
+  ticketId: number;
+  body: string;
+  author: { id: number; name: string };
+  createdAt: string;
 }
 
 export interface TicketQuery {
   search?: string;
   categoryId?: string;
   requestedPriority?: TicketInput["requestedPriority"] | "";
-  status?: "NEW" | "";
+  status?: TicketStatus | "";
   sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority";
   direction?: "asc" | "desc";
   page?: number;
@@ -152,8 +168,8 @@ export async function createTicket(ticket: TicketInput): Promise<CreatedTicket> 
   return body as CreatedTicket;
 }
 
-export async function loadTickets(requesterId: number, query: TicketQuery): Promise<TicketListResponse> {
-  const params = new URLSearchParams({ requesterId: String(requesterId) });
+export async function loadTickets(query: TicketQuery): Promise<TicketListResponse> {
+  const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== "") params.set(key, String(value));
   const response = await fetch(`${API_URL}/api/tickets?${params}`, { credentials: "include" });
   const body = await response.json().catch(() => ({}));
@@ -161,16 +177,15 @@ export async function loadTickets(requesterId: number, query: TicketQuery): Prom
   return body as TicketListResponse;
 }
 
-export async function loadTicket(ticketId: number, requesterId: number): Promise<TicketDetail> {
-  const response = await fetch(`${API_URL}/api/tickets/${ticketId}?requesterId=${requesterId}`, { credentials: "include" });
+export async function loadTicket(ticketId: number): Promise<TicketDetail> {
+  const response = await fetch(`${API_URL}/api/tickets/${ticketId}`, { credentials: "include" });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load ticket.");
   return body as TicketDetail;
 }
 
-export async function uploadAttachment(ticketId: number, requesterId: number, file: File): Promise<Attachment> {
+export async function uploadAttachment(ticketId: number, file: File): Promise<Attachment> {
   const form = new FormData();
-  form.set("requesterId", String(requesterId));
   form.set("file", file);
   const response = await fetch(`${API_URL}/api/tickets/${ticketId}/attachments`, { method: "POST", credentials: "include", body: form });
   const body = await response.json().catch(() => ({}));
@@ -178,13 +193,25 @@ export async function uploadAttachment(ticketId: number, requesterId: number, fi
   return body as Attachment;
 }
 
-export async function removeAttachment(attachmentId: number, requesterId: number, reason: string): Promise<Attachment> {
-  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}`, { method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId, reason }) });
+export async function removeAttachment(attachmentId: number, reason: string): Promise<Attachment> {
+  const response = await fetch(`${API_URL}/api/attachments/${attachmentId}`, { method: "DELETE", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to remove attachment.");
   return body as Attachment;
 }
 
-export function attachmentDownloadUrl(attachmentId: number, requesterId: number) {
-  return `${API_URL}/api/attachments/${attachmentId}/download?requesterId=${requesterId}`;
+export function attachmentDownloadUrl(attachmentId: number) {
+  return `${API_URL}/api/attachments/${attachmentId}/download`;
+}
+
+export function loadPublicComments(ticketId: number) {
+  return loadJson<PublicComment[]>(`/api/tickets/${ticketId}/public-comments`);
+}
+
+export function addPublicComment(ticketId: number, body: string) {
+  return loadJson<PublicComment>(`/api/tickets/${ticketId}/public-comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
+}
+
+export function indicateResolution(ticketId: number) {
+  return loadJson<{ ticketId: number; resolutionIndicatedAt: string; status: string; updatedAt: string }>(`/api/tickets/${ticketId}/resolution-indication`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
 }
