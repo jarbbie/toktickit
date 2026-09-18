@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
-const prisma = vi.hoisted(() => ({ requester: { findFirst: vi.fn() }, ticket: { count: vi.fn(), findMany: vi.fn() } }));
+const prisma = vi.hoisted(() => ({ user: { findFirst: vi.fn() }, ticket: { count: vi.fn(), findMany: vi.fn() } }));
 
 vi.mock("../../src/prisma.js", () => ({ getPrisma: () => prisma }));
 
@@ -11,7 +11,7 @@ describe("GET /api/tickets", () => {
   beforeEach(() => vi.resetAllMocks());
 
   it("returns only the requester’s filtered, paginated tickets", async () => {
-    prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+    prisma.user.findFirst.mockResolvedValue({ id: 1 });
     prisma.ticket.count.mockResolvedValue(6);
     prisma.ticket.findMany.mockResolvedValue([{ id: 7, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", requestedPriority: "HIGH", status: "NEW", category: { id: 2, name: "Hardware" }, createdAt: new Date("2026-08-24T00:00:00.000Z"), updatedAt: new Date("2026-08-25T00:00:00.000Z") }]);
 
@@ -35,7 +35,7 @@ describe("GET /api/tickets", () => {
   });
 
   it("returns a safe error when ticket loading fails", async () => {
-    prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+    prisma.user.findFirst.mockResolvedValue({ id: 1 });
     prisma.ticket.count.mockRejectedValue(new Error("database unavailable"));
 
     const response = await request(app).get("/api/tickets?requesterId=1");
@@ -45,7 +45,7 @@ describe("GET /api/tickets", () => {
   });
 
   it.each(["inactive", "missing"])("rejects an %s requester", async () => {
-    prisma.requester.findFirst.mockResolvedValue(null);
+    prisma.user.findFirst.mockResolvedValue(null);
 
     const response = await request(app).get("/api/tickets?requesterId=1");
 

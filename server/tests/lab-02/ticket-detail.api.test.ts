@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
-  requester: { findFirst: vi.fn() },
+  user: { findFirst: vi.fn() },
   ticket: { findFirst: vi.fn() },
 }));
 
@@ -12,7 +12,7 @@ import { app } from "../../src/app.js";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+  prisma.user.findFirst.mockResolvedValue({ id: 1 });
 });
 
 describe("requester ticket detail", () => {

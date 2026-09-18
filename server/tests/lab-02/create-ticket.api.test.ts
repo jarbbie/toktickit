@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
-  requester: { findFirst: vi.fn() },
+  user: { findFirst: vi.fn() },
   category: { findFirst: vi.fn() },
   relatedSystem: { findFirst: vi.fn() },
   ticket: { create: vi.fn() },
@@ -21,7 +21,7 @@ const validTicket = {
 };
 
 function mockActiveReferences() {
-  prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+  prisma.user.findFirst.mockResolvedValue({ id: 1 });
   prisma.category.findFirst.mockResolvedValue({ id: 2 });
   prisma.relatedSystem.findFirst.mockResolvedValue({ id: 3 });
 }
@@ -63,7 +63,7 @@ describe("POST /api/tickets", () => {
   });
 
   it("rejects inactive or missing references without storing a ticket", async () => {
-    prisma.requester.findFirst.mockResolvedValue(null);
+    prisma.user.findFirst.mockResolvedValue(null);
     prisma.category.findFirst.mockResolvedValue({ id: 2 });
     prisma.relatedSystem.findFirst.mockResolvedValue({ id: 3 });
 
