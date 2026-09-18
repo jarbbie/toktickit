@@ -29,6 +29,9 @@ class AttachmentTypeError extends Error {}
 class AttachmentLimitError extends Error {}
 class TicketNotFoundError extends Error {}
 class ResolutionConflictError extends Error {}
+class TicketAlreadyAssignedError extends Error {}
+class OwnerUnavailableError extends Error {}
+class InvalidStatusTransitionError extends Error {}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -77,6 +80,20 @@ function requestedPriority(value: unknown) {
   return value as typeof priorities[number];
 }
 
+function requiredPriority(value: unknown, name: string) {
+  if (typeof value !== "string" || !priorities.includes(value as typeof priorities[number])) {
+    throw new RequestError(`${name} must be LOW, MEDIUM, HIGH, or URGENT.`);
+  }
+  return value as typeof priorities[number];
+}
+
+function requiredStatus(value: unknown) {
+  if (typeof value !== "string" || !statuses.includes(value as typeof statuses[number])) {
+    throw new RequestError("status is invalid.");
+  }
+  return value as typeof statuses[number];
+}
+
 function queryInteger(value: unknown, name: string, fallback?: number) {
   if (value === undefined && fallback !== undefined) return fallback;
   if (typeof value !== "string" || !/^\d+$/.test(value)) throw new RequestError(`${name} must be a positive integer.`);
@@ -122,6 +139,10 @@ function conflict(res: Response, message: string) {
   res.status(409).json({ error: message, code: "CONFLICT" });
 }
 
+function conflictWithCode(res: Response, message: string, code: string) {
+  res.status(409).json({ error: message, code });
+}
+
 async function findReadableTicket(prisma: PrismaClient, ticketId: number, request: Request) {
   const user = authenticatedUser(request);
   return prisma.ticket.findFirst({
@@ -165,6 +186,58 @@ function compareStaffQueue(a: StaffQueueRow, b: StaffQueueRow, sortBy: typeof st
   else comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
   if (comparison === 0) comparison = a.id - b.id;
   return direction === "asc" ? comparison : -comparison;
+}
+
+const allowedStatusTransitions: Record<typeof statuses[number], readonly typeof statuses[number][]> = {
+  NEW: ["OPEN", "IN_PROGRESS", "CANCELLED"],
+  OPEN: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
+  IN_PROGRESS: ["WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
+  WAITING_FOR_REQUESTER: ["IN_PROGRESS", "RESOLVED", "CANCELLED"],
+  RESOLVED: ["CLOSED", "REOPENED"],
+  CLOSED: ["REOPENED"],
+  REOPENED: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
+  CANCELLED: [],
+};
+
+const staffTicketSelect = {
+  id: true,
+  ticketNumber: true,
+  requesterId: true,
+  categoryId: true,
+  relatedSystemId: true,
+  summary: true,
+  description: true,
+  requestedPriority: true,
+  itPriority: true,
+  status: true,
+  ownerId: true,
+  resolutionIndicatedAt: true,
+  createdAt: true,
+  updatedAt: true,
+  requester: { select: personSelect },
+  owner: { select: { id: true, name: true, role: true } },
+  category: { select: { id: true, name: true } },
+  relatedSystem: { select: { id: true, name: true } },
+  attachments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: attachmentSelect },
+} satisfies Prisma.TicketSelect;
+
+type StaffDataClient = Pick<PrismaClient, "ticket" | "user">;
+
+async function loadStaffTicketDetail(prisma: StaffDataClient, ticketId: number) {
+  const [ticket, ownerOptions] = await Promise.all([
+    prisma.ticket.findFirst({ where: { id: ticketId }, select: staffTicketSelect }),
+    prisma.user.findMany({
+      where: { isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+      select: { id: true, name: true, role: true },
+    }),
+  ]);
+  if (!ticket) throw new TicketNotFoundError();
+  return { ...ticket, ownerOptions };
+}
+
+function internalNoteDto(note: { id: number; ticketId: number; content: string; createdAt: Date; author: { id: number; name: string } }) {
+  return { id: note.id, ticketId: note.ticketId, body: note.content, author: note.author, createdAt: note.createdAt };
 }
 
 // The Express app is exported separately from app.listen() (see index.ts) so
@@ -480,6 +553,245 @@ app.get("/api/staff/tickets", ...staffAuthentication, async (req: Request, res: 
       return;
     }
     res.status(500).json({ error: "Unable to load staff tickets." });
+  }
+});
+
+app.get("/api/staff/tickets/:ticketId", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const detail = await loadStaffTicketDetail(getPrisma(), ticketId);
+    noStore(res);
+    res.json(detail);
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load staff ticket." });
+  }
+});
+
+app.post("/api/staff/tickets/:ticketId/claim", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateObject(req.body ?? {}, []);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    if (!requireAllowedOrigin(req, res)) return;
+    const user = authenticatedUser(req);
+    const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, ownerId: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      const eligibleActor = await transaction.user.findFirst({
+        where: { id: user.id, isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } },
+        select: { id: true },
+      });
+      if (!eligibleActor) throw new OwnerUnavailableError("The current staff account is no longer available.");
+      if (ticket.ownerId !== null) throw new TicketAlreadyAssignedError();
+      await transaction.ticket.update({ where: { id: ticketId }, data: { ownerId: user.id, updatedAt: new Date() } });
+      return loadStaffTicketDetail(transaction, ticketId);
+    });
+    noStore(res);
+    res.json(detail);
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof TicketAlreadyAssignedError) {
+      conflictWithCode(res, "This ticket is already assigned.", "TICKET_ALREADY_ASSIGNED");
+      return;
+    }
+    if (error instanceof OwnerUnavailableError) {
+      conflictWithCode(res, error.message, "OWNER_UNAVAILABLE");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to claim ticket." });
+  }
+});
+
+app.patch("/api/staff/tickets/:ticketId/owner", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["ownerId"]);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    if (!Object.prototype.hasOwnProperty.call(body, "ownerId")) throw new RequestError("ownerId is required.");
+    const ownerId = body.ownerId === null ? null : requiredId(body.ownerId, "ownerId");
+    if (!requireAllowedOrigin(req, res)) return;
+    const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, ownerId: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      if (ticket.ownerId === ownerId) return loadStaffTicketDetail(transaction, ticketId);
+      if (ownerId !== null) {
+        const owner = await transaction.user.findFirst({
+          where: { id: ownerId, isActive: true, role: { in: ["IT_STAFF", "ADMINISTRATOR"] } },
+          select: { id: true },
+        });
+        if (!owner) throw new OwnerUnavailableError("The selected owner is unavailable.");
+      }
+      await transaction.ticket.update({ where: { id: ticketId }, data: { ownerId, updatedAt: new Date() } });
+      return loadStaffTicketDetail(transaction, ticketId);
+    });
+    noStore(res);
+    res.json(detail);
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof OwnerUnavailableError) {
+      conflictWithCode(res, error.message, "OWNER_UNAVAILABLE");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to update ticket owner." });
+  }
+});
+
+app.patch("/api/staff/tickets/:ticketId/it-priority", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["itPriority"]);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    if (!Object.prototype.hasOwnProperty.call(body, "itPriority")) throw new RequestError("itPriority is required.");
+    const itPriority = requiredPriority(body.itPriority, "itPriority");
+    if (!requireAllowedOrigin(req, res)) return;
+    const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, itPriority: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      if (ticket.itPriority !== itPriority) {
+        await transaction.ticket.update({ where: { id: ticketId }, data: { itPriority, updatedAt: new Date() } });
+      }
+      return loadStaffTicketDetail(transaction, ticketId);
+    });
+    noStore(res);
+    res.json(detail);
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to update IT Priority." });
+  }
+});
+
+app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["status"]);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    if (!Object.prototype.hasOwnProperty.call(body, "status")) throw new RequestError("status is required.");
+    const status = requiredStatus(body.status);
+    if (!requireAllowedOrigin(req, res)) return;
+    const detail = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, status: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      if (!allowedStatusTransitions[ticket.status as typeof statuses[number]].includes(status)) throw new InvalidStatusTransitionError();
+      const data = status === "REOPENED"
+        ? { status, resolutionIndicatedAt: null, updatedAt: new Date() }
+        : { status, updatedAt: new Date() };
+      await transaction.ticket.update({ where: { id: ticketId }, data });
+      return loadStaffTicketDetail(transaction, ticketId);
+    });
+    noStore(res);
+    res.json(detail);
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof InvalidStatusTransitionError) {
+      conflictWithCode(res, "That status transition is not permitted.", "INVALID_STATUS_TRANSITION");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to update ticket status." });
+  }
+});
+
+app.get("/api/staff/tickets/:ticketId/internal-notes", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const prisma = getPrisma();
+    const ticket = await prisma.ticket.findFirst({ where: { id: ticketId }, select: { id: true } });
+    if (!ticket) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    const notes = await prisma.internalNote.findMany({
+      where: { ticketId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      select: { id: true, ticketId: true, content: true, createdAt: true, author: { select: personSelect } },
+    });
+    noStore(res);
+    res.json(notes.map(internalNoteDto));
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load internal notes." });
+  }
+});
+
+app.post("/api/staff/tickets/:ticketId/internal-notes", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    const body = validateObject(req.body ?? {}, ["body"]);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const content = requiredText(body.body, "body", 1, 4_000);
+    if (!requireAllowedOrigin(req, res)) return;
+    const user = authenticatedUser(req);
+    const note = await getPrisma().$transaction(async (transaction) => {
+      await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true } });
+      if (!ticket) throw new TicketNotFoundError();
+      const created = await transaction.internalNote.create({
+        data: { ticketId, authorId: user.id, content },
+        select: { id: true, ticketId: true, content: true, createdAt: true, author: { select: personSelect } },
+      });
+      await transaction.ticket.update({ where: { id: ticketId }, data: { updatedAt: new Date() } });
+      return created;
+    });
+    noStore(res);
+    res.status(201).json(internalNoteDto(note));
+  } catch (error) {
+    if (error instanceof TicketNotFoundError) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to add internal note." });
   }
 });
 
