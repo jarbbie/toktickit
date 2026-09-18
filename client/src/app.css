@@ -140,11 +140,39 @@ body {
 .staff-queue-card-details dd { margin-bottom: .45rem; text-align: right; }
 .staff-queue-footer { margin-top: 1rem; }
 
+.staff-detail-page { max-width: 1240px; margin: 0 auto; }
+.staff-detail-heading { align-items: center; display: flex; justify-content: space-between; gap: 1rem; }
+.staff-detail-fields { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.staff-detail-field { min-width: 0; }
+.staff-detail-field-wide { grid-column: 1 / -1; }
+.staff-detail-readonly { overflow-wrap: anywhere; }
+.staff-operations-card { border-top: 3px solid #0b7a46; }
+.staff-operation-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.staff-operation-control { min-width: 0; }
+.staff-current-status-label { align-items: center; display: flex; gap: .45rem; min-height: 1.65rem; }
+.staff-operation-control .zen-badge { vertical-align: .1rem; }
+.staff-confirmation { background: #eef8f2; border: 1px solid #b7dbc5; border-radius: .35rem; margin-top: 1rem; padding: 1rem; }
+.staff-confirmation-warning { background: #fff8e8; border-color: #f1cc74; }
+.staff-confirmation p { margin-bottom: .75rem; }
+.staff-resolution-indication { background: #eef8f2; border-left: 3px solid #0b7a46; padding: .65rem .8rem; }
+.staff-entry-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-bottom: 1rem; }
+.staff-public-comments { border-top: 3px solid #0b7a46; }
+.staff-internal-notes { background: #f5f5f6; border-top: 3px solid #68716c; }
+.staff-section-description { color: #59645e; font-size: .85rem; min-height: 2.5rem; }
+.staff-entry-list { margin-bottom: 1rem; max-height: 26rem; overflow: auto; }
+.staff-entry-list .list-group-item { background: transparent; border-color: #d7dadd; }
+.staff-entry-form textarea { resize: vertical; }
+.staff-attachments { margin-bottom: 1rem; }
+.staff-attachment-list { margin-top: 1rem; }
+.staff-attachment-list .list-group-item { background: #fafbfa; }
+.staff-attachment-list strong { overflow-wrap: anywhere; }
+
 @media (max-width: 1199.98px) {
   .ticket-filter-grid { grid-template-columns: repeat(3, 1fr); }
   .ticket-filter-search { grid-column: span 2; }
   .staff-queue-filter-grid { grid-template-columns: repeat(3, 1fr); }
   .staff-queue-filter-search { grid-column: span 2; }
+  .staff-detail-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 991.98px) {
@@ -152,6 +180,8 @@ body {
   .staff-queue-mobile { display: block; }
   .staff-queue-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .staff-queue-filter-search { grid-column: span 2; }
+  .staff-detail-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .staff-operation-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 575.98px) {
@@ -165,6 +195,11 @@ body {
   .ticket-filter-search { grid-column: auto; }
   .staff-queue-filter-grid { grid-template-columns: 1fr; }
   .staff-queue-filter-search { grid-column: auto; }
+  .staff-detail-heading { align-items: flex-start; flex-direction: column; }
+  .staff-detail-fields { grid-template-columns: 1fr; }
+  .staff-detail-field-wide { grid-column: auto; }
+  .staff-entry-grid { grid-template-columns: 1fr; }
+  .staff-entry-list { max-height: none; }
   .ticket-table-footer { align-items: flex-start; flex-direction: column; gap: .75rem; }
   .ticket-pagination .page-number:not([aria-current="page"]), .ticket-pagination .page-ellipsis { display: none; }
 }
