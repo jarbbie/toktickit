@@ -71,6 +71,21 @@ export interface TicketListResponse {
   totalPages: number;
 }
 
+export interface StaffQueueItem extends TicketListItem {
+  requester: { id: number; name: string };
+  ownerId: number | null;
+  owner: { id: number; name: string; role: UserRole } | null;
+  resolutionIndicatedAt: string | null;
+}
+
+export interface StaffQueueResponse {
+  items: StaffQueueItem[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export interface Attachment {
   id: number;
   originalName: string;
@@ -109,6 +124,19 @@ export interface TicketQuery {
   requestedPriority?: TicketInput["requestedPriority"] | "";
   status?: TicketStatus | "";
   sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority";
+  direction?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface StaffQueueQuery {
+  search?: string;
+  categoryId?: string;
+  requestedPriority?: TicketInput["requestedPriority"] | "";
+  itPriority?: TicketInput["requestedPriority"] | "";
+  status?: TicketStatus | "";
+  ownership?: "all" | "mine" | "assigned" | "unassigned";
+  sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority" | "itPriority" | "status";
   direction?: "asc" | "desc";
   page?: number;
   pageSize?: number;
@@ -175,6 +203,12 @@ export async function loadTickets(query: TicketQuery): Promise<TicketListRespons
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Unable to load tickets.");
   return body as TicketListResponse;
+}
+
+export function loadStaffTickets(query: StaffQueueQuery) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== "") params.set(key, String(value));
+  return loadJson<StaffQueueResponse>(`/api/staff/tickets?${params}`);
 }
 
 export async function loadTicket(ticketId: number): Promise<TicketDetail> {

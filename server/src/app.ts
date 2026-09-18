@@ -17,7 +17,10 @@ import {
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 const statuses = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"] as const;
 const sortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority"] as const;
+const staffSortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "itPriority", "status"] as const;
+const ownershipFilters = ["all", "mine", "assigned", "unassigned"] as const;
 const priorityRank: Record<typeof priorities[number], number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
+const statusRank: Record<typeof statuses[number], number> = Object.fromEntries(statuses.map((status, index) => [status, index])) as Record<typeof statuses[number], number>;
 const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const attachmentSelect = { id: true, originalName: true, mimeType: true, sizeBytes: true, createdAt: true, removedAt: true, removalReason: true } as const;
 const personSelect = { id: true, name: true } as const;
@@ -86,6 +89,11 @@ function queryChoice<T extends readonly string[]>(value: unknown, name: string, 
   return value as T[number];
 }
 
+function optionalQueryChoice<T extends readonly string[]>(value: unknown, name: string, choices: T) {
+  if (value === undefined) return undefined;
+  return queryChoice(value, name, choices, choices[0]);
+}
+
 function hasAttachmentSignature(file: { mimetype: string; buffer: Buffer }) {
   const { buffer, mimetype } = file;
   if (mimetype === "application/pdf") return buffer.subarray(0, 5).equals(Buffer.from("%PDF-"));
@@ -100,6 +108,7 @@ function authenticateCurrent(request: Request, response: Response, next: NextFun
 
 const completedAuthentication = [authenticateCurrent, requirePasswordChanged];
 const requesterAuthentication = [authenticateCurrent, requirePasswordChanged, requireRole("REQUESTER")];
+const staffAuthentication = [authenticateCurrent, requirePasswordChanged, requireRole("IT_STAFF", "ADMINISTRATOR")];
 
 function authenticatedUser(request: Request) {
   return (request as AuthenticatedRequest).auth!.user;
@@ -129,6 +138,33 @@ function comparePriority(a: { requestedPriority: typeof priorities[number]; id: 
   const priorityDifference = priorityRank[a.requestedPriority] - priorityRank[b.requestedPriority];
   if (priorityDifference !== 0) return direction === "asc" ? priorityDifference : -priorityDifference;
   return direction === "asc" ? a.id - b.id : b.id - a.id;
+}
+
+type StaffQueueRow = {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  requestedPriority: typeof priorities[number];
+  itPriority: typeof priorities[number];
+  status: typeof statuses[number];
+  resolutionIndicatedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  category: { id: number; name: string };
+  requester: { id: number; name: string };
+  owner: { id: number; name: string; role: "IT_STAFF" | "ADMINISTRATOR" } | null;
+};
+
+function compareStaffQueue(a: StaffQueueRow, b: StaffQueueRow, sortBy: typeof staffSortFields[number], direction: "asc" | "desc") {
+  let comparison = 0;
+  if (sortBy === "requestedPriority") comparison = priorityRank[a.requestedPriority] - priorityRank[b.requestedPriority];
+  else if (sortBy === "itPriority") comparison = priorityRank[a.itPriority] - priorityRank[b.itPriority];
+  else if (sortBy === "status") comparison = statusRank[a.status] - statusRank[b.status];
+  else if (sortBy === "ticketNumber") comparison = a.ticketNumber.localeCompare(b.ticketNumber);
+  else if (sortBy === "createdAt") comparison = a.createdAt.getTime() - b.createdAt.getTime();
+  else comparison = a.updatedAt.getTime() - b.updatedAt.getTime();
+  if (comparison === 0) comparison = a.id - b.id;
+  return direction === "asc" ? comparison : -comparison;
 }
 
 // The Express app is exported separately from app.listen() (see index.ts) so
@@ -371,6 +407,79 @@ app.get("/api/tickets", ...requesterAuthentication, async (req: Request, res: Re
       return;
     }
     res.status(500).json({ error: "Unable to load tickets." });
+  }
+});
+
+app.get("/api/staff/tickets", ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, ["search", "categoryId", "requestedPriority", "itPriority", "status", "ownership", "sortBy", "direction", "page", "pageSize"]);
+    const user = authenticatedUser(req);
+    const categoryId = req.query.categoryId === undefined ? undefined : queryInteger(req.query.categoryId, "categoryId");
+    const requestedPriority = optionalQueryChoice(req.query.requestedPriority, "requestedPriority", priorities);
+    const itPriority = optionalQueryChoice(req.query.itPriority, "itPriority", priorities);
+    const status = optionalQueryChoice(req.query.status, "status", statuses);
+    const ownership = queryChoice(req.query.ownership, "ownership", ownershipFilters, "all");
+    const sortBy = queryChoice(req.query.sortBy, "sortBy", staffSortFields, "updatedAt");
+    const direction = queryChoice(req.query.direction, "direction", ["asc", "desc"] as const, "desc");
+    const page = queryInteger(req.query.page, "page", 1);
+    const pageSize = queryInteger(req.query.pageSize, "pageSize", 10);
+    if (![10, 20, 50].includes(pageSize)) throw new RequestError("pageSize must be 10, 20, or 50.");
+    const skip = (page - 1) * pageSize;
+    if (!Number.isSafeInteger(skip)) throw new RequestError("page is too large.");
+    const search = req.query.search === undefined
+      ? undefined
+      : typeof req.query.search === "string"
+        ? req.query.search.trim()
+        : (() => { throw new RequestError("search is invalid."); })();
+    if (search !== undefined && search.length > 200) throw new RequestError("search must be no longer than 200 characters.");
+
+    const where: Prisma.TicketWhereInput = {
+      categoryId,
+      requestedPriority,
+      itPriority,
+      status,
+      ...(ownership === "mine" ? { ownerId: user.id } : ownership === "assigned" ? { ownerId: { not: null } } : ownership === "unassigned" ? { ownerId: null } : {}),
+    };
+    if (search) {
+      where.OR = [
+        { ticketNumber: { contains: search, mode: "insensitive" } },
+        { summary: { contains: search, mode: "insensitive" } },
+        { requester: { name: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const select = {
+      id: true,
+      ticketNumber: true,
+      summary: true,
+      requestedPriority: true,
+      itPriority: true,
+      status: true,
+      ownerId: true,
+      resolutionIndicatedAt: true,
+      createdAt: true,
+      updatedAt: true,
+      category: { select: { id: true, name: true } },
+      requester: { select: personSelect },
+      owner: { select: { id: true, name: true, role: true } },
+    } as const;
+    const prisma = getPrisma();
+    const [allItems, totalItems] = await prisma.$transaction(async (transaction) => {
+      const [items, total] = await Promise.all([
+        transaction.ticket.findMany({ where, orderBy: { id: "asc" }, select }),
+        transaction.ticket.count({ where }),
+      ]);
+      return [items, total] as const;
+    });
+    const items = (allItems as StaffQueueRow[]).sort((a, b) => compareStaffQueue(a, b, sortBy, direction)).slice(skip, skip + pageSize);
+    noStore(res);
+    res.json({ items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load staff tickets." });
   }
 });
 

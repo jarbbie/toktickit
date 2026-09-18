@@ -1,6 +1,7 @@
 import { Fragment, type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type PublicComment, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, addPublicComment, attachmentDownloadUrl, changePassword, createTicket, currentUser, indicateResolution, loadPublicComments, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
+import StaffQueue from "./StaffQueue.js";
 
 type SessionState = "checking" | "guest" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
@@ -13,6 +14,7 @@ function attachmentValidationError(file: File) {
 }
 
 function enumLabel(value: string) {
+  if (value === "WAITING_FOR_REQUESTER") return "Waiting for Requester";
   return value.split("_").map((part) => part[0] + part.slice(1).toLowerCase()).join(" ");
 }
 
@@ -21,7 +23,7 @@ function priorityBadge(priority: string) {
 }
 
 function statusBadge(status: string) {
-  return <span className={`badge zen-badge zen-status-${status.toLowerCase()}`}>{enumLabel(status)}</span>;
+  return <span className={`badge zen-badge zen-status-${status.toLowerCase().replaceAll("_", "-")}`}>{enumLabel(status)}</span>;
 }
 
 function roleLabel(role: AuthUser["role"]) {
@@ -457,7 +459,7 @@ export default function App() {
     <Route path="/tickets" element={user.role === "REQUESTER" ? <Shell {...commonShell} wide>{requesterContent ?? <MyTickets data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/new" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <CreateTicket requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
-    <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <FutureWorkspace {...commonShell} title="Ticket Queue" />} />
+    <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffQueue /></Shell>} />
     <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <FutureWorkspace {...commonShell} title="Ticket Detail" />} />
     <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <FutureWorkspace {...commonShell} title="User Management" /> : <AccessDenied {...commonShell} />} />
     <Route path="*" element={<Navigate replace to={roleHome(user)} />} />
