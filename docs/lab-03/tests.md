@@ -64,7 +64,7 @@ the case intentionally tests origin rejection.
 | UI-07 | UI component | FR-07; AC-17, AC-18, AC-36 | Queue controls/defaults, sort/page updates, filter resets, empty/no-results/loading/error/forbidden, open and return | Exact queries and pagination retained; documented columns/cards and feedback | `client/tests/lab-03/StaffTicketQueue.test.tsx` | Partial — responsive desktop/card queue, filter/query controls, preserved URL state, empty/no-results, forbidden, loading, and safe failure pass in Issue #41; browser viewport evidence remains E2E |
 | UI-08 | UI component | FR-08, FR-09; AC-19, AC-20, AC-21, AC-22, AC-23, AC-36 | Cross-staff operation controls, claim conflict, eligible owner choices, reassignment/unassignment and terminal-transition confirmation/cancel | Correct mutations only after required confirmation, one pending request, refresh after conflict; read-only requested fields | `client/tests/lab-03/StaffTicketDetail.test.tsx` | Partial — claim, owner replacement confirmation, IT Priority, permitted status controls, terminal confirmation/cancel, and safe forbidden state pass in Issue #43; conflict-refresh and browser evidence remain |
 | UI-09 | UI component/security | FR-10, FR-11; AC-25, AC-26, AC-27, AC-36 | Separate public/internal composers, lengths, safe HTML-like content, author/time/order, active downloads and removed metadata | Clearly distinct visibility, inert text, no edit/delete/upload/remove controls for staff; save failures retain draft | `client/tests/lab-03/StaffTicketDetail.test.tsx` | Partial — distinct Public Comments/Internal Notes sections, private labels, backend entries, draft preservation, active downloads, and removed metadata pass in Issue #43; full boundary and browser evidence remain |
-| UI-10 | UI component | FR-12, FR-13; AC-28, AC-29, AC-30, AC-31, AC-32, AC-37 | User list/create/edit/reset, search/role filter, duplicate/invalid/conflict feedback, confirmations, busy/success/failure, self-account changes | Minimalist labelled modes make exact API requests, preserve invalid drafts, refresh after success, no excluded features | `client/tests/lab-03/UserManagement.test.tsx` | Planned |
+| UI-10 | UI component | FR-12, FR-13; AC-28, AC-29, AC-30, AC-31, AC-32, AC-37 | User list/create/edit/reset, search/role filter, duplicate/invalid/conflict feedback, confirmations, busy/success/failure, self-account changes | Minimalist labelled modes make exact API requests, preserve invalid drafts, refresh after success, no excluded features | `client/tests/lab-03/UserManagement.test.tsx` | Partial — Issue #45 covers list/search/role filter, create/edit/deactivation/reset flows, validation, safe conflict feedback, password clearing, and Requester route denial; full browser/responsive/self-account evidence remains #46 |
 | STYLE-01 | UI style/accessibility | FR-14; AC-34, AC-35, AC-36, AC-37, AC-38, AC-39 | Shared header/buttons/cards/labels, required/invalid/read-only treatment, all badges, distinct public/private headings, disabled/busy/focus states | Required semantic labels/styles and role navigation render consistently; status is never color-only | `client/tests/lab-03/ZenGreen.test.tsx` | Planned |
 | RESP-01 | Responsive/accessibility | FR-14; AC-39 | All major screens at 1440×1000, 820×1180, 390×844, plus 767/768 and 991/992 breakpoint edges; long text and open dialogs | No page overflow/clipping/overlap; all controls available; cards/forms adapt; evidence screenshots saved | `e2e/lab-03/responsive-accessibility.spec.ts` | Planned |
 | RESP-02 | Accessibility/E2E | FR-14; AC-39 | Keyboard-only routes/forms/table links/sorting, visible focus, first error, dialog focus trap/Escape/restore, status/alert announcements | Controls work without pointer, required focus behavior holds, fields have accessible names/messages | `e2e/lab-03/responsive-accessibility.spec.ts` | Planned |
@@ -194,6 +194,16 @@ deactivation, last-active-Administrator protection, assigned-owner protection,
 safe response fields, and self-reset cookie clearing. The mocked transaction
 tests do not replace the required disposable PostgreSQL concurrency evidence;
 that evidence remains planned for Issue #46.
+
+Issue #45 adds the authenticated Administrator User Management screen and its
+client API adapters. The focused UI suite covers safe list rendering, search and
+one-role filtering, labelled create validation and normalized submissions,
+activation/deactivation confirmation, duplicate-email draft preservation,
+initial-password reset, password clearing, and Requester direct-route denial.
+The focused suite passes 7 tests; the full client suite passes 12 files and 39
+tests, and the client production build passes. These component results do not
+replace the responsive Playwright, real-session account-lifecycle, and
+screenshot evidence still required by Issue #46.
 
 The login limiter is one-process memory only; restart/distribution behavior is
 documented and unit-tested as a limitation. Local attachment storage and a
