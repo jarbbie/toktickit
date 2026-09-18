@@ -31,8 +31,15 @@ body {
 .app-profile-menu { background: white; border: 1px solid #c9d9cf; border-radius: .25rem; box-shadow: 0 .25rem .6rem rgb(22 48 35 / 18%); color: #24342d; display: grid; gap: .3rem; min-width: 180px; padding: .7rem; position: absolute; right: 0; top: calc(100% + .25rem); z-index: 2; }
 .app-profile-menu small { color: #587064; font-weight: 600; text-transform: uppercase; }
 .app-profile-static { align-items: center; display: flex; font-size: .82rem; font-weight: 600; gap: .35rem; }
+.zen-role-badge { background: rgb(234 246 239 / 18%); border: 1px solid rgb(234 246 239 / 55%); border-radius: 999px; color: white; font-size: .68rem; font-weight: 700; padding: .12rem .45rem; white-space: nowrap; }
+.role-menu-badge { background: #eaf6ef; border-color: #b7dbc5; color: #006b3c; width: fit-content; }
 .app-content { max-width: 1120px; }
 .app-content-wide { max-width: 1320px; }
+
+.auth-page { align-items: center; background: linear-gradient(145deg, #eef5f0, #f7f8f7); display: flex; justify-content: center; padding: 2rem 1rem; }
+.auth-page > [role="status"] { color: #3f4b45; font-weight: 600; }
+.auth-card { max-width: 470px; width: 100%; }
+.auth-brand { color: #006b3c; font-family: Georgia, "Times New Roman", serif; font-size: 1.55rem; }
 
 .app-content .h3, .app-selector .h3 { font-size: 1.75rem; font-weight: 650; letter-spacing: -.015em; }
 .app-content .h4, .app-selector .h4 { font-size: 1.2rem; font-weight: 650; }
