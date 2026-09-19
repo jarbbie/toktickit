@@ -6,7 +6,7 @@ import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
 const referenceData = { requesters: [{ id: 1, name: "Nicha Somchai", email: "nicha@example.test" }], categories: [{ id: 2, name: "Hardware" }], relatedSystems: [{ id: 3, name: "VPN" }] };
-const ticket = { id: 1, requesterId: 1, requester: { id: 1, name: "Nicha Somchai" }, categoryId: 2, relatedSystemId: 3, ownerId: null, owner: null, itPriority: "MEDIUM" as const, resolutionIndicatedAt: null, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", description: "The VPN fails after login.", requestedPriority: "MEDIUM" as const, status: "NEW" as const, category: { id: 2, name: "Hardware" }, relatedSystem: { id: 3, name: "VPN" }, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z", attachments: [{ id: 4, originalName: "vpn.pdf", mimeType: "application/pdf", sizeBytes: 3, createdAt: "2026-08-25T00:00:00.000Z", removedAt: null, removalReason: null }] };
+const ticket = { id: 1, requesterId: 1, ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", description: "The VPN fails after login.", requestedPriority: "MEDIUM" as const, status: "NEW" as const, category: { id: 2, name: "Hardware" }, relatedSystem: { id: 3, name: "VPN" }, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z", attachments: [{ id: 4, originalName: "vpn.pdf", mimeType: "application/pdf", sizeBytes: 3, createdAt: "2026-08-25T00:00:00.000Z", removedAt: null, removalReason: null }] };
 
 function renderDetail() {
   sessionStorage.setItem("toktickit.requesterId", "1");
@@ -22,16 +22,14 @@ describe("Attachment Section", () => {
   it("shows the active owned download action", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
-    vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
     renderDetail();
 
-    expect(await screen.findByRole("link", { name: "Download" })).toHaveAttribute("href", expect.stringContaining("/api/attachments/4/download"));
+    expect(await screen.findByRole("link", { name: "Download" })).toHaveAttribute("href", expect.stringContaining("/api/attachments/4/download?requesterId=1"));
   });
 
   it("keeps the selected file after an upload error", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
-    vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
     vi.spyOn(api, "uploadAttachment").mockRejectedValue(new Error("Unable to upload attachment."));
     const user = userEvent.setup();
     renderDetail();
