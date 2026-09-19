@@ -1,16 +1,19 @@
 # TokTickIT
 
 TokTickIT is an IT service desk application built incrementally for CPE334.
-This repository contains the Lab 1 foundation and Lab 2 Ticket workflow:
+Lab 3 replaces the Lab 2 development requester selector with authenticated,
+role-based workspaces:
 
-- `client/` — React, TypeScript, Vite, and Bootstrap
-- `server/` — Node.js, Express, TypeScript, Prisma, and PostgreSQL
-- `docs/lab-01/` — Lab 1 test, AI-use, and peer-review records
-- `docs/lab-02/` — Lab 2 contract, test, AI-use, and peer-review records
+- `client/` — React, TypeScript, Vite, Bootstrap, and Playwright
+- `server/` — Node.js, Express, TypeScript, Prisma, PostgreSQL, and Vitest/Supertest
+- `docs/lab-01/`, `docs/lab-02/`, and `docs/lab-03/` — contracts, test plans,
+  AI-use reflections, and peer-review records
+- `artifacts/lab-03/screenshots/` — browser evidence captured by the Lab 3 E2E suite
 
-Lab 2 provides a temporary Development Requester selector, Ticket creation,
-My Tickets search and pagination, read-only Ticket Detail, and attachment
-upload, removal, and download for the selected requester.
+The three supported roles are Requester, IT Staff, and Administrator. Requesters
+create and track their own Tickets; IT Staff use the shared queue and Ticket
+Detail workflow; Administrators manage accounts and initial passwords. The
+server enforces ownership and role authorization independently of the UI.
 
 ## Prerequisites
 
@@ -20,35 +23,22 @@ upload, removal, and download for the selected requester.
 
 ## Initial setup
 
-1. Install the frontend dependencies:
+1. Install dependencies:
 
    ```bash
-   cd client
-   npm install
+   cd client && npm install
+   cd ../server && npm install
    ```
 
-2. Install the backend dependencies:
-
-   ```bash
-   cd ../server
-   npm install
-   ```
-
-3. Create local environment files from the committed templates. Do not commit
-   the resulting `.env` files.
+2. Create local environment files from the committed templates. Do not commit
+   the resulting `.env` files:
 
    ```bash
    cp client/.env.example client/.env
    cp server/.env.example server/.env
    ```
 
-4. Choose one PostgreSQL setup:
-
-   Local PostgreSQL: create a database named `toktickit` owned by a local
-   user named `toktickit`, then use the default `DATABASE_URL` in
-   `server/.env`.
-
-   Docker PostgreSQL:
+3. Start one PostgreSQL instance. For a disposable local Docker database:
 
    ```bash
    docker run --name toktickit-postgres \
@@ -60,21 +50,25 @@ upload, removal, and download for the selected requester.
      -d postgres:16
    ```
 
-   If the container already exists, start it with `docker start
-   toktickit-postgres` instead.
+   If the container already exists, use `docker start toktickit-postgres`.
+   Do not run two PostgreSQL instances on the same host port; update
+   `server/.env` if you choose a different port.
 
-   Do not run both PostgreSQL instances on port `5432`. If port `5432` is
-   already in use, stop the local service or change the Docker host port and
-   the port in `server/.env` to match.
-
-5. Generate the Prisma client, apply migrations, and seed the database:
+4. Generate Prisma, apply migrations, and seed the local fixtures:
 
    ```bash
    cd server
    npx prisma generate
    npx prisma migrate dev
-   npx prisma db seed
+   npm run prisma:seed
    ```
+
+   The seed is idempotent and creates four active Requesters, an inactive
+   Requester, three active IT Staff accounts, an inactive IT Staff account, an
+   active Administrator, reference data, realistic Tickets, a Public Comment,
+   and an Internal Note. Every seeded account starts with the disposable local
+   password `Lab3-Initial-2026!` and must change it at first sign-in. Seeded
+   credentials are for local development only; they are not production secrets.
 
 ## Run locally
 
@@ -92,10 +86,13 @@ cd client
 npm run dev
 ```
 
-Open http://localhost:5173. The first screen selects a temporary Development
-Requester context for Lab 2 testing; it is not authentication.
+Open <http://localhost:5173>, sign in with one of the documented local seed
+accounts, and complete the mandatory password change. The application now
+starts at Login; the former Development Requester selector is not part of Lab 3.
 
-## Test commands
+## Test and verification commands
+
+Run these commands from the repository root:
 
 ```bash
 npm test --prefix server
@@ -103,8 +100,17 @@ npm run build --prefix server
 npm test --prefix client
 npm run build --prefix client
 npm run test:e2e --prefix client
+git diff --check
 ```
 
-The Playwright command seeds the local database, runs the complete requester
-Ticket flow, and writes responsive screenshots to
-`artifacts/lab-02/screenshots/`.
+The Playwright configuration seeds the local database, runs the authenticated
+Lab 2 regression and Lab 3 Login, Requester, IT Staff, Administrator, and
+responsive flows, and writes readable evidence under
+`artifacts/lab-03/screenshots/`. Use a disposable local database for E2E runs;
+the flows create test Tickets and one temporary Administrator-managed account.
+
+The complete Lab 3 contract and traceability records are in
+[`docs/lab-03/specification.md`](docs/lab-03/specification.md),
+[`docs/lab-03/api-spec.md`](docs/lab-03/api-spec.md),
+[`docs/lab-03/ui-spec.md`](docs/lab-03/ui-spec.md), and
+[`docs/lab-03/tests.md`](docs/lab-03/tests.md).
