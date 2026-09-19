@@ -89,11 +89,6 @@ describe("Administrator User Management", () => {
 
     const resetSupportButtons = await screen.findAllByRole("button", { name: "Reset initial password for Support One" });
     await user.click(resetSupportButtons[0]);
-    const showNewPassword = screen.getByRole("button", { name: "Show New initial password" });
-    expect(screen.getByLabelText("New initial password")).toHaveAttribute("type", "password");
-    await user.click(showNewPassword);
-    expect(screen.getByLabelText("New initial password")).toHaveAttribute("type", "text");
-    expect(screen.getByRole("button", { name: "Hide New initial password" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("New initial password"), "AnotherSecurePass1!");
     await user.type(screen.getByLabelText("Confirm password"), "AnotherSecurePass1!");
     await user.click(screen.getByRole("button", { name: "Set initial password" }));

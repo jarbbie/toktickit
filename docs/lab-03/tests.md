@@ -33,7 +33,7 @@ the case intentionally tests origin rejection.
 | UNIT-02 | Unit | BR-05, BR-06; AC-05, AC-06 | Token generation/hash and fixed session expiry with clock at just before/at eight hours | Sufficient random token; only SHA-256 hash persisted; no sliding lifetime | `server/tests/lab-03/session.test.ts` | Pass — Issue #38 |
 | UNIT-03 | Unit | BR-08; AC-02 | Normalized-email/IP key, fifth/sixth attempt, 15-minute boundary, success clearing and restart behavior | Fifth failure is 401, next attempt throttles, window expiry/success clears, unrelated key remains independent | `server/tests/lab-03/login-limiter.test.ts` | Pass — Issue #38 |
 | UNIT-04 | Unit | BR-18; AC-23 | Enumerate every pair in the 8×8 status matrix and unknown value | Only documented transitions pass; same/disallowed/unknown values fail | `server/tests/lab-03/ticket-status.test.ts` | Planned |
-| UNIT-05 | Unit | BR-25, BR-26; AC-12, AC-18 | Requester/queue query defaults, unknown/repeated fields, ID/page/offset limits, allowed sorts and sizes | Exact parsed defaults or documented validation; stable ordering definition | `server/tests/lab-03/ticket-query.test.ts`; `server/tests/lab-03/staff-queue.api.test.ts` | Partial — queue defaults, semantic sorts, pagination, and invalid query cases pass in Issue #41; no standalone parser file yet |
+| UNIT-05 | Unit | BR-25, BR-26; AC-12, AC-18 | Requester/queue query defaults, unknown/repeated fields, ID/page/offset limits, allowed sorts and sizes | Exact parsed defaults or documented validation; stable ordering definition | `server/tests/lab-03/ticket-query.test.ts` | Planned |
 | MIG-01 | Migration/regression | BR-32; AC-40 | Populate old schema, snapshot all IDs/links/timestamps and attachment file checksums, upgrade, compare; clean install; email collisions | No row/file loss; identities/relationships preserved; IT Priority copied; collisions stop before conflicting rewrite | `server/tests/lab-03/migration.test.ts` | Pass — Issue #37 |
 | MIG-02 | Migration/security | BR-02, BR-04, BR-32; AC-03, AC-05, AC-40 | Ordered legacy credential bootstrap, incomplete-upgrade refusal, inactive users, retry without hash replacement | Every legacy User receives a hash and required-change state; app cannot expose incomplete upgrade; retry preserves initialized hashes | `server/tests/lab-03/migration.test.ts`; `server/tests/lab-03/auth-session.integration.test.ts` | Partial — bootstrap and authentication-session checks pass in Issue #38; authenticated Requester route regression remains Issue #40 |
 | SEED-01 | Migration/regression | BR-33; AC-41 | Fresh minimum fixture counts and diversity; seed twice after editing password/status/owner/activation and adding user data | Minimum role/activation/ticket fixtures exist; second seed creates no duplicates and preserves all changed values | `server/tests/lab-03/database-seed.test.ts` | Pass — Issue #37 |
@@ -45,16 +45,16 @@ the case intentionally tests origin rejection.
 | API-03 | API/regression | FR-05, FR-06; AC-08, AC-10, AC-11 | Authenticated references/create with no identity input, owned generated fields, number collision retry, all field boundaries | Active ordered references; exact created fields and priority copy; invalid data cannot create; spoofed identity rejected | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-02/reference-data.api.test.ts`; `server/tests/lab-02/create-ticket.api.test.ts` | Partial — authenticated references/create, generated ownership, collision retry, and obsolete-input rejection pass in Issue #40; complete boundary matrix remains regression work |
 | API-04 | API/regression | FR-05, FR-06; AC-12, AC-13 | Owned list/detail, search, each filter/status/sort, tie ordering, page sizes, empty/beyond-end and detail shape | Only authenticated owner's records; Lab 2 behavior retained with new statuses; no notes | `server/tests/lab-02/my-tickets.api.test.ts`; `server/tests/lab-02/ticket-detail.api.test.ts`; `server/tests/lab-03/requester-regression.api.test.ts` | Partial — authenticated list/detail and identity concealment pass in Issue #40; complete status/query matrix remains regression work |
 | API-05 | API/regression | BR-22, BR-23; AC-14, AC-15, AC-27 | Attachment lifecycle in every status, file signatures/type/size/count/reason limits, metadata, downloads, compensation, staff read-only permissions | Permitted operations work; invalid/foreign/removed/forbidden operations return exact statuses; failed writes clean up new files | `server/tests/lab-02/attachments.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — requester lifecycle and compensation pass in Issue #40; Issue #42 covers staff metadata and active download access; PostgreSQL attachment concurrency and full status matrix remain |
-| API-06 | PostgreSQL integration | BR-23; AC-15 | Two simultaneous uploads when four active attachments exist | Exactly one new active file succeeds; final count five and no orphaned file | `server/tests/lab-03/attachments-concurrency.api.test.ts` | Planned — implementation uses a PostgreSQL advisory transaction lock, but a dedicated two-request disposable-database race test remains |
+| API-06 | PostgreSQL integration | BR-23; AC-15 | Two simultaneous uploads when four active attachments exist | Exactly one new active file succeeds; final count five and no orphaned file | `server/tests/lab-03/attachments-concurrency.api.test.ts` | Planned |
 | API-07 | API/integration | FR-07; AC-17, AC-18 | Queue search across all three fields, each filter and combinations, ownership modes, every sort/direction/page size, invalid and beyond-end queries | Matching deterministic page, consistent totals, correct mine and unassigned behavior; safe 400 on invalid query | `server/tests/lab-03/staff-queue.api.test.ts` | Partial — authenticated IT Staff/Admin queue filtering, ownership modes, semantic sorting, pagination, role denial, invalid queries, and safe failure pass in Issue #41; full boundary/concurrency matrix remains regression work |
 | API-08 | API/integration | FR-07, FR-08; AC-19, AC-21, AC-22 | Cross-staff Detail, exact safe fields/ownerOptions, owner assignment/unassignment eligibility, IT Priority edits | All staff can operate others' tickets; only active staff/Admin choices; requested fields immutable; missing/invalid cases safe | `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — staff detail, safe owner options, claim/assignment validation, IT Priority idempotence, and safe malformed operations pass in Issue #42; PostgreSQL authorization/concurrency evidence remains |
 | API-09 | PostgreSQL integration | BR-16; AC-20 | Two authenticated staff claim one unassigned ticket concurrently; already-owned and repeat claims | Exactly one 200 and one 409, one eligible owner, no status change | `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — transaction-scoped advisory-lock assertion and already-assigned conflict pass in Issue #42; disposable PostgreSQL race remains required |
 | API-10 | API/integration | FR-09; AC-23, AC-24 | All status pairs via API, unknown/same values, Requester denial, indication first/repeat/prohibited state and Reopened clearing | Matrix enforced atomically; no partial mutations; indication is independent and repeat-safe | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — requester indication behavior passes in Issue #40; staff transition validation, Reopened clearing, and safe errors pass in Issue #42; exhaustive matrix regression remains |
-| API-11 | API/integration | FR-10, FR-11; AC-25, AC-26 | Public Comment/Internal Note limits 0/1/max/max+1 and whitespace-only, authorship spoofing, chronological ties, all statuses, unsupported edit/delete | Trimmed append-only entries with server author/time; wrong roles/ownership denied; no writable metadata | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-03/comments-notes.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — Public Comment behavior passes in Issue #40; staff-only Internal Note retrieval, privacy denial, backend authorship, trimming, and atomic updatedAt pass in Issues #42/#46; full boundary matrix remains |
+| API-11 | API/integration | FR-10, FR-11; AC-25, AC-26 | Public Comment/Internal Note limits 0/1/max/max+1 and whitespace-only, authorship spoofing, chronological ties, all statuses, unsupported edit/delete | Trimmed append-only entries with server author/time; wrong roles/ownership denied; no writable metadata | `server/tests/lab-03/requester-regression.api.test.ts`; `server/tests/lab-03/staff-ticket-detail.api.test.ts` | Partial — Public Comment behavior passes in Issue #40; staff-only Internal Note retrieval, privacy denial, backend authorship, trimming, and atomic updatedAt pass in Issue #42; full boundary matrix remains |
 | API-12 | API/integration | FR-12; AC-28, AC-29, AC-30 | User list active/inactive/search/one-role filter, create/basic patch, required fields, normalization and invalid role arrays | Safe users only, correct filtered order, one role, hashed initial credentials, exact validation/conflicts | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers list/search/filter, create, patch, duplicate email, validation, and safe fields; remaining exhaustive boundary evidence is tracked for #46 |
 | API-13 | PostgreSQL integration | BR-03, BR-28; AC-21, AC-29, AC-31 | Duplicate-email concurrent creates; simultaneous last-admin changes; owner assignment versus deactivation/role change; self-deactivation | At least one active Admin remains; no duplicate email or ineligible owner; conflicts preserve prior data | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers transaction lock and safety-rule paths with direct API tests; real PostgreSQL concurrency evidence remains for #46 |
 | API-14 | API/integration | FR-13; AC-30, AC-31, AC-32 | Assigned-owner guards in every status, deactivation/reactivation, role/session changes, reset/reuse, inactive reset, self-role/self-reset | Guard conflicts; deactivation/reset revoke sessions; reactivation needs login; reset always requires next-login change | `server/tests/lab-03/users-admin.api.test.ts` | Partial — Issue #44 covers reset hashing, required-change state, session revocation, and self-reset cookie clearing; full account lifecycle matrix remains for #46 |
-| SEC-04 | Security/API | BR-30; AC-33 | Malformed/oversized JSON, invalid numeric/type/unknown input; injected database/hash/storage failures for each route group; forbidden resource probes | Safe JSON error/status with no token/hash/password/path/SQL/stack or protected count; no partial writes | `server/tests/lab-03/safe-errors.api.test.ts`; route-specific API tests | Partial — malformed/oversized JSON and route validation are covered; exhaustive injected-failure matrix remains |
+| SEC-04 | Security/API | BR-30; AC-33 | Malformed/oversized JSON, invalid numeric/type/unknown input; injected database/hash/storage failures for each route group; forbidden resource probes | Safe JSON error/status with no token/hash/password/path/SQL/stack or protected count; no partial writes | `server/tests/lab-03/safe-errors.api.test.ts` | Planned |
 | UI-01 | UI component | FR-01, FR-14; AC-02, AC-34 | Login fields/rules, normalized email, invalid/inactive/throttle/error/success, deferred request and repeated click | Labelled form; generic failure; preserved email; one request while busy; role/gate destination | `client/tests/lab-03/Login.test.tsx` | Partial — validation, safe credential failure, and mandatory-route continuation pass in Issue #39; browser throttle/busy evidence remains E2E |
 | UI-02 | UI component | FR-02, FR-14; AC-03, AC-04, AC-34 | Mandatory/voluntary password modes, exact confirmation, wrong/reused/boundary password, busy/error/success | Gate cannot be bypassed; no confirmation field sent; inputs stay masked; valid result continues | `client/tests/lab-03/ChangePassword.test.tsx` | Partial — mandatory gate, exact confirmation, API shape, and successful continuation pass in Issue #39; server-boundary variants remain API/E2E |
 | UI-03 | UI component | FR-04; AC-08, AC-09, AC-38 | Session bootstrap/reload, all role navigation, direct route refusal, stale selector storage, expiry/logout/self-account change | Name/role visible; protected content gated; obsolete state ignored/removed; prior-user data cleared | `client/tests/lab-03/AuthenticatedShell.test.tsx` | Partial — shell and selector-state removal pass in Issue #39; authenticated requester API usage now passes in Issue #40; expiry/self-account changes remain later |
@@ -65,20 +65,20 @@ the case intentionally tests origin rejection.
 | UI-08 | UI component | FR-08, FR-09; AC-19, AC-20, AC-21, AC-22, AC-23, AC-36 | Cross-staff operation controls, claim conflict, eligible owner choices, reassignment/unassignment and terminal-transition confirmation/cancel | Correct mutations only after required confirmation, one pending request, refresh after conflict; read-only requested fields | `client/tests/lab-03/StaffTicketDetail.test.tsx` | Partial — claim, owner replacement confirmation, IT Priority, permitted status controls, terminal confirmation/cancel, and safe forbidden state pass in Issue #43; conflict-refresh and browser evidence remain |
 | UI-09 | UI component/security | FR-10, FR-11; AC-25, AC-26, AC-27, AC-36 | Separate public/internal composers, lengths, safe HTML-like content, author/time/order, active downloads and removed metadata | Clearly distinct visibility, inert text, no edit/delete/upload/remove controls for staff; save failures retain draft | `client/tests/lab-03/StaffTicketDetail.test.tsx` | Partial — distinct Public Comments/Internal Notes sections, private labels, backend entries, draft preservation, active downloads, and removed metadata pass in Issue #43; full boundary and browser evidence remain |
 | UI-10 | UI component | FR-12, FR-13; AC-28, AC-29, AC-30, AC-31, AC-32, AC-37 | User list/create/edit/reset, search/role filter, duplicate/invalid/conflict feedback, confirmations, busy/success/failure, self-account changes | Minimalist labelled modes make exact API requests, preserve invalid drafts, refresh after success, no excluded features | `client/tests/lab-03/UserManagement.test.tsx` | Partial — Issue #45 covers list/search/role filter, create/edit/deactivation/reset flows, validation, safe conflict feedback, password clearing, and Requester route denial; full browser/responsive/self-account evidence remains #46 |
-| STYLE-01 | UI style/accessibility | FR-14; AC-34, AC-35, AC-36, AC-37, AC-38, AC-39 | Shared header/buttons/cards/labels, required/invalid/read-only treatment, all badges, distinct public/private headings, disabled/busy/focus states | Required semantic labels/styles and role navigation render consistently; status is never color-only | `client/tests/lab-03/ZenGreen.test.tsx`; Lab 3 E2E screenshots | Pass — shared queue tokens/labels pass and screenshots were visually inspected |
-| RESP-01 | Responsive/accessibility | FR-14; AC-39 | All major screens at 1440×1000, 820×1180, 390×844, plus 767/768 and 991/992 breakpoint edges; long text and open dialogs | No page overflow/clipping/overlap; all controls available; cards/forms adapt; evidence screenshots saved | `client/e2e/lab-03/responsive-accessibility.spec.ts`; all Lab 3 E2E helpers | Pass — 7 browser scenarios passed and breakpoint screenshots/no-overflow assertions were captured |
-| RESP-02 | Accessibility/E2E | FR-14; AC-39 | Keyboard-only routes/forms/table links/sorting, visible focus, first error, dialog focus trap/Escape/restore, status/alert announcements | Controls work without pointer, required focus behavior holds, fields have accessible names/messages | `client/e2e/lab-03/staff-ticket-flow.spec.ts`; component suites | Partial — owner confirmation focus/Escape, labels, status/alert semantics pass; a full keyboard-only route sweep remains |
-| E2E-01 | E2E/security | FR-01–FR-04; AC-01, AC-02, AC-03, AC-04, AC-06, AC-09, AC-34, AC-38 | Real login invalid/inactive/valid, initial-password gate/change, reload/current role, logout, direct API/route after logout | Only valid completed authentication reaches the role home; logout ends access; captures authentication evidence | `client/e2e/lab-03/authentication.spec.ts` | Pass — invalid/inactive/busy/first-login/logout flow passed |
-| E2E-02 | E2E/regression | FR-05, FR-06, FR-10; AC-08, AC-11, AC-12, AC-13, AC-14, AC-16, AC-24, AC-25, AC-35 | Requester A creates/finds/opens ticket, uploads/downloads/removes, comments/indicates; B tries direct owned resources | Complete authenticated Lab 2 flow, valid new communication, B concealed; no selector or identity query | `client/e2e/lab-03/requester-regression.spec.ts`; `client/e2e/lab-02/*.spec.ts` | Pass — authenticated create/list/detail, validation/busy/API-failure, comment/indication, active download, soft removal, and cross-requester denial passed |
-| E2E-03 | E2E | FR-07–FR-11; AC-17, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27, AC-36 | Staff searches/pages/opens, claims/reassigns, changes IT Priority/status, comments/notes, downloads, resolves/reopens indicated ticket; Requester rereads | End-to-end operations persist; confirmations work; Requester sees public content but no Internal Note; screenshots saved | `client/e2e/lab-03/staff-ticket-flow.spec.ts` | Pass — populated/no-results/failure queue states, claim/reassignment, priority/status, public/private entries, download, requester indication, and staff API denial passed |
-| E2E-04 | E2E/security | FR-12, FR-13; AC-28, AC-29, AC-30, AC-31, AC-32, AC-37, AC-38 | Admin lists/searches/filters, creates/edits, triggers duplicate/safety denials, deactivates/reactivates and resets; target logs in/changes password | User state and role are persisted, sessions revoked, next-login gate required; non-admin denied; evidence captured | `client/e2e/lab-03/user-administration.spec.ts` | Pass — list/search/filter, create/edit/deactivate/reactivate/reset, duplicate/last-admin safety, reset gate, and Requester denial passed |
+| STYLE-01 | UI style/accessibility | FR-14; AC-34, AC-35, AC-36, AC-37, AC-38, AC-39 | Shared header/buttons/cards/labels, required/invalid/read-only treatment, all badges, distinct public/private headings, disabled/busy/focus states | Required semantic labels/styles and role navigation render consistently; status is never color-only | `client/tests/lab-03/ZenGreen.test.tsx` | Planned |
+| RESP-01 | Responsive/accessibility | FR-14; AC-39 | All major screens at 1440×1000, 820×1180, 390×844, plus 767/768 and 991/992 breakpoint edges; long text and open dialogs | No page overflow/clipping/overlap; all controls available; cards/forms adapt; evidence screenshots saved | `e2e/lab-03/responsive-accessibility.spec.ts` | Planned |
+| RESP-02 | Accessibility/E2E | FR-14; AC-39 | Keyboard-only routes/forms/table links/sorting, visible focus, first error, dialog focus trap/Escape/restore, status/alert announcements | Controls work without pointer, required focus behavior holds, fields have accessible names/messages | `e2e/lab-03/responsive-accessibility.spec.ts` | Planned |
+| E2E-01 | E2E/security | FR-01–FR-04; AC-01, AC-02, AC-03, AC-04, AC-06, AC-09, AC-34, AC-38 | Real login invalid/inactive/valid, initial-password gate/change, reload/current role, logout, direct API/route after logout | Only valid completed authentication reaches the role home; logout ends access; captures authentication evidence | `e2e/lab-03/authentication.spec.ts` | Planned |
+| E2E-02 | E2E/regression | FR-05, FR-06, FR-10; AC-08, AC-11, AC-12, AC-13, AC-14, AC-16, AC-24, AC-25, AC-35 | Requester A creates/finds/opens ticket, uploads/downloads/removes, comments/indicates; B tries direct owned resources | Complete authenticated Lab 2 flow, valid new communication, B concealed; no selector or identity query | `e2e/lab-03/requester-regression.spec.ts` | Planned |
+| E2E-03 | E2E | FR-07–FR-11; AC-17, AC-18, AC-19, AC-20, AC-21, AC-22, AC-23, AC-24, AC-25, AC-26, AC-27, AC-36 | Staff searches/pages/opens, claims/reassigns, changes IT Priority/status, comments/notes, downloads, resolves/reopens indicated ticket; Requester rereads | End-to-end operations persist; confirmations work; Requester sees public content but no Internal Note; screenshots saved | `e2e/lab-03/staff-ticket-flow.spec.ts` | Planned |
+| E2E-04 | E2E/security | FR-12, FR-13; AC-28, AC-29, AC-30, AC-31, AC-32, AC-37, AC-38 | Admin lists/searches/filters, creates/edits, triggers duplicate/safety denials, deactivates/reactivates and resets; target logs in/changes password | User state and role are persisted, sessions revoked, next-login gate required; non-admin denied; evidence captured | `e2e/lab-03/user-administration.spec.ts` | Planned |
 
-Existing Lab 1/Lab 2 tests remain regression assets. Identity-specific fixtures
-now use authenticated sessions; obsolete selector assertions were replaced with
-explicit selector-removal and authorization checks. Ticket number, validation,
-list, attachment compensation, download, and lifecycle coverage remain intact.
-`client/playwright.config.ts` discovers both lab directories so legacy
-regression flows are not silently excluded.
+Existing Lab 1/Lab 2 tests remain regression assets. Update identity-specific
+fixtures to authenticated sessions; replace obsolete selector assertions with
+the explicit removal/authorization tests above. Preserve Ticket number,
+validation, list, attachment compensation and lifecycle coverage. Extend
+`client/playwright.config.ts` discovery to both lab directories instead of
+leaving it fixed to Lab 2 or silently excluding legacy regression flows.
 
 ## 3. Acceptance-Criterion Traceability
 
@@ -131,19 +131,19 @@ rows with planned actual paths above; no range shorthand hides an unmapped AC.
 
 ## 4. Responsive and Visual Checklist
 
-The checklist records the final audit evidence and any remaining limits. An
-automated no-overflow assertion complements visual inspection; it does not
-prove labels, contrast, or focus are readable by itself.
+All checks are planned and must later identify screenshot paths and actual
+observations. An automated no-overflow assertion complements visual inspection;
+it does not prove labels, contrast, or focus are readable.
 
 | Check | Evidence to collect | Status |
 |---|---|---|
-| Login / Change Password | `artifacts/lab-03/screenshots/authentication/`: initial, mandatory mode, invalid/inactive, busy, visible identity/role, logout denial, password visibility controls | Pass — captured and visually inspected after the final screenshot regeneration |
-| Authenticated Requester regression | `artifacts/lab-03/screenshots/requester/`: Create validation/submitting/success/API failure, list/detail viewports, active/removed Attachment, public content, indication, ownership denial | Pass — captured and visually inspected |
-| Staff Queue | `artifacts/lab-03/screenshots/staff-queue/`: populated rows/cards, priorities, owner, controls/page, no-results, API failure | Pass — captured and visually inspected |
-| Staff Detail | `artifacts/lab-03/screenshots/staff-ticket-detail/`: operations, public/private composers, Attachment read-only behavior, desktop/mobile | Pass — captured and visually inspected |
-| User Management | `artifacts/lab-03/screenshots/user-management/`: list at desktop/tablet/mobile and breakpoint edges; create/edit/reset, validation, safety conflict, forbidden | Pass — captured and visually inspected |
-| Zen Green consistency | Compare header/nav, shared forms/cards/buttons/badges, read-only values, adjacent field errors and busy controls with ui-spec.md | Pass — `ZenGreen.test.tsx` and the captured browser screens agree with the UI contract |
-| Keyboard and responsive correctness | Inspect visible focus, order, dialog behavior, long text, no clipping/overlap/hidden controls/page overflow, breakpoint edges | Partial — breakpoint/no-overflow plus owner-dialog focus/Escape checks pass; a dedicated keyboard-only route sweep remains |
+| Login / Change Password | `artifacts/lab-03/screenshots/authentication/`: each viewport, mandatory mode, invalid/inactive, busy/failure, visible identity/role, logout denial | Planned |
+| Authenticated Requester regression | `artifacts/lab-03/screenshots/requester/`: Create, list and Detail at each viewport; active/removed Attachment, public content, indication | Planned |
+| Staff Queue | `artifacts/lab-03/screenshots/staff-queue/`: populated rows/cards, both priorities, owner, controls/page, empty/no-results/failure | Planned |
+| Staff Detail | `artifacts/lab-03/screenshots/staff-ticket-detail/`: operations/confirmation, public/private composers, Attachment read-only behavior, indication/conflict | Planned |
+| User Management | `artifacts/lab-03/screenshots/user-management/`: list/create/edit/reset at each viewport; validation, safety conflict, forbidden/failure | Planned |
+| Zen Green consistency | Compare header/nav, shared forms/cards/buttons/badges, read-only values, adjacent field errors and busy controls with ui-spec.md | Planned |
+| Keyboard and responsive correctness | Inspect visible focus, order, dialog behavior, long text, no clipping/overlap/hidden controls/page overflow, breakpoint edges | Planned |
 
 ## 5. Verification Commands and Evidence Recording
 
@@ -173,30 +173,6 @@ and screenshots rather than reporting an unverified completion assertion.
 
 ## 6. Results and Known Limits
 
-### Final audit on `feature/46-lab3-verification`
-
-On 2026-09-19, after PR #57 was merged into `lab3-staging`, the audit added
-authenticated Lab 2 regression browser flows, Lab 3 browser coverage, required
-Public Comment/Internal Note and safe-error API test files, and corrected the
-Playwright origin/discovery configuration. From a disposable local PostgreSQL
-database with the documented seed fixtures, these commands passed:
-
-```text
-rtk npm test --prefix server       23 test files, 103 tests passed
-rtk npm run build --prefix server  TypeScript build passed
-rtk npm test --prefix client       13 test files, 40 tests passed
-rtk npm run build --prefix client  Vite production build passed
-rtk npm run test:e2e --prefix client 7 tests passed (1.5m)
-rtk git diff --check              passed
-```
-
-The E2E run generated evidence under
-`artifacts/lab-03/screenshots/{authentication,requester,staff-queue,staff-ticket-detail,user-management}`.
-The browser assertions verified no horizontal overflow at desktop, tablet,
-mobile, and 767/768/991/992 breakpoint edges. Screenshots were inspected for
-readable labels, Zen Green badges, role navigation, safe feedback, and absence
-of credentials, tokens, or server paths.
-
 Issue #37 completed MIG-01 and SEED-01. The populated-schema migration test
 preserves User/Ticket/Attachment IDs, relationships, and timestamps, checks
 priority backfill, and rejects normalized-email collisions. The seed test covers
@@ -206,8 +182,9 @@ eight-hour cookie sessions, session-hash storage, logout/password-change
 revocation, safe authentication errors, origin checks for authentication
 mutations, and the documented in-memory login limiter. Its integration test uses
 a disposable PostgreSQL schema and proves old sessions are removed atomically on
-password change. The Lab 2 Requester routes now use authenticated ownership;
-their browser regression is included in the final Playwright run.
+password change. The Lab 2 Requester routes intentionally retain their temporary
+identity inputs until Issue #40 converts them to authenticated ownership; their
+full password-change/role gate coverage therefore remains planned there.
 
 Issue #44 adds the Administrator User Management API for listing, searching,
 role filtering, creation, basic edits, account activation changes, and initial
@@ -223,17 +200,16 @@ client API adapters. The focused UI suite covers safe list rendering, search and
 one-role filtering, labelled create validation and normalized submissions,
 activation/deactivation confirmation, duplicate-email draft preservation,
 initial-password reset, password clearing, and Requester direct-route denial.
-The focused suite passes 7 tests. The final audit also runs all seven
-authenticated Playwright scenarios, including queue empty/no-results/failure,
-reassignment, active attachment download, requester resolution indication,
-and Administrator account reactivation before the reset-gate check.
+The focused suite passes 7 tests; the full client suite passes 12 files and 39
+tests, and the client production build passes. These component results do not
+replace the responsive Playwright, real-session account-lifecycle, and
+screenshot evidence still required by Issue #46.
 
 The login limiter is one-process memory only; restart/distribution behavior is
 documented and unit-tested as a limitation. Local attachment storage and a
 single configured browser origin are the supported lab setup. Email delivery,
 MFA/SSO, Actions Taken, production deployment, and other excluded scope do not
-require implementation tests in this sprint. A dedicated PostgreSQL attachment
-race test, exhaustive status/query boundary files, injected-failure matrix, and
-keyboard/focus automation remain explicit follow-up items rather than being
-claimed by mocked tests or visual screenshots. Peer approvals and final-main
-results are recorded only when the underlying work has occurred.
+require implementation tests in this sprint. Peer approvals and final-main
+results are recorded only when the underlying work has occurred. Remaining
+`Planned` rows are not completion claims; `Partial` rows identify behavior that
+still needs integration, concurrency, browser, or visual evidence.
