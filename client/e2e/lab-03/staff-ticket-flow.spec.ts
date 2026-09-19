@@ -84,4 +84,30 @@ test("IT Staff queue, ticket operations, comments, notes, and attachment continu
   await expect(page.getByText(/Indicated on/)).toBeVisible();
   await capture(page, "requester", "staff-resolution-indication");
   await capture(page, "requester", "staff-public-comment-visible-private-note-hidden");
+
+  await logout(page);
+  await signIn(page, accounts.supportOne, "Ticket Queue");
+  const staffDetailRoute = `/staff/tickets/${detailRoute!.split("/").pop()}`;
+  await page.goto(staffDetailRoute);
+  await expect(page.getByText("Requester indicated that this problem appears resolved on")).toBeVisible();
+
+  await page.getByLabel("Next status").selectOption("RESOLVED");
+  const terminalDialog = page.getByRole("dialog");
+  await expect(terminalDialog).toContainText("to Resolved");
+  await terminalDialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  await page.getByLabel("Next status").selectOption("RESOLVED");
+  await expect(page.getByRole("dialog")).toContainText("to Resolved");
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm status change" }).click();
+  await expect(page.getByText("Status changed to Resolved.")).toBeVisible();
+  await expect(page.getByLabel("Current Status (read-only)")).toHaveValue("Resolved");
+  await expect(page.getByText("Requester indicated that this problem appears resolved on")).toBeVisible();
+
+  await page.getByLabel("Next status").selectOption("REOPENED");
+  await page.getByRole("button", { name: "Update Status" }).click();
+  await expect(page.getByText("Status changed to Reopened.")).toBeVisible();
+  await expect(page.getByLabel("Current Status (read-only)")).toHaveValue("Reopened");
+  await expect(page.getByText("No requester resolution indication has been recorded.")).toBeVisible();
+  await logout(page);
 });

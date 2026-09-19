@@ -226,7 +226,11 @@ initial-password reset, password clearing, and Requester direct-route denial.
 The focused suite passes 7 tests. The final audit also runs all seven
 authenticated Playwright scenarios, including queue empty/no-results/failure,
 reassignment, active attachment download, requester resolution indication,
-and Administrator account reactivation before the reset-gate check.
+terminal status confirmation, a Resolved-to-Reopened transition, clearing the
+resolution indication on Reopened, and Administrator account reactivation
+before the reset-gate check. The authenticated Lab 2 regression flow also
+retains list navigation, filtering/sorting, pagination, no-results, create API
+failure draft preservation, and the empty-list state.
 
 The login limiter is one-process memory only; restart/distribution behavior is
 documented and unit-tested as a limitation. Local attachment storage and a
