@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-
 import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type PublicComment, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, addPublicComment, attachmentDownloadUrl, changePassword, createTicket, currentUser, indicateResolution, loadPublicComments, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
 import StaffQueue from "./StaffQueue.js";
 import StaffTicketDetail from "./StaffTicketDetail.js";
+import UserManagement from "./UserManagement.js";
 
 type SessionState = "checking" | "guest" | "ready" | "error";
 type FormValues = { categoryId: string; relatedSystemId: string; requestedPriority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"; summary: string; description: string };
@@ -404,10 +405,6 @@ function AccessDenied({ user, onLogout, logoutError }: { user: AuthUser; onLogou
   return <Shell user={user} onLogout={onLogout} logoutError={logoutError}><section className="card shadow-sm"><div className="card-body"><h1 className="h3">Access denied</h1><p>You do not have permission to open this page.</p><NavLink className="btn btn-zen-primary" to={roleHome(user)}>Go to my workspace</NavLink></div></section></Shell>;
 }
 
-function FutureWorkspace({ user, title, onLogout, logoutError }: { user: AuthUser; title: string; onLogout: () => void; logoutError: string }) {
-  return <Shell user={user} onLogout={onLogout} logoutError={logoutError}><section className="card shadow-sm"><div className="card-body"><h1 className="h3">{title}</h1><p className="mb-0">This workspace is being completed in its dedicated Lab 3 increment.</p></div></section></Shell>;
-}
-
 export default function App() {
   const [state, setState] = useState<SessionState>("checking");
   const [auth, setAuth] = useState<AuthResult | null>(null);
@@ -462,7 +459,7 @@ export default function App() {
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffQueue /></Shell>} />
     <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffTicketDetailRoute /></Shell>} />
-    <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <FutureWorkspace {...commonShell} title="User Management" /> : <AccessDenied {...commonShell} />} />
+    <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <Shell {...commonShell} wide><UserManagement currentUserId={user.id} onSelfReset={() => { setAuth(null); setReferenceData(null); setState("guest"); }} /></Shell> : <AccessDenied {...commonShell} />} />
     <Route path="*" element={<Navigate replace to={roleHome(user)} />} />
   </Routes>;
 }

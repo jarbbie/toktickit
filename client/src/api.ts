@@ -26,6 +26,11 @@ export interface AuthUser {
   mustChangePassword: boolean;
 }
 
+export interface AdminUserRecord extends AuthUser {
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthResult {
   user: AuthUser;
   expiresAt: string;
@@ -189,6 +194,52 @@ export function login(email: string, password: string) {
 
 export function currentUser() {
   return loadJson<AuthResult>("/api/auth/me");
+}
+
+export function loadAdminUsers(search = "", role: UserRole | "" = "") {
+  const params = new URLSearchParams();
+  if (search.trim()) params.set("search", search.trim());
+  if (role) params.set("role", role);
+  return loadJson<AdminUserRecord[]>(`/api/admin/users${params.toString() ? `?${params}` : ""}`);
+}
+
+export interface AdminUserCreateInput {
+  name: string;
+  email: string;
+  role: UserRole;
+  isActive: boolean;
+  initialPassword: string;
+}
+
+export interface AdminUserUpdateInput {
+  name?: string;
+  email?: string;
+  role?: UserRole;
+  isActive?: boolean;
+}
+
+export function createAdminUser(input: AdminUserCreateInput) {
+  return loadJson<AdminUserRecord>("/api/admin/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminUser(userId: number, input: AdminUserUpdateInput) {
+  return loadJson<AdminUserRecord>(`/api/admin/users/${userId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
+
+export function resetAdminUserPassword(userId: number, initialPassword: string) {
+  return loadJson<AdminUserRecord>(`/api/admin/users/${userId}/initial-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initialPassword }),
+  });
 }
 
 export async function logout() {

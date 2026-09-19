@@ -167,6 +167,52 @@ body {
 .staff-attachment-list .list-group-item { background: #fafbfa; }
 .staff-attachment-list strong { overflow-wrap: anywhere; }
 
+.admin-users-page { margin: 0 auto; max-width: 1280px; }
+.admin-users-heading { align-items: flex-end; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1.25rem; }
+.admin-users-heading h1 { font-size: 1.65rem; }
+.admin-users-filter-card { margin-bottom: 1rem; }
+.admin-users-filter-grid { align-items: end; display: grid; gap: 1rem; grid-template-columns: minmax(260px, 2fr) minmax(180px, 1fr) auto; padding: 1.2rem; }
+.admin-users-search { min-width: 0; }
+.admin-users-clear { min-height: calc(1.45em + .96rem + 2px); }
+.admin-users-table-card { overflow: hidden; }
+.admin-users-table-wrap { display: block; }
+.admin-users-table { --bs-table-color: #3f4b45; font-size: .9rem; }
+.admin-users-mobile-list { display: none; }
+.admin-user-mobile-card { border-bottom: 1px solid #dde5e0; padding: 1rem; }
+.admin-user-mobile-card:last-child { border-bottom: 0; }
+.admin-user-mobile-heading { align-items: center; display: flex; gap: .75rem; justify-content: space-between; }
+.admin-user-mobile-details { display: grid; gap: .25rem .8rem; grid-template-columns: auto minmax(0, 1fr); margin: .8rem 0; }
+.admin-user-mobile-details dt { color: #68716c; font-size: .8rem; font-weight: 600; }
+.admin-user-mobile-details dd { margin: 0; overflow-wrap: anywhere; }
+.admin-users-table > :not(caption) > * > * { border-color: #dde5e0; padding: .75rem .9rem; vertical-align: middle; }
+.admin-users-table thead th { color: #0b7a46; font-size: .82rem; letter-spacing: .02em; white-space: nowrap; }
+.zen-role-table-badge { background: #eef8f2; border: 1px solid #b7dbc5; color: #006b3c; font-size: .72rem; }
+.zen-account-status { border: 1px solid; font-size: .72rem; }
+.zen-account-status.active { background: #eaf6ef; border-color: #b7dbc5; color: #0b7a46; }
+.zen-account-status.inactive { background: #f0f1f3; border-color: #d2d6d9; color: #3f4743; }
+.admin-user-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .45rem; justify-content: flex-end; }
+.admin-user-editor { border-top: 3px solid #0b7a46; margin-top: 1rem; }
+.admin-user-editor-heading { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1.1rem; }
+.admin-user-form { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-user-active-field { align-items: center; display: flex; gap: .6rem; padding-top: 1.9rem; }
+.admin-user-active-field .form-check-input { float: none; margin: 0; }
+.admin-user-warning { align-items: flex-start; background: #fff8e8; border: 1px solid #f1cc74; border-radius: .35rem; color: #704d00; display: flex; gap: .55rem; grid-column: 1 / -1; padding: .7rem .8rem; }
+.admin-user-warning .form-check-input { float: none; flex: 0 0 auto; margin: .15rem 0 0; }
+.admin-user-form > :last-child { grid-column: 1 / -1; }
+.admin-user-form-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .8rem; justify-content: flex-end; }
+
+@media (max-width: 767.98px) {
+  .admin-users-filter-grid { grid-template-columns: 1fr 1fr; }
+  .admin-users-search { grid-column: 1 / -1; }
+  .admin-users-clear { width: 100%; }
+  .admin-user-form { grid-template-columns: 1fr; }
+  .admin-user-warning, .admin-user-form > :last-child { grid-column: auto; }
+  .admin-user-active-field { padding-top: 0; }
+  .admin-users-table-wrap { display: none; }
+  .admin-users-mobile-list { display: block; }
+  .admin-user-mobile-card .admin-user-actions { justify-content: flex-start; }
+}
+
 @media (max-width: 1199.98px) {
   .ticket-filter-grid { grid-template-columns: repeat(3, 1fr); }
   .ticket-filter-search { grid-column: span 2; }
