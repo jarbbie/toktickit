@@ -229,10 +229,14 @@ and last-admin protection require transactional service validation, not just FKs
    password `Lab3-Initial-2026!`, sets `mustChangePassword=true`, and fills only
    missing hashes. The command is part of the repository setup instructions;
    it never logs a password or replaces an existing hash.
-4. Enforce non-null password hashes after bootstrap, verify the preserved sample
-   data and a clean installation, then run the idempotent seed and regression
-   tests. Remove `/api/requesters`, selector routes/UI/types, and identity inputs.
-   Delete the obsolete `toktickit.requesterId` browser-storage key at startup.
+4. Verify that every migrated User has a non-null password hash after bootstrap
+   and that authentication rejects any incomplete record. The Prisma column
+   remains nullable during this staged compatibility migration so the bootstrap
+   can fill legacy rows safely; normal seed/admin paths always write a hash.
+   Verify the preserved sample data and a clean installation, then run the
+   idempotent seed and regression tests. Remove `/api/requesters`, selector
+   routes/UI/types, and identity inputs. Delete the obsolete
+   `toktickit.requesterId` browser-storage key at startup.
 
 This local-course migration is rehearsed against a populated copy and a clean
 database. It must never reset or recreate a populated database. Ordinary seed
@@ -360,9 +364,9 @@ staff can assign tickets without access to User Management.
 - Resolution indication is a repeat-safe Requester signal, never formal status.
   Staff ownership does not gate other staff's access. Submitted ticket fields
   remain read-only after creation.
-- Lab 3 browser tests live in the handout-aligned `e2e/lab-03/` directory. The
-  existing client Playwright configuration is updated to discover that directory
-  as well as retained Lab 2 browser tests.
+- Lab 3 browser tests live in the handout-aligned `client/e2e/lab-03/` directory.
+  The existing client Playwright configuration discovers that directory as well
+  as the retained Lab 2 browser tests.
 - Only four genuine user prompts are available at initial contract authoring;
   the AI-use log will grow through implementation to meet final submission
   requirements without inventing conversation or review evidence.
