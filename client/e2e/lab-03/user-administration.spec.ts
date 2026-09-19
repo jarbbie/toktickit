@@ -20,7 +20,7 @@ test("Administrator user management, safety conflicts, reset gate, and forbidden
   await page.getByLabel("Email").fill(createdEmail);
   await page.getByLabel("User role").selectOption("REQUESTER");
   await page.getByRole("textbox", { name: "Initial password", exact: true }).fill(createdInitialPassword);
-  await page.getByLabel("Confirm password").fill(createdInitialPassword);
+  await page.getByRole("textbox", { name: "Confirm password", exact: true }).fill(createdInitialPassword);
   await page.getByRole("button", { name: "Create user", exact: true }).click();
   await expect(page.locator(".alert.alert-success")).toContainText("User created.");
   await expect(page.getByText(createdName, { exact: true }).first()).toBeVisible();
@@ -37,8 +37,8 @@ test("Administrator user management, safety conflicts, reset gate, and forbidden
   await expect(page.getByText(updatedName, { exact: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: `Reset initial password for ${updatedName}` }).first().click();
-  await page.getByLabel("New initial password").fill(resetPassword);
-  await page.getByLabel("Confirm password").fill(resetPassword);
+  await page.getByRole("textbox", { name: "New initial password", exact: true }).fill(resetPassword);
+  await page.getByRole("textbox", { name: "Confirm password", exact: true }).fill(resetPassword);
   await page.getByRole("button", { name: "Set initial password", exact: true }).click();
   await expect(page.locator(".alert.alert-success")).toContainText("Initial password reset.");
   await capture(page, "user-management", "edit-reset-success");
@@ -54,7 +54,7 @@ test("Administrator user management, safety conflicts, reset gate, and forbidden
   await page.getByLabel("Email").fill(createdEmail);
   await page.getByLabel("User role").selectOption("REQUESTER");
   await page.getByRole("textbox", { name: "Initial password", exact: true }).fill(createdInitialPassword);
-  await page.getByLabel("Confirm password").fill(createdInitialPassword);
+  await page.getByRole("textbox", { name: "Confirm password", exact: true }).fill(createdInitialPassword);
   await page.getByRole("button", { name: "Create user", exact: true }).click();
   await expect(page.getByRole("alert")).toContainText("Email is already in use.");
   await capture(page, "user-management", "duplicate-email-validation");
@@ -76,9 +76,9 @@ test("Administrator user management, safety conflicts, reset gate, and forbidden
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page.getByRole("heading", { name: /Change your initial password to continue/ })).toBeVisible();
   await capture(page, "authentication", "admin-created-user-password-gate");
-  await page.getByLabel("Current Password").fill(resetPassword);
+  await page.getByRole("textbox", { name: "Current Password", exact: true }).fill(resetPassword);
   await page.getByRole("textbox", { name: "New Password", exact: true }).fill(changedPassword);
-  await page.getByLabel("Confirm New Password").fill(changedPassword);
+  await page.getByRole("textbox", { name: "Confirm New Password", exact: true }).fill(changedPassword);
   await page.getByRole("button", { name: "Save Password" }).click();
   await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();
   await logout(page);

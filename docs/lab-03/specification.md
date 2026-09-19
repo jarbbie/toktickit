@@ -364,9 +364,9 @@ staff can assign tickets without access to User Management.
 - Resolution indication is a repeat-safe Requester signal, never formal status.
   Staff ownership does not gate other staff's access. Submitted ticket fields
   remain read-only after creation.
-- Lab 3 browser tests live in the handout-aligned `e2e/lab-03/` directory. The
-  existing client Playwright configuration is updated to discover that directory
-  as well as retained Lab 2 browser tests.
+- Lab 3 browser tests live in the handout-aligned `client/e2e/lab-03/` directory.
+  The existing client Playwright configuration discovers that directory as well
+  as the retained Lab 2 browser tests.
 - Only four genuine user prompts are available at initial contract authoring;
   the AI-use log will grow through implementation to meet final submission
   requirements without inventing conversation or review evidence.

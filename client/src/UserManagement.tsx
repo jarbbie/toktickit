@@ -155,8 +155,10 @@ function UserForm({
           </label>}
         </>}
         <div>
-          <label className="form-label" htmlFor="admin-user-password">{isReset ? "New initial password" : "Initial password"}{!isCreate && !isReset && <span className="text-secondary"> (leave unchanged)</span>}</label>
-          {!isCreate && !isReset ? <p className="form-control-plaintext text-secondary small mb-0">Use “Reset password” from the user list to set a new initial password.</p> : <>
+          {!isCreate && !isReset ? <>
+            <label className="form-label" htmlFor="admin-user-password">Initial password <span className="text-secondary">(leave unchanged)</span></label>
+            <p className="form-control-plaintext text-secondary small mb-0">Use “Reset password” from the user list to set a new initial password.</p>
+          </> : <>
             <PasswordField id="admin-user-password" label={isReset ? "New initial password" : "Initial password"} value={values.initialPassword} onChange={(value) => onChange("initialPassword", value)} error={errors.initialPassword} autoComplete="new-password" />
             <div className="mt-3"><PasswordField id="admin-user-password-confirm" label="Confirm password" value={values.confirmPassword} onChange={(value) => onChange("confirmPassword", value)} error={errors.confirmPassword} autoComplete="new-password" /></div>
           </>}

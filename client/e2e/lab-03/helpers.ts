@@ -91,9 +91,9 @@ export async function signIn(page: Page, account: { email: string; changedPasswo
   }
 
   if (await initialGate.isVisible()) {
-    await page.getByLabel("Current Password").fill(currentPassword);
+    await page.getByRole("textbox", { name: "Current Password", exact: true }).fill(currentPassword);
     await page.getByRole("textbox", { name: "New Password", exact: true }).fill(account.changedPassword);
-    await page.getByLabel("Confirm New Password").fill(account.changedPassword);
+    await page.getByRole("textbox", { name: "Confirm New Password", exact: true }).fill(account.changedPassword);
     await page.getByRole("button", { name: "Save Password" }).click();
   }
   await expect(home).toBeVisible({ timeout: 8_000 });

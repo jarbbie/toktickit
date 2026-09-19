@@ -33,9 +33,9 @@ test("authentication, mandatory password change, safe failures, busy state, and 
   }
   if (await gate.isVisible()) {
     await capture(page, "authentication", "change-password-initial");
-    await page.getByLabel("Current Password").fill(initialPassword);
+    await page.getByRole("textbox", { name: "Current Password", exact: true }).fill(initialPassword);
     await page.getByRole("textbox", { name: "New Password", exact: true }).fill(accounts.nicha.changedPassword);
-    await page.getByLabel("Confirm New Password").fill(accounts.nicha.changedPassword);
+    await page.getByRole("textbox", { name: "Confirm New Password", exact: true }).fill(accounts.nicha.changedPassword);
     await page.getByRole("button", { name: "Save Password" }).click();
   }
   await expect(home).toBeVisible();
