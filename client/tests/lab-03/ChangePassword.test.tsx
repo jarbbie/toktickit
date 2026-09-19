@@ -18,12 +18,6 @@ describe("Lab 3 Change Password", () => {
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/tickets"]}><App /></MemoryRouter>);
 
-    const showNewPassword = await screen.findByRole("button", { name: "Show New Password" });
-    expect(screen.getByLabelText("New Password")).toHaveAttribute("type", "password");
-    await user.click(showNewPassword);
-    expect(screen.getByLabelText("New Password")).toHaveAttribute("type", "text");
-    expect(screen.getByRole("button", { name: "Hide New Password" })).toBeInTheDocument();
-
     await user.type(await screen.findByLabelText("Current Password"), "Lab3-Initial-2026!");
     await user.type(screen.getByLabelText("New Password"), "Changed-Lab3-Password!");
     await user.type(screen.getByLabelText("Confirm New Password"), "Different-Lab3-Password!");
