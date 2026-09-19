@@ -40,7 +40,9 @@ those PRs are not represented as approvals here.
 ## Release Review Evidence
 
 PRs #48 through #57 were merged into `lab3-staging` after the recorded peer
-reviews. Issue #46 still requires its own review record and final
-staging-to-main release review. The final review must also verify the
+reviews. PR [#58](https://github.com/jarbbie/toktickit/pull/58) completed Issue
+#46's final verification and was merged into `lab3-staging` on 2026-09-19; no
+peer approval is claimed for that release-verification PR until an actual
+GitHub review is recorded. The final staging-to-main release review must also verify the
 [Definition of Done](specification.md#10-product-definition-of-done), test
 results, screenshots, and the single Part 1–Part 9 submission PDF.
