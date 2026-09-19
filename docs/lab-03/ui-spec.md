@@ -97,7 +97,9 @@ Show Current Password, New Password, Confirm New Password, and Save Password.
 Display “Use 12–128 characters. Your new password must differ from your current
 password. Spaces are part of your password.” Confirmation must match exactly;
 it stays client-side. Use current-password/new-password autocomplete, masked
-inputs, and per-field errors linked to labels.
+inputs, and per-field errors linked to labels. Each password field also has an
+accessible Show/Hide control; fields are masked by default and the visibility
+toggle does not add any request field.
 
 Mandatory mode says “Change your initial password to continue” and offers
 Logout; normal navigation and cancellation into the app are unavailable.

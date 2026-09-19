@@ -4,8 +4,8 @@
 
 Planning and implementation used OpenAI Codex in the terminal; the main
 planning session identified its model as GPT-5. A delegated Codex agent authored
-the initial contract from the task brief, the complete local labsheet, and the
-Lab 2 documents/code/tests. Tools used include local PDF text extraction,
+the initial Lab 3 contract from the task brief, the complete local labsheet,
+and the Lab 2 documents/code/tests. Tools used include local PDF text extraction,
 repository search/read commands through RTK, file patches, Prisma/PostgreSQL
 migration tools, GitHub issue/PR inspection, and test/build verification. The
 session also used AI to respond to peer-review feedback, add the authenticated

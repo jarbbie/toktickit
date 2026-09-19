@@ -22,6 +22,7 @@ peer approval.
 | 2026-09-18 | SupeemAFK | [#54](https://github.com/jarbbie/toktickit/pull/54) | Staff detail, claim/assignment, IT Priority, status transitions, attachment access, and Internal Notes matched the contract. No blocking issues. | No changes requested. | Approved; merged. |
 | 2026-09-18 | SupeemAFK | [#55](https://github.com/jarbbie/toktickit/pull/55) | Requested that the staff detail route remain inside the authenticated Shell so navigation and logout were not lost. | Wrapped `/staff/tickets/:ticketId` in `Shell` and added an App-level navigation/logout regression test. | Re-reviewed commit `8a596b0` and approved; merged. |
 | 2026-09-18 | SupeemAFK | [#56](https://github.com/jarbbie/toktickit/pull/56) | Reviewed the Administrator-only user list/search/filter, normalized unique creation, safe DTOs, validated edits, session revocation, self-deactivation/last-admin/assigned-owner safeguards, password reset, and shared account-owner locking. No blocking issues. | No changes requested. | Approved commit `63da854`; merged. |
+| 2026-09-19 | SupeemAFK | [#57](https://github.com/jarbbie/toktickit/pull/57) | Reviewed the authenticated Administrator UI, safe list/search/role filtering, create/edit/reset modes, validation, draft preservation, activation and self-admin safeguards, responsive layouts, and direct-route denial. No blocking issues. | No changes requested. | Approved commit `26437ba`; merged. |
 
 ## Reviews Performed
 
@@ -38,8 +39,10 @@ those PRs are not represented as approvals here.
 
 ## Release Review Evidence
 
-PRs #48 through #56 were merged into `lab3-staging` after the recorded peer
-reviews. Issues #45–#46 still require their own review records and final
-staging-to-main release review. The final review must also verify the
+PRs #48 through #57 were merged into `lab3-staging` after the recorded peer
+reviews. PR [#58](https://github.com/jarbbie/toktickit/pull/58) completed Issue
+#46's final verification and was merged into `lab3-staging` on 2026-09-19; no
+peer approval is claimed for that release-verification PR until an actual
+GitHub review is recorded. The final staging-to-main release review must also verify the
 [Definition of Done](specification.md#10-product-definition-of-done), test
 results, screenshots, and the single Part 1–Part 9 submission PDF.
