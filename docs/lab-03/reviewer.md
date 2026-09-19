@@ -23,7 +23,7 @@ peer approval.
 | 2026-09-18 | SupeemAFK | [#55](https://github.com/jarbbie/toktickit/pull/55) | Requested that the staff detail route remain inside the authenticated Shell so navigation and logout were not lost. | Wrapped `/staff/tickets/:ticketId` in `Shell` and added an App-level navigation/logout regression test. | Re-reviewed commit `8a596b0` and approved; merged. |
 | 2026-09-18 | SupeemAFK | [#56](https://github.com/jarbbie/toktickit/pull/56) | Reviewed the Administrator-only user list/search/filter, normalized unique creation, safe DTOs, validated edits, session revocation, self-deactivation/last-admin/assigned-owner safeguards, password reset, and shared account-owner locking. No blocking issues. | No changes requested. | Approved commit `63da854`; merged. |
 | 2026-09-19 | SupeemAFK | [#57](https://github.com/jarbbie/toktickit/pull/57) | Reviewed the authenticated Administrator UI, safe list/search/role filtering, create/edit/reset modes, validation, draft preservation, activation and self-admin safeguards, responsive layouts, and direct-route denial. No blocking issues. | No changes requested. | Approved commit `26437ba`; merged. |
-| 2026-09-19 | SupeemAFK | [#64](https://github.com/jarbbie/toktickit/pull/64) | Requested restoration of the authenticated Lab 2 My Tickets regression checks (list, pagination, filters/sort, no-results, API-failure draft preservation, and empty state), plus browser assertions for terminal status confirmation, Reopened, and clearing the resolution indication. | Restored those checks in the authenticated Playwright flows and updated the Lab 3 test traceability record. | Re-review requested; pending approval. |
+| 2026-09-19 | SupeemAFK | [#64](https://github.com/jarbbie/toktickit/pull/64) | Requested restoration of the authenticated Lab 2 My Tickets regression checks (list, pagination, filters/sort, no-results, API-failure draft preservation, and empty state), plus browser assertions for terminal status confirmation, Reopened, and clearing the resolution indication. | Restored those checks in the authenticated Playwright flows and updated the Lab 3 test traceability record. | Re-reviewed commit `9fb499f`, approved with full validation, and merged into `lab3-staging`. |
 
 ## Reviews Performed
 
@@ -40,10 +40,10 @@ those PRs are not represented as approvals here.
 
 ## Release Review Evidence
 
-PRs #48 through #57 were merged into `lab3-staging` after the recorded peer
-reviews. PR [#58](https://github.com/jarbbie/toktickit/pull/58) completed Issue
-#46's final verification and was merged into `lab3-staging` on 2026-09-19; no
-peer approval is claimed for that release-verification PR until an actual
-GitHub review is recorded. The final staging-to-main release review must also verify the
+PRs #48 through #57 and [#64](https://github.com/jarbbie/toktickit/pull/64)
+were merged into `lab3-staging` after the recorded peer reviews. The earlier
+unreviewed verification merge (#58) was reverted by #62; PR #64 is the reviewed
+replacement that completed Issue #46's final verification. The final
+staging-to-main release review must also verify the
 [Definition of Done](specification.md#10-product-definition-of-done), test
 results, screenshots, and the single Part 1–Part 9 submission PDF.
