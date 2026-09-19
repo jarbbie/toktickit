@@ -63,6 +63,20 @@ function validatePassword(values: FormValues, errors: FormErrors) {
   }
 }
 
+function PasswordField({ id, label, value, onChange, error, autoComplete }: { id: string; label: string; value: string; onChange: (value: string) => void; error?: string; autoComplete: string }) {
+  const [visible, setVisible] = useState(false);
+  const errorId = `${id}-error`;
+
+  return <>
+    <label className="form-label" htmlFor={id}>{label}</label>
+    <div className="input-group">
+      <input aria-required="true" autoComplete={autoComplete} className={`form-control${error ? " is-invalid" : ""}`} id={id} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} {...errorAttributes(id, error)} />
+      <button aria-label={visible ? `Hide ${label}` : `Show ${label}`} className="btn btn-outline-secondary" type="button" onClick={() => setVisible((current) => !current)}>{visible ? "Hide" : "Show"}</button>
+    </div>
+    {error && <div className="invalid-feedback d-block" id={errorId}>{error}</div>}
+  </>;
+}
+
 function UserForm({
   mode,
   values,
@@ -141,13 +155,12 @@ function UserForm({
           </label>}
         </>}
         <div>
-          <label className="form-label" htmlFor="admin-user-password">{isReset ? "New initial password" : "Initial password"}{!isCreate && !isReset && <span className="text-secondary"> (leave unchanged)</span>}</label>
-          {!isCreate && !isReset ? <p className="form-control-plaintext text-secondary small mb-0">Use “Reset password” from the user list to set a new initial password.</p> : <>
-            <input aria-required="true" className={`form-control${errors.initialPassword ? " is-invalid" : ""}`} id="admin-user-password" type="password" value={values.initialPassword} onChange={(event) => onChange("initialPassword", event.target.value)} autoComplete="new-password" {...errorAttributes("admin-user-password", errors.initialPassword)} />
-            {errors.initialPassword && <div className="invalid-feedback" id="admin-user-password-error">{errors.initialPassword}</div>}
-            <label className="form-label mt-3" htmlFor="admin-user-password-confirm">Confirm password</label>
-            <input className={`form-control${errors.confirmPassword ? " is-invalid" : ""}`} id="admin-user-password-confirm" type="password" value={values.confirmPassword} onChange={(event) => onChange("confirmPassword", event.target.value)} autoComplete="new-password" {...errorAttributes("admin-user-password-confirm", errors.confirmPassword)} />
-            {errors.confirmPassword && <div className="invalid-feedback" id="admin-user-password-confirm-error">{errors.confirmPassword}</div>}
+          {!isCreate && !isReset ? <>
+            <label className="form-label" htmlFor="admin-user-password">Initial password <span className="text-secondary">(leave unchanged)</span></label>
+            <p className="form-control-plaintext text-secondary small mb-0">Use “Reset password” from the user list to set a new initial password.</p>
+          </> : <>
+            <PasswordField id="admin-user-password" label={isReset ? "New initial password" : "Initial password"} value={values.initialPassword} onChange={(value) => onChange("initialPassword", value)} error={errors.initialPassword} autoComplete="new-password" />
+            <div className="mt-3"><PasswordField id="admin-user-password-confirm" label="Confirm password" value={values.confirmPassword} onChange={(value) => onChange("confirmPassword", value)} error={errors.confirmPassword} autoComplete="new-password" /></div>
           </>}
         </div>
         <div className="admin-user-form-actions">
