@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 
 const prisma = vi.hoisted(() => ({
-  requester: { findFirst: vi.fn() },
+  session: { findUnique: vi.fn() },
   ticket: { findFirst: vi.fn() },
 }));
 
@@ -12,7 +12,7 @@ import { app } from "../../src/app.js";
 
 beforeEach(() => {
   vi.resetAllMocks();
-  prisma.requester.findFirst.mockResolvedValue({ id: 1 });
+  prisma.session.findUnique.mockResolvedValue({ expiresAt: new Date("2099-01-01"), user: { id: 1, name: "Nicha", email: "nicha@toktickit.test", role: "REQUESTER", isActive: true, mustChangePassword: false } });
 });
 
 describe("requester ticket detail", () => {
@@ -31,11 +31,12 @@ describe("requester ticket detail", () => {
       })
       .mockResolvedValueOnce(null);
 
-    const owned = await request(app).get("/api/tickets/1?requesterId=1");
-    const unowned = await request(app).get("/api/tickets/2?requesterId=1");
+    const owned = await request(app).get("/api/tickets/1").set("Cookie", "toktickit_session=token");
+    const unowned = await request(app).get("/api/tickets/2").set("Cookie", "toktickit_session=token");
 
     expect(owned.status).toBe(200);
     expect(owned.body).toMatchObject({ ticketNumber: "TKT-2026-A1B2C3D4" });
     expect(unowned.status).toBe(404);
+    expect(unowned.body.code).toBe("NOT_FOUND");
   });
 });

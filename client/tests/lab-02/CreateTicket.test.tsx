@@ -97,7 +97,7 @@ describe("Create Ticket", () => {
     await user.click(screen.getByRole("button", { name: "Submit Ticket" }));
 
     expect(await screen.findByText("Ticket created: TKT-2026-A1B2C3D4")).toBeInTheDocument();
-    expect(uploadAttachment).toHaveBeenCalledWith(1, 1, file);
+    expect(uploadAttachment).toHaveBeenCalledWith(1, file);
   });
 
   it("rejects an invalid attachment before creating a ticket", async () => {
