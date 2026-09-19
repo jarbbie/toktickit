@@ -398,7 +398,10 @@ function ChangePassword({ user, mandatory, onChanged, onLogout }: { user: AuthUs
 }
 
 function PasswordInput({ id, label, value, onChange, error, autoComplete }: { id: string; label: string; value: string; onChange: (value: string) => void; error?: string; autoComplete: string }) {
-  return <div className="mb-3"><label className="form-label" htmlFor={id}>{label}</label><input autoComplete={autoComplete} className={`form-control${error ? " is-invalid" : ""}`} id={id} type="password" value={value} onChange={(event) => onChange(event.target.value)} />{error && <div className="invalid-feedback">{error}</div>}</div>;
+  const [visible, setVisible] = useState(false);
+  const errorId = `${id}-error`;
+
+  return <div className="mb-3"><label className="form-label" htmlFor={id}>{label}</label><div className="input-group"><input autoComplete={autoComplete} className={`form-control${error ? " is-invalid" : ""}`} id={id} type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} {...(error ? { "aria-invalid": true, "aria-describedby": errorId } : {})} /><button aria-label={visible ? `Hide ${label}` : `Show ${label}`} className="btn btn-outline-secondary" type="button" onClick={() => setVisible((current) => !current)}>{visible ? "Hide" : "Show"}</button></div>{error && <div className="invalid-feedback d-block" id={errorId}>{error}</div>}</div>;
 }
 
 function AccessDenied({ user, onLogout, logoutError }: { user: AuthUser; onLogout: () => void; logoutError: string }) {
