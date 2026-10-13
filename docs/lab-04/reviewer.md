@@ -1,6 +1,7 @@
 # Lab 4 Peer Review Record
 
-**Status:** Draft PR [#76](https://github.com/jarbbie/toktickit/pull/76) is open for Issue #67; no peer review or approval has occurred.
+**Status:** Draft PR [#76](https://github.com/jarbbie/toktickit/pull/76) is open
+for Issue #67; no peer review or approval has occurred.
 
 ## Identity and Recording Rules
 
@@ -15,7 +16,7 @@
 
 | Date | Reviewer | PR / reviewed commit | Comment or verdict | Author response / resulting change | Approval / merge |
 |---|---|---|---|---|---|
-| Pending | Pending | [#76](https://github.com/jarbbie/toktickit/pull/76), head `d3957aa5985b8be00ef85bb5b0d655de9909a027` | No review received | Pending | Pending |
+| Pending | Pending | [#76](https://github.com/jarbbie/toktickit/pull/76), engineering-contract commit `d3957aa5985b8be00ef85bb5b0d655de9909a027` | No review received | Pending | Pending |
 
 ## Integration and Release Record
 
