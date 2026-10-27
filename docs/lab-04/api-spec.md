@@ -22,32 +22,42 @@ Origin/CSRF, password-change, safe-error, and no-store rules remain in force.
   performer.
 - Error shape: { error, code?, fieldErrors? }. Use 401 unauthenticated,
   403 forbidden/origin/password gate, 404 absent or concealed Ticket,
-  400 malformed/invalid input, 409 stale/illegal/ineligible/replayed-conflict,
-  and safe 500. Do not expose SQL, stack traces, hashes, session tokens,
-  storage keys, or private Action snapshots.
+  400 malformed/invalid input, 409 stale/illegal/non-actionable/ineligible/
+  replayed-conflict, and safe 500. Do not expose SQL, stack traces, hashes,
+  session tokens, storage keys, or private Action snapshots.
 - Timestamp responses are ISO 8601 UTC. The UI converts Asia/Bangkok local
   date/time to an explicit-offset timestamp before sending.
-- Every Action/Ticket workflow mutation runs in a database transaction. Lock or
-  compare-and-swap the parent Ticket workflowVersion so resolving a Ticket
-  cannot race with creating/updating an Action. Failed transactions write no
-  partial Action, Ticket, or event state.
+- Every Action mutation and Ticket status transition runs in a database
+  transaction against the same parent Ticket lock/workflowVersion. Check the
+  expected version and current Ticket status after acquiring that lock. Action
+  writes require an actionable parent status as defined below, so resolution,
+  cancellation, and Action writes cannot race. Failed transactions write no
+  partial Action, Ticket, version, timestamp, or event state.
 
 ## 2. Response Shapes
 
 ~~~text
 Person = { id, name, role }
+RequesterSummary = { id, name }
 ActionRecord = {
   id, ticketId, actionAt, description, result: string | null,
   performedBy: Person, assignee: Person | null, status,
   followUpRequired, followUpNote: string | null,
   attachmentNotes: string | null, version, createdAt, updatedAt
 }
+ActionSnapshot = {
+  actionAt, description, result: string | null, performedBy: Person,
+  assignee: Person | null, status, followUpRequired,
+  followUpNote: string | null, attachmentNotes: string | null, version
+}
 ActionEvent = {
   id, actionId, actor: Person,
   type: CREATED | EDITED | ASSIGNED | STATUS_CHANGED,
-  before: Snapshot | null, after: Snapshot,
+  before: ActionSnapshot | null, after: ActionSnapshot,
   createdAt
 }
+RequesterActionRecord = ActionRecord
+SupportActionRecord = ActionRecord & { events: ActionEvent[] }
 TicketStatusEvent = {
   id, ticketId, fromStatus, toStatus, actor: Person, changedAt
 }
@@ -56,8 +66,8 @@ RequesterDashboardTicket = {
   updatedAt, resolvedAt?: string | null, href
 }
 StaffDashboardTicket = {
-  id, ticketNumber, summary, status, itPriority, owner: Person | null,
-  updatedAt, href
+  id, ticketNumber, summary, requester: RequesterSummary, status, itPriority,
+  owner: Person | null, updatedAt, href
 }
 RequesterDashboard = {
   asOf, windowStart,
@@ -82,11 +92,16 @@ StaffDashboard = {
 }
 ~~~
 
-ActionEvent snapshots are returned only in the support-user Action detail/read
-payload. Requester responses contain current Action fields only. Requester
-dashboard rows omit Staff owner identity; StaffDashboardTicket rows may include
-the owner. Ticket status history contains status changes only; it never
-includes Internal Notes.
+The support-user `GET /api/tickets/:ticketId/actions` response nests each
+Action's ordered events in `events`; there is no separate Action-event route.
+Requester reads and every Action mutation response contain current Action
+fields only. The UI refreshes the support read after a successful mutation to
+show the new event. `ActionSnapshot` is an allowlist of Action fields and never
+contains idempotency keys, fingerprints, Internal Notes, or hidden account
+fields. Requester dashboard rows omit Staff owner identity. Each
+`StaffDashboardTicket` includes only the Requester's `id` and display `name`,
+not email or other account fields. Ticket status history contains status
+changes only; it never includes Internal Notes.
 
 ## 3. Dashboard Drill-Down Filters on Existing Ticket Lists
 
@@ -125,11 +140,30 @@ sorts where applicable.
 ### GET /api/tickets/:ticketId/actions
 
 No query or body. Requester may read only an owned Ticket; IT Staff/Admin may
-read any existing Ticket. Return 200 with ActionRecord[] ordered by
-actionAt ascending, then Action ID ascending. A Ticket with no Actions returns
-[]. Support receives ActionEvent[] per Action, ordered createdAt/id ascending;
-Requester receives no event snapshots. Missing or foreign-owned Ticket is 404.
-A Requester write role receives 403 on staff-only route prefixes before lookup.
+read any existing Ticket. Return 200 with `RequesterActionRecord[]` for a
+Requester or `SupportActionRecord[]` for IT Staff/Admin. Both arrays are
+ordered by `actionAt` ascending, then Action ID ascending. A Ticket with no
+Actions returns `[]`. Each support record's `events` array contains that
+Action's append-only events ordered by `createdAt` ascending, then event ID
+ascending. Requester records have no `events` property or event snapshots.
+Missing or foreign-owned Ticket is 404. A Requester write role receives 403
+on staff-only route prefixes before lookup.
+
+### Parent Ticket state required for Action writes
+
+Create, edit, assignment, and status-change requests require the current parent
+Ticket status to be NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, or REOPENED.
+Check this after locking the Ticket and before writing. RESOLVED or CLOSED
+Tickets must first be moved to REOPENED through the Ticket workflow; CANCELLED
+Tickets are terminal and cannot accept further Action writes. Reject a blocked
+write with 409 `ACTION_TICKET_NOT_MUTABLE`; do not change an Action, its version,
+the Ticket workflowVersion/updatedAt, or event history. This check applies to
+content edits as well as assignment and lifecycle changes, so no Action can
+restore active work or follow-up on a non-actionable Ticket. A verified exact
+create idempotency replay (same key, actor, Ticket, and payload) is read-only
+and may return the previously created Action even if its parent later changed
+status; resolve this replay before checking current parent status/version and
+write no state.
 
 ### POST /api/staff/tickets/:ticketId/actions
 
