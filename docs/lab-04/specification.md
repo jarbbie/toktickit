@@ -93,8 +93,8 @@ inherited or required by the handout.
 | BR-17 | **Inherited:** a Requester may set the “Problem appears resolved” indication only on an owned Ticket in NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, or REOPENED. It sets an advisory timestamp only, preserves the first timestamp, and never changes formal status. Reopening clears the indication. |
 | BR-18 | Every successful Ticket status change stores `{ticketId, actorId, fromStatus, toStatus, changedAt}` in append-only TicketStatusEvent history in the same transaction as the Ticket update. No event is edited/deleted; reads are chronological with a stable ID tie-breaker. |
 | BR-19 | Ticket status transitions are checked against the persisted current status inside a transaction. Same-status, illegal, and stale-version attempts return 409 and leave Ticket/history unchanged. Every transition requires an expected workflow version. |
-| BR-20 | Ticket and Action writes affecting resolution are serialized by Ticket. Each such write increments Ticket.workflowVersion; Action edits also increment Action.version. Missing/stale versions return a safe 409. A failed transaction changes neither records nor event history. |
-| BR-21 | Action create accepts a globally unique client-generated UUID idempotency key. An exact replay by the same actor with the same payload returns the existing Action; reuse with a different actor/payload returns 409. The client disables duplicate submission and retains the key/draft after a recoverable failure. |
+| BR-20 | Every Action create/edit/assignment/status mutation and every Ticket status transition uses the same parent-Ticket transaction lock and expected workflow version. Successful Action mutations increment Ticket.workflowVersion; Action edits/assignment/status changes also increment Action.version. Missing/stale versions return a safe 409. A failed transaction changes neither records, timestamps, versions, nor event history. |
+| BR-21 | Action create accepts a globally unique client-generated UUID idempotency key. An exact replay with the same key, actor, Ticket, and payload returns the existing Action without writing, even if the Ticket status later changes; reuse with a different actor/Ticket/payload returns 409. The client disables duplicate submission and retains the key/draft after a recoverable failure. |
 | BR-22 | Ticket status history is readable by the owning Requester and all support users for accessible Tickets. It contains status, actor display name/role, and time only; it never includes Internal Notes or hidden account fields. |
 | BR-23 | **Proposed dashboard open-status set:** NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, REOPENED. RESOLVED, CLOSED, and CANCELLED are not open. |
 | BR-24 | **Proposed dashboard time window:** “last 7 days” means from 00:00 Asia/Bangkok six calendar days before today through the request time. The response includes `asOf` and `windowStart` as ISO UTC. Empty lists are `[]`; zero counts are `0`. |
@@ -108,6 +108,7 @@ inherited or required by the handout.
 | BR-32 | UI hides unavailable actions for guidance, but backend authorization and state rules remain authoritative for every write. |
 | BR-33 | Lab 4 preserves Labs 1–3 authentication, requester ownership, queue/detail, comments, internal-note isolation, attachments, and Administrator management. No protected data survives logout/user switch in client state. |
 | BR-34 | All screens continue the Zen Green language, semantic labels, visible keyboard focus, text status cues not dependent on color, and layouts usable without clipping/overlap/page overflow. |
+| BR-35 | **Proposed:** Action create, edit, assignment, and status changes require a parent Ticket in NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, or REOPENED. RESOLVED/CLOSED Tickets must first be legally reopened; CANCELLED is terminal. Reject with 409 ACTION_TICKET_NOT_MUTABLE and write no Action, version, timestamp, or event change. An exact create replay with the same key, actor, Ticket, and payload is read-only and may return its original result after the parent changes status. |
 
 ### Authorization Matrix
 
@@ -163,7 +164,9 @@ BR-15/BR-16. The UI confirmation is not authorization.
 
 Assign/reassign/unassign require a current Action version. Replacing an existing
 assignee asks for UI confirmation. Completing/cancelling asks for confirmation;
-the API still enforces lifecycle and permissions.
+the API still enforces lifecycle and permissions. All Action mutations also
+require a parent Ticket status allowed by BR-35; resolving, closing, or
+cancelling a Ticket blocks further Action writes until it is legally reopened.
 
 ### Dashboard Calculations
 
@@ -275,7 +278,7 @@ or raw database details.
 | AC-08 | Requester sees accurate, scoped dashboard metrics and recent lists with working drill-downs. |
 | AC-09 | IT Staff/Admin sees accurate backend-calculated counts and recent/urgent lists with matching queue filters. |
 | AC-10 | Every Ticket status pair/role follows the matrix; legal changes create one append-only event, illegal/stale changes create none. |
-| AC-11 | Requester resolution indication remains advisory; the backend resolution gate blocks incomplete Actions and pending follow-up. |
+| AC-11 | Requester resolution indication remains advisory; the backend resolution gate blocks incomplete Actions and pending follow-up, and Action writes cannot restore work on a RESOLVED, CLOSED, or CANCELLED parent Ticket. |
 | AC-12 | Requester and support users see only authorized, chronologically stable Ticket status history; Internal Notes never appear to Requesters. |
 | AC-13 | Populated migration preserves Labs 1–3 identities, relationships, timestamps, and attachment files; no historical Action/status event is fabricated. |
 | AC-14 | Seed covers required statuses, priorities, assignment states, Action counts/states, and dashboard zero/non-zero cases; rerun is safe. |
