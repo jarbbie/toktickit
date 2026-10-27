@@ -58,7 +58,9 @@ filters: ownership=unassigned, ownership=mine, status, IT Priority, status
 group, update window, or the HIGH/URGENT group. Each row
 opens staff Ticket Detail. Show Ticket number, summary, Requester, status,
 IT Priority, Ticket Owner/Unassigned, and updated time. Use priority then age
-ordering for Urgent Work as defined in api-spec.md.
+ordering for Urgent Work as defined in api-spec.md. The Requester label uses
+the API's `{id, name}` summary; do not display or return Requester email or
+other account fields in dashboard rows.
 
 Dashboard links open the Queue with matching query filters. The Queue parses
 `statusGroup=open`, `updatedAfter=windowStart`,
@@ -85,6 +87,14 @@ Order oldest-to-newest by Action Date/Time then ID; expose status in text, not
 color alone. Long text wraps. Requester payload/screen contains no Action event
 snapshots or Internal Notes.
 
+For support users, each Action includes a read-only “Action history” disclosure
+populated from that record's `events` array in the Action list response. Show
+events oldest-to-newest with date/time, actor name/role, event type, and the
+changed fields from the allowlisted before/after snapshots; a CREATED event
+shows the initial values. Refresh the Action list after a successful write so
+the audit history comes from the server. The disclosure has no edit/delete
+controls. Requesters receive no `events` property and never see this history.
+
 ### Support create/edit/assignment modes
 
 - Create form fields: Action Date/Time, Action Description, Assignee, Follow-Up
@@ -97,6 +107,11 @@ snapshots or Internal Notes.
 - Edit mode changes permitted fields and shows current version/conflict
   feedback. There is no delete action. Terminal status cannot be changed;
   correction edits create an auditable revision.
+- Create, edit, assignment, and status controls are available only while the
+  parent Ticket is NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, or REOPENED.
+  On RESOLVED/CLOSED Tickets, explain that the Ticket must be reopened first;
+  on CANCELLED Tickets, explain that its terminal state prevents further Action
+  changes. The Actions list and support audit history remain readable.
 - Status controls only offer matrix-permitted actions: Start, Complete, Cancel.
   Complete requires a non-empty Result. Complete and Cancel open a named
   confirmation dialog; Cancel is always reversible before confirmation.
