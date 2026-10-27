@@ -28,8 +28,10 @@ and this matrix before implementation continues.
 | API-08 | API/concurrency | AC-11, AC-16 | Resolution/cancellation gates are server-enforced; Action creation/follow-up and Ticket resolve races serialize; stale workflow version returns 409 and writes nothing. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
 | API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts | Planned |
 | API-10 | API/dashboard | AC-08 | Requester counts/lists match fixture queries and Bangkok date boundaries; foreign Requester data never appears; zero metrics and drill-down filters/sorts (`statusGroup`, `updatedAfter`, `resolvedAfter`, `resolvedAt`) are exact, including legacy Tickets without status events. | server/tests/lab-04/requester-dashboard.api.test.ts; server/tests/lab-04/requester-list.api.test.ts | Planned |
-| API-11 | API/dashboard | AC-09 | Staff/Admin counts and lists match real DB queries, correct status/priority ordering, empty states, and Queue filters/sorts (`statusGroup`, `updatedAfter`, `itPriorityGroup`, `urgentWork`). | server/tests/lab-04/staff-dashboard.api.test.ts; server/tests/lab-04/staff-queue.api.test.ts | Planned |
+| API-11 | API/dashboard | AC-09 | Staff/Admin counts and lists match real DB queries, correct status/priority ordering, empty states, safe Requester `{id,name}` summaries without email, and Queue filters/sorts (`statusGroup`, `updatedAfter`, `itPriorityGroup`, `urgentWork`). | server/tests/lab-04/staff-dashboard.api.test.ts; server/tests/lab-04/staff-queue.api.test.ts | Planned |
 | API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/safe-errors.api.test.ts | Planned |
+| API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
+| API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 local warmed reads; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Planned |
 | UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Planned |
 | UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no foreign data. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Planned |
@@ -51,7 +53,7 @@ and this matrix before implementation continues.
 
 | Acceptance Criterion | Planned tests |
 |---|---|
-| AC-01 | UNIT-01, API-01 |
+| AC-01 | UNIT-01, API-01, API-14 |
 | AC-02 | API-02, UI-03, E2E-01 |
 | AC-03 | API-03, UI-04, E2E-01 |
 | AC-04 | UNIT-01, API-04, UI-05 |
@@ -61,12 +63,12 @@ and this matrix before implementation continues.
 | AC-08 | API-10, UI-02, E2E-03 |
 | AC-09 | API-11, PERF-01, UI-01, E2E-03 |
 | AC-10 | UNIT-02, API-06, API-07, UI-07, E2E-02 |
-| AC-11 | API-08, API-09, UI-06, UI-07, E2E-02 |
-| AC-12 | API-01, API-06, UI-07, E2E-02 |
+| AC-11 | API-08, API-09, API-13, UI-06, UI-07, E2E-02 |
+| AC-12 | API-01, API-06, API-14, UI-07, E2E-02 |
 | AC-13 | MIG-01, MIG-02 |
 | AC-14 | SEED-01, API-10, API-11 |
 | AC-15 | API-12, UI-01, UI-02, UI-03, STYLE-01, VIS-01 |
-| AC-16 | API-02, API-03, API-08, API-12, UI-05, E2E-01, E2E-02 |
+| AC-16 | API-02, API-03, API-08, API-12, API-13, UI-05, E2E-01, E2E-02 |
 | AC-17 | STYLE-01, RESP-01, VIS-01, E2E-03 |
 | AC-18 | REG-01, REL-01 |
 
