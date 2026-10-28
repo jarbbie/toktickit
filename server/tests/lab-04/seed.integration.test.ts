@@ -271,4 +271,92 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
       })).toEqual(before);
     });
   }, 120_000);
+
+  it("repairs the earlier resolved fixture without duplicating its resolution event", async () => {
+    await withIsolatedSchema(async (prisma) => {
+      for (const migration of migrations) await applyMigration(prisma, migration);
+
+      const categoryRows = new Map<string, { id: number }>();
+      for (const name of categories) categoryRows.set(name, await prisma.category.create({ data: { name } }));
+      const systemRows = new Map<string, { id: number }>();
+      for (const name of relatedSystems) systemRows.set(name, await prisma.relatedSystem.create({ data: { name } }));
+
+      const activeRequesters = requesters.filter(({ isActive }) => isActive);
+      const requesterRows = new Map<string, { id: number }>();
+      for (const requester of activeRequesters) {
+        requesterRows.set(requester.email, await prisma.user.create({ data: { ...requester, role: "REQUESTER" } }));
+      }
+      const activeStaff = staffUsers.filter(({ isActive, role }) => isActive && role === "IT_STAFF");
+      const staffRows = new Map<string, { id: number }>();
+      for (const staff of activeStaff) staffRows.set(staff.email, await prisma.user.create({ data: staff }));
+
+      const resolvedAt = new Date("2026-10-27T07:00:00.000Z");
+      const oldResolvedTicket = await prisma.ticket.create({
+        data: {
+          ticketNumber: recentResolvedTicketFixture.ticketNumber,
+          summary: recentResolvedTicketFixture.summary,
+          description: recentResolvedTicketFixture.description,
+          requesterId: requesterRows.get(activeRequesters[recentResolvedTicketFixture.requesterIndex].email)!.id,
+          ownerId: staffRows.get(activeStaff[recentResolvedTicketFixture.ownerIndex].email)!.id,
+          categoryId: categoryRows.get(categories[recentResolvedTicketFixture.categoryIndex])!.id,
+          relatedSystemId: systemRows.get(relatedSystems[recentResolvedTicketFixture.relatedSystemIndex])!.id,
+          requestedPriority: recentResolvedTicketFixture.requestedPriority,
+          itPriority: recentResolvedTicketFixture.itPriority,
+          status: "RESOLVED",
+          workflowVersion: 2,
+          createdAt: new Date("2026-10-26T07:00:00.000Z"),
+          updatedAt: resolvedAt,
+        },
+      });
+      await prisma.ticketStatusEvent.create({
+        data: {
+          ticketId: oldResolvedTicket.id,
+          fromStatus: "OPEN",
+          toStatus: "RESOLVED",
+          actorId: staffRows.get(activeStaff[0].email)!.id,
+          changedAt: resolvedAt,
+        },
+      });
+
+      await runSeed(prisma);
+
+      const repairedTicket = await prisma.ticket.findUniqueOrThrow({
+        where: { id: oldResolvedTicket.id },
+        select: { status: true, workflowVersion: true, updatedAt: true },
+      });
+      expect(repairedTicket).toMatchObject({ status: "RESOLVED", workflowVersion: 4 });
+      const completionAction = await prisma.actionTaken.findUniqueOrThrow({
+        where: { idempotencyKey: recentResolvedActionFixture.key },
+      });
+      expect(completionAction).toMatchObject({
+        ticketId: oldResolvedTicket.id,
+        status: "COMPLETED",
+        followUpRequired: false,
+      });
+      expect(await prisma.actionEvent.count({ where: { actionId: completionAction.id } })).toBe(2);
+      expect(await prisma.ticketStatusEvent.count({
+        where: { ticketId: oldResolvedTicket.id, toStatus: "RESOLVED" },
+      })).toBe(1);
+
+      const afterRepair = {
+        actions: await prisma.actionTaken.count(),
+        actionEvents: await prisma.actionEvent.count(),
+        statusEvents: await prisma.ticketStatusEvent.count(),
+        ticket: await prisma.ticket.findUniqueOrThrow({
+          where: { id: oldResolvedTicket.id },
+          select: { workflowVersion: true, updatedAt: true },
+        }),
+      };
+      await runSeed(prisma);
+      expect({
+        actions: await prisma.actionTaken.count(),
+        actionEvents: await prisma.actionEvent.count(),
+        statusEvents: await prisma.ticketStatusEvent.count(),
+        ticket: await prisma.ticket.findUniqueOrThrow({
+          where: { id: oldResolvedTicket.id },
+          select: { workflowVersion: true, updatedAt: true },
+        }),
+      }).toEqual(afterRepair);
+    });
+  }, 120_000);
 });

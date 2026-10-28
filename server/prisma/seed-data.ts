@@ -297,8 +297,10 @@ export async function seedDatabase(prisma: SeedClient) {
 
   const recentResolvedTicket = await prisma.ticket.findUnique({
     where: { ticketNumber: recentResolvedTicketFixture.ticketNumber },
-    select: { id: true },
+    select: { id: true, status: true },
   });
+  let recentResolvedTicketId: number;
+  let shouldRecordRecentResolution = false;
   if (!recentResolvedTicket) {
     const ticket = await prisma.ticket.create({
       data: {
@@ -314,19 +316,39 @@ export async function seedDatabase(prisma: SeedClient) {
         status: "OPEN",
       },
     });
+    recentResolvedTicketId = ticket.id;
+    shouldRecordRecentResolution = true;
+  } else {
+    recentResolvedTicketId = recentResolvedTicket.id;
+  }
+
+  const recentResolvedAction = await prisma.actionTaken.findUnique({
+    where: { idempotencyKey: recentResolvedActionFixture.key },
+    select: { id: true },
+  });
+  // Repair databases seeded by the earlier Lab 4 version, which created this
+  // resolved fixture without its required completion Action. This is specific
+  // to this deterministic fixture; terminal legacy Tickets use the fallback below.
+  const canCreateRecentResolvedAction = !recentResolvedTicket
+    || actionableTicketStatuses.includes(recentResolvedTicket.status)
+    || recentResolvedTicket.status === "RESOLVED";
+  if (!recentResolvedAction && canCreateRecentResolvedAction) {
     await createSeedAction(
       prisma,
-      ticket.id,
+      recentResolvedTicketId,
       recentResolvedActionFixture,
       ownerIndex(recentResolvedActionFixture.performerIndex),
       null,
     );
-    const changedAt = await nextTicketActivityTime(prisma, ticket.id);
+  }
+
+  if (shouldRecordRecentResolution) {
+    const changedAt = await nextTicketActivityTime(prisma, recentResolvedTicketId);
     await prisma.ticketStatusEvent.create({
-      data: { ticketId: ticket.id, fromStatus: "OPEN", toStatus: "RESOLVED", actorId: ownerIndex(0).id, changedAt },
+      data: { ticketId: recentResolvedTicketId, fromStatus: "OPEN", toStatus: "RESOLVED", actorId: ownerIndex(0).id, changedAt },
     });
     await prisma.ticket.update({
-      where: { id: ticket.id },
+      where: { id: recentResolvedTicketId },
       data: { status: "RESOLVED", workflowVersion: { increment: 1 }, updatedAt: changedAt },
     });
   }
