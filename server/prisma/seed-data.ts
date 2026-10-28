@@ -56,6 +56,31 @@ export const recentResolvedTicketFixture = {
   relatedSystemIndex: 1,
 };
 
+export const recentResolvedActionFixture = {
+  key: "00000000-0000-4000-8000-000000000005",
+  performerIndex: 0,
+  assigneeIndex: null,
+  actionAt: "2026-10-27T06:00:00.000Z",
+  description: "Verify the requested service after completing the repair.",
+  followUpRequired: false,
+  followUpNote: null,
+  attachmentNotes: null,
+  targetStatus: "COMPLETED" as const,
+  result: "The requester confirmed the service is working again.",
+};
+
+export const actionFallbackTicketFixture = {
+  ticketNumber: "TKT-2026-L4ACT01",
+  summary: "Lab 4 Action workflow samples",
+  description: "Dedicated active Ticket for sample Actions when legacy examples are terminal.",
+  requestedPriority: "MEDIUM" as const,
+  itPriority: "HIGH" as const,
+  requesterIndex: 0,
+  ownerIndex: 0,
+  categoryIndex: 1,
+  relatedSystemIndex: 1,
+};
+
 export const actionFixtures = [
   {
     key: "00000000-0000-4000-8000-000000000001",
@@ -116,7 +141,11 @@ type SeedClient = Pick<PrismaClient,
   | "actionTaken" | "actionEvent" | "ticketStatusEvent"
 >;
 
-type SeedActionFixture = (typeof actionFixtures)[number];
+type SeedActionFixture = (typeof actionFixtures)[number] | typeof recentResolvedActionFixture;
+
+const actionableTicketStatuses: readonly TicketStatus[] = [
+  "NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED",
+];
 
 function snapshotForAction(
   fixture: SeedActionFixture,
@@ -138,6 +167,75 @@ function snapshotForAction(
     attachmentNotes: fixture.attachmentNotes,
     version,
   };
+}
+
+async function nextTicketActivityTime(prisma: SeedClient, ticketId: number) {
+  const ticket = await prisma.ticket.findUniqueOrThrow({ where: { id: ticketId }, select: { updatedAt: true } });
+  return new Date(Math.max(Date.now(), ticket.updatedAt.getTime() + 1));
+}
+
+async function advanceTicketWorkflow(prisma: SeedClient, ticketId: number) {
+  const updatedAt = await nextTicketActivityTime(prisma, ticketId);
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { workflowVersion: { increment: 1 }, updatedAt },
+  });
+}
+
+async function createSeedAction(
+  prisma: SeedClient,
+  ticketId: number,
+  fixture: SeedActionFixture,
+  performer: { id: number; name: string },
+  assignee: { id: number; name: string } | null,
+) {
+  const actionAt = new Date(fixture.actionAt);
+  const fingerprint = createHash("sha256").update(JSON.stringify({
+    ticketId,
+    actionAt: actionAt.toISOString(),
+    description: fixture.description,
+    result: null,
+    performedById: performer.id,
+    assigneeId: assignee?.id ?? null,
+    followUpRequired: fixture.followUpRequired,
+    followUpNote: fixture.followUpNote,
+    attachmentNotes: fixture.attachmentNotes,
+  })).digest("hex");
+  const action = await prisma.actionTaken.create({
+    data: {
+      ticketId,
+      actionAt,
+      description: fixture.description,
+      result: null,
+      performedById: performer.id,
+      assigneeId: assignee?.id ?? null,
+      status: "PLANNED",
+      followUpRequired: fixture.followUpRequired,
+      followUpNote: fixture.followUpNote,
+      attachmentNotes: fixture.attachmentNotes,
+      version: 1,
+      idempotencyKey: fixture.key,
+      creationFingerprint: fingerprint,
+    },
+  });
+  const plannedSnapshot = snapshotForAction(fixture, "PLANNED", 1, performer, assignee, null);
+  await prisma.actionEvent.create({
+    data: { actionId: action.id, actorId: performer.id, type: "CREATED", after: plannedSnapshot },
+  });
+  await advanceTicketWorkflow(prisma, ticketId);
+
+  if (fixture.targetStatus !== "PLANNED") {
+    const finalResult = fixture.targetStatus === "COMPLETED" ? fixture.result : null;
+    const finalSnapshot = snapshotForAction(fixture, fixture.targetStatus, 2, performer, assignee, finalResult);
+    await prisma.actionTaken.update({
+      where: { id: action.id },
+      data: { status: fixture.targetStatus, result: finalResult, version: 2 },
+    });
+    await prisma.actionEvent.create({
+      data: { actionId: action.id, actorId: performer.id, type: "STATUS_CHANGED", before: plannedSnapshot, after: finalSnapshot },
+    });
+    await advanceTicketWorkflow(prisma, ticketId);
+  }
 }
 
 export async function seedDatabase(prisma: SeedClient) {
@@ -216,68 +314,59 @@ export async function seedDatabase(prisma: SeedClient) {
         status: "OPEN",
       },
     });
-    const changedAt = new Date();
+    await createSeedAction(
+      prisma,
+      ticket.id,
+      recentResolvedActionFixture,
+      ownerIndex(recentResolvedActionFixture.performerIndex),
+      null,
+    );
+    const changedAt = await nextTicketActivityTime(prisma, ticket.id);
     await prisma.ticketStatusEvent.create({
       data: { ticketId: ticket.id, fromStatus: "OPEN", toStatus: "RESOLVED", actorId: ownerIndex(0).id, changedAt },
     });
-    await prisma.ticket.update({ where: { id: ticket.id }, data: { status: "RESOLVED", workflowVersion: 2 } });
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { status: "RESOLVED", workflowVersion: { increment: 1 }, updatedAt: changedAt },
+    });
   }
 
+  let fallbackTicket: { id: number; status: TicketStatus } | null = null;
   for (const fixture of actionFixtures) {
-    const ticket = await prisma.ticket.findUniqueOrThrow({
-      where: { ticketNumber: ticketFixtures[fixture.ticketIndex].ticketNumber },
-      select: { id: true },
-    });
     const existing = await prisma.actionTaken.findUnique({ where: { idempotencyKey: fixture.key } });
     if (existing) continue;
 
+    const ticket = await prisma.ticket.findUniqueOrThrow({
+      where: { ticketNumber: ticketFixtures[fixture.ticketIndex].ticketNumber },
+      select: { id: true, status: true },
+    });
+    let actionTicket = ticket;
+    if (!actionableTicketStatuses.includes(ticket.status)) {
+      fallbackTicket ??= await prisma.ticket.upsert({
+        where: { ticketNumber: actionFallbackTicketFixture.ticketNumber },
+        update: {},
+        create: {
+          ticketNumber: actionFallbackTicketFixture.ticketNumber,
+          summary: actionFallbackTicketFixture.summary,
+          description: actionFallbackTicketFixture.description,
+          requesterId: requesterIndex(actionFallbackTicketFixture.requesterIndex),
+          ownerId: ownerIndex(actionFallbackTicketFixture.ownerIndex).id,
+          categoryId: categoriesByName.get(categories[actionFallbackTicketFixture.categoryIndex])!.id,
+          relatedSystemId: systemsByName.get(relatedSystems[actionFallbackTicketFixture.relatedSystemIndex])!.id,
+          requestedPriority: actionFallbackTicketFixture.requestedPriority,
+          itPriority: actionFallbackTicketFixture.itPriority,
+          status: "OPEN",
+        },
+        select: { id: true, status: true },
+      });
+      actionTicket = fallbackTicket;
+    }
+
+    if (!actionableTicketStatuses.includes(actionTicket.status)) continue;
+
     const performer = ownerIndex(fixture.performerIndex);
     const assignee = fixture.assigneeIndex === null ? null : ownerIndex(fixture.assigneeIndex);
-    const actionAt = new Date(fixture.actionAt);
-    const fingerprint = createHash("sha256").update(JSON.stringify({
-      ticketId: ticket.id,
-      actionAt: actionAt.toISOString(),
-      description: fixture.description,
-      result: null,
-      performedById: performer.id,
-      assigneeId: assignee?.id ?? null,
-      followUpRequired: fixture.followUpRequired,
-      followUpNote: fixture.followUpNote,
-      attachmentNotes: fixture.attachmentNotes,
-    })).digest("hex");
-    const action = await prisma.actionTaken.create({
-      data: {
-        ticketId: ticket.id,
-        actionAt,
-        description: fixture.description,
-        result: null,
-        performedById: performer.id,
-        assigneeId: assignee?.id ?? null,
-        status: "PLANNED",
-        followUpRequired: fixture.followUpRequired,
-        followUpNote: fixture.followUpNote,
-        attachmentNotes: fixture.attachmentNotes,
-        version: 1,
-        idempotencyKey: fixture.key,
-        creationFingerprint: fingerprint,
-      },
-    });
-    const plannedSnapshot = snapshotForAction(fixture, "PLANNED", 1, performer, assignee, null);
-    await prisma.actionEvent.create({
-      data: { actionId: action.id, actorId: performer.id, type: "CREATED", after: plannedSnapshot },
-    });
-
-    if (fixture.targetStatus !== "PLANNED") {
-      const completedResult = fixture.targetStatus === "COMPLETED" ? fixture.result : null;
-      const finalSnapshot = snapshotForAction(fixture, fixture.targetStatus, 2, performer, assignee, completedResult);
-      await prisma.actionTaken.update({
-        where: { id: action.id },
-        data: { status: fixture.targetStatus, result: completedResult, version: 2 },
-      });
-      await prisma.actionEvent.create({
-        data: { actionId: action.id, actorId: performer.id, type: "STATUS_CHANGED", before: plannedSnapshot, after: finalSnapshot },
-      });
-    }
+    await createSeedAction(prisma, actionTicket.id, fixture, performer, assignee);
   }
 
   const firstTicket = await prisma.ticket.findUniqueOrThrow({ where: { ticketNumber: ticketFixtures[0].ticketNumber }, select: { id: true } });

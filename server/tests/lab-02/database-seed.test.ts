@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { actionFixtures, categories, lab4DashboardUsers, relatedSystems, requesters, seedDatabase, staffUsers, ticketFixtures } from "../../prisma/seed-data.js";
+import { actionFixtures, categories, lab4DashboardUsers, recentResolvedActionFixture, relatedSystems, requesters, seedDatabase, staffUsers, ticketFixtures } from "../../prisma/seed-data.js";
 
 describe("Lab 2 seed data", () => {
   it("defines the required reference data and uses unique-key upserts", async () => {
@@ -32,7 +32,7 @@ describe("Lab 2 seed data", () => {
         findUnique: vi.fn().mockImplementation(async () => recentResolved),
         create: vi.fn().mockImplementation(async ({ data }) => (recentResolved = { id: 500, ...data })),
         update: vi.fn().mockResolvedValue({}),
-        findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 1, status: "NEW", updatedAt: new Date() }),
       },
       actionTaken: {
         findUnique: vi.fn().mockImplementation(async ({ where }) => actionRows.get(where.idempotencyKey) ?? null),
@@ -60,10 +60,17 @@ describe("Lab 2 seed data", () => {
     const bootstrapHashes = prisma.user.update.mock.calls.map(([call]) => call.data.passwordHash);
     expect(new Set(bootstrapHashes).size).toBe(bootstrapHashes.length);
     expect(prisma.ticket.upsert).toHaveBeenCalledTimes(ticketFixtures.length * 2);
-    expect(prisma.actionTaken.create).toHaveBeenCalledTimes(actionFixtures.length);
-    expect(prisma.actionEvent.create).toHaveBeenCalledTimes(actionFixtures.length + 3);
+    expect(prisma.actionTaken.create).toHaveBeenCalledTimes(actionFixtures.length + 1);
+    expect(prisma.actionTaken.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ idempotencyKey: recentResolvedActionFixture.key }),
+    }));
+    expect(prisma.actionEvent.create).toHaveBeenCalledTimes(actionFixtures.length + 5);
     expect(prisma.ticketStatusEvent.create).toHaveBeenCalledTimes(1);
     expect(prisma.publicComment.create).toHaveBeenCalledTimes(1);
     expect(prisma.internalNote.create).toHaveBeenCalledTimes(1);
+    expect(prisma.ticket.update).toHaveBeenCalledTimes(10);
+    expect(prisma.ticket.update.mock.calls.every(([call]) =>
+      call.data.workflowVersion.increment === 1 && call.data.updatedAt instanceof Date,
+    )).toBe(true);
   });
 });
