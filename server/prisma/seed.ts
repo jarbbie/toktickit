@@ -2,7 +2,8 @@ import { getPrisma } from "../src/prisma.js";
 import { seedDatabase } from "./seed-data.js";
 
 async function main() {
-  await seedDatabase(getPrisma());
+  const prisma = getPrisma();
+  await prisma.$transaction((transaction) => seedDatabase(transaction), { timeout: 60_000 });
 }
 
 main()

@@ -1,8 +1,8 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Planned only. This document defines tests before product
-implementation. No Lab 4 test files have been added or run yet. “Pass” is not
-claimed until the exact test and commit have been verified.
+**Status:** Data-foundation migration, recovery, and seed tests are implemented
+for Issue #68. PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose
+database name ends in `_test`; remaining Lab 4 tests are still planned.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the
@@ -15,9 +15,11 @@ and this matrix before implementation continues.
 |---|---|---|---|---|---|
 | UNIT-01 | Unit | AC-01, AC-04, AC-06 | Action text/date/follow-up validation accepts boundaries and rejects invalid values; false follow-up clears current note. | server/tests/lab-04/action-rules.test.ts | Planned |
 | UNIT-02 | Unit | AC-05, AC-10, AC-11 | Every Action/Ticket transition pair agrees with documented matrices; same/terminal transitions reject. | server/tests/lab-04/workflow-rules.test.ts | Planned |
-| MIG-01 | Migration integration | AC-13 | Migrate a populated Lab 3 copy and compare IDs, relationships, timestamps, attachments/files, and sequences before/after. | server/tests/lab-04/migration.integration.test.ts | Planned |
-| MIG-02 | Recovery integration | AC-13 | Exercise documented backup/restore or forward-repair on disposable DB; prove no reset is used as preservation evidence. | server/tests/lab-04/migration-recovery.integration.test.ts | Planned |
-| SEED-01 | Seed integration | AC-14 | Run seed twice; no duplicates or overwrite of modified user data; verify required Action cardinalities/statuses and Ticket coverage. | server/tests/lab-04/seed.integration.test.ts | Planned |
+| MIG-01 | Migration integration | AC-13 | Migrate a populated Lab 3 copy and compare IDs, relationships, timestamps, attachments/files, and sequences before/after. | server/tests/lab-04/migration.integration.test.ts | Passed locally; 2026-10-28 |
+| MIG-02 | Recovery integration | AC-13 | Force an additive-migration DDL conflict in a disposable schema, prove rollback preserves legacy rows and columns, remove the conflict, and retry successfully without reset. | server/tests/lab-04/migration-recovery.integration.test.ts | Passed locally; 2026-10-28 |
+| SEED-01 | Seed integration | AC-14, AC-16 | Clean seed records a valid recent resolution with a completed Action, advances parent workflow versions/activity timestamps for Action mutations, and remains repeat-safe without overwriting edited data. | server/tests/lab-04/seed.integration.test.ts | Passed locally; 2026-10-28 |
+| SEED-02 | Populated seed integration | AC-13, AC-14, AC-16 | Preserve existing RESOLVED/CLOSED/CANCELLED Tickets and their history; rehome missing Action samples to an active seed Ticket; create a new versioned recent-resolution sample with a completed Action before its resolution instead of mutating the earlier terminal fixture; rerun without writes to legacy rows or duplicate Actions/events. | server/tests/lab-04/seed.integration.test.ts | Passed locally; 2026-10-28 |
+| DB-GUARD-01 | Unit | AC-13 | Reject unsafe or non-PostgreSQL test URLs before any temporary schema is created. | server/tests/lab-04/database-test-utils.test.ts | Passed locally; 2026-10-28 |
 | API-01 | API/authz | AC-01, AC-07, AC-12 | Requester reads own Actions/history only; forged owner/actor fields are rejected; cross-owner reads are concealed as 404; Staff/Admin read all. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
 | API-02 | API/integration | AC-02, AC-05, AC-16 | Create Action derives performer from session, stores event, returns 201; exact idempotency replay returns same record; mismatched key replay returns 409. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
 | API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
@@ -105,7 +107,23 @@ any limitation to this file only after those commands are run.
 
 ## 5. Results Log
 
-- Contract planning: tests above are Planned, not implemented or executed.
+- Issue #68 verification on 2026-10-28: PR source at
+  `0ddcdc410775849b43a98526b57722769e7be1be` plus the SQL-helper and legacy
+  fixture corrections committed with this result.
+- `rtk npm test -- tests/lab-02/database-seed.test.ts tests/lab-04` from
+  `server/`: **5 files passed; 7 tests passed; 0 failed; 0 skipped**. This
+  includes populated migration, migration rollback/retry, all three seed
+  integration cases, seed mocks, and the test-database URL guard.
+- The PostgreSQL cases ran against the separate `toktickit_test` database in
+  the existing local PostgreSQL container. Each case created and removed its
+  own temporary schema. Host access was required for the local Docker service.
+- The first database run exposed a helper that split function bodies at
+  internal semicolons and a raw legacy Ticket insert without `updatedAt`.
+  Both test setup defects were corrected before the passing run.
+- `rtk npm run build` from `server/`: passed after the corrections.
+  `rtk git diff --check`: passed. These are focused PR checks, not a full-suite
+  or final-main verification.
+- Other Lab 4 test rows remain planned until their implementation issues begin.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
   those results are not a new Lab 4 run.

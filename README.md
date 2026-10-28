@@ -6,8 +6,8 @@ role-based workspaces:
 
 - `client/` — React, TypeScript, Vite, Bootstrap, and Playwright
 - `server/` — Node.js, Express, TypeScript, Prisma, PostgreSQL, and Vitest/Supertest
-- `docs/lab-01/`, `docs/lab-02/`, and `docs/lab-03/` — contracts, test plans,
-  AI-use reflections, and peer-review records
+- `docs/lab-01/` through `docs/lab-04/` — contracts, test plans, AI-use
+  reflections, and peer-review records
 - `artifacts/lab-03/screenshots/` — browser evidence captured by the Lab 3 E2E suite
 
 The three supported roles are Requester, IT Staff, and Administrator. Requesters
@@ -63,12 +63,48 @@ server enforces ownership and role authorization independently of the UI.
    npm run prisma:seed
    ```
 
-   The seed is idempotent and creates four active Requesters, an inactive
-   Requester, three active IT Staff accounts, an inactive IT Staff account, an
-   active Administrator, reference data, realistic Tickets, a Public Comment,
-   and an Internal Note. Every seeded account starts with the disposable local
-   password `Lab3-Initial-2026!` and must change it at first sign-in. Seeded
-   credentials are for local development only; they are not production secrets.
+   The seed is idempotent and creates four active Requesters plus a zero-Ticket
+   dashboard account, an inactive Requester, three ticket-owning IT Staff plus
+   a zero-ownership dashboard account, an inactive IT Staff account, an active
+   Administrator, reference data, realistic Tickets, Actions, workflow events,
+   a Public Comment, and an Internal Note. It creates missing fixtures only
+   and does not overwrite changed application records. Every seeded account
+   starts with the disposable local password `Lab3-Initial-2026!` and must
+   change it at first sign-in. Seeded credentials are for local development
+   only; they are not production secrets.
+
+## Lab 4 database safety
+
+The migration is additive. It gives existing Tickets `workflowVersion = 1`
+without creating Actions or invented status history. Before applying it to a
+populated database, stop application writes and make matching database and
+attachment-file backups outside the repository. Verify both backups before
+running `npx prisma migrate deploy`:
+
+```bash
+# Use the same host, port, user, and database as DATABASE_URL; omit Prisma's
+# ?schema=... parameter because pg_dump uses libpq connection options.
+pg_dump --format=custom --file=/safe/backups/toktickit-before-lab4.dump \
+  --host=localhost --port=5432 --username=toktickit toktickit
+tar -C server -czf /safe/backups/toktickit-uploads-before-lab4.tar.gz uploads
+pg_restore --list /safe/backups/toktickit-before-lab4.dump
+tar -tzf /safe/backups/toktickit-uploads-before-lab4.tar.gz
+```
+
+The migration runs transactionally on PostgreSQL. If deployment reports a
+failed migration, first verify that the DDL transaction rolled back, then mark
+that migration rolled back with `prisma migrate resolve --rolled-back` before
+retrying the corrected migration. If a completed migration has a data or file
+problem, stop writes and restore the database and uploads from the same
+verified snapshot, or apply a reviewed forward migration. Do not use
+`prisma migrate reset` against a populated database.
+
+Lab 4 migration and seed integration tests require `TEST_DATABASE_URL` to name
+a disposable PostgreSQL database ending in `_test` (for example,
+`toktickit_test`). Create that database once, for example with
+`docker exec toktickit-postgres createdb -U toktickit toktickit_test`. Each
+test creates and drops only a uniquely named temporary schema in that database.
+The guard rejects other database names; no test runs `prisma migrate reset`.
 
 ## Run locally
 
