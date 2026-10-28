@@ -1,7 +1,8 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Data-foundation migration, recovery, and seed tests are implemented
-for Issue #68. PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose
+**Status:** Data-foundation migration, recovery, and seed tests (#68) and
+Actions Taken API integration tests (#69) are implemented.
+PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose
 database name ends in `_test`; remaining Lab 4 tests are still planned.
 
 TDD loop: add a focused failing test → record the red result → implement the
@@ -20,20 +21,20 @@ and this matrix before implementation continues.
 | SEED-01 | Seed integration | AC-14, AC-16 | Clean seed records a valid recent resolution with a completed Action, advances parent workflow versions/activity timestamps for Action mutations, and remains repeat-safe without overwriting edited data. | server/tests/lab-04/seed.integration.test.ts | Passed locally; 2026-10-28 |
 | SEED-02 | Populated seed integration | AC-13, AC-14, AC-16 | Preserve existing RESOLVED/CLOSED/CANCELLED Tickets and their history; rehome missing Action samples to an active seed Ticket; create a new versioned recent-resolution sample with a completed Action before its resolution instead of mutating the earlier terminal fixture; rerun without writes to legacy rows or duplicate Actions/events. | server/tests/lab-04/seed.integration.test.ts | Passed locally; 2026-10-28 |
 | DB-GUARD-01 | Unit | AC-13 | Reject unsafe or non-PostgreSQL test URLs before any temporary schema is created. | server/tests/lab-04/database-test-utils.test.ts | Passed locally; 2026-10-28 |
-| API-01 | API/authz | AC-01, AC-07, AC-12 | Requester reads own Actions/history only; forged owner/actor fields are rejected; cross-owner reads are concealed as 404; Staff/Admin read all. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
-| API-02 | API/integration | AC-02, AC-05, AC-16 | Create Action derives performer from session, stores event, returns 201; exact idempotency replay returns same record; mismatched key replay returns 409. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
-| API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
-| API-04 | API/validation | AC-04, AC-06 | Edit boundaries, conditional follow-up, attachment-note length/plain-text behavior, result validation, event snapshots, and Action version increment. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
-| API-05 | API/workflow | AC-05, AC-11, AC-16 | Start/complete/cancel transitions, required completion Result, terminal behavior, repeat calls, and no partial event on rejection. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
+| API-01 | API/authz | AC-01, AC-07, AC-12 | Requester reads own Actions/history only; forged owner/actor fields are rejected; cross-owner reads are concealed as 404; Staff/Admin read all. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
+| API-02 | API/integration | AC-02, AC-05, AC-16 | Create Action derives performer from session, stores event, returns 201; exact idempotency replay returns same record; mismatched key replay returns 409. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
+| API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
+| API-04 | API/validation | AC-04, AC-06 | Edit boundaries, conditional follow-up, attachment-note length/plain-text behavior, result validation, event snapshots, and Action version increment. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
+| API-05 | API/workflow | AC-05, AC-11, AC-16 | Start/complete/cancel transitions, required completion Result, terminal behavior, repeat calls, and no partial event on rejection. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-06 | API/history | AC-10, AC-12 | Ticket status events are append-only, actor/from/to/time are correct, equal timestamps have stable ID order, and Requesters see only own history. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
 | API-07 | API/workflow | AC-10, AC-11 | All eight Ticket statuses × all roles: allowed transitions succeed; disallowed, same-state, and Requester attempts reject. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
 | API-08 | API/concurrency | AC-11, AC-16 | Resolution/cancellation gates are server-enforced; Action creation/follow-up and Ticket resolve races serialize; stale workflow version returns 409 and writes nothing. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
 | API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts | Planned |
 | API-10 | API/dashboard | AC-08 | Requester counts/lists match fixture queries and Bangkok date boundaries; foreign Requester data never appears; zero metrics and drill-down filters/sorts (`statusGroup`, `updatedAfter`, `resolvedAfter`, `resolvedAt`) are exact, including legacy Tickets without status events. | server/tests/lab-04/requester-dashboard.api.test.ts; server/tests/lab-04/requester-list.api.test.ts | Planned |
 | API-11 | API/dashboard | AC-09 | Staff/Admin counts and lists match real DB queries, correct status/priority ordering, empty states, safe Requester `{id,name}` summaries without email, and Queue filters/sorts (`statusGroup`, `updatedAfter`, `itPriorityGroup`, `urgentWork`). | server/tests/lab-04/staff-dashboard.api.test.ts; server/tests/lab-04/staff-queue.api.test.ts | Planned |
-| API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/safe-errors.api.test.ts | Planned |
-| API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
-| API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Planned |
+| API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/safe-errors.api.test.ts | Action API passed; remaining workflow scope in #70 |
+| API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Action API passed; remaining workflow scope in #70 |
+| API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 local warmed reads; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Planned |
 | UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Planned |
 | UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no foreign data. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Planned |
@@ -123,7 +124,23 @@ any limitation to this file only after those commands are run.
 - `rtk npm run build` from `server/`: passed after the corrections.
   `rtk git diff --check`: passed. These are focused PR checks, not a full-suite
   or final-main verification.
-- Other Lab 4 test rows remain planned until their implementation issues begin.
+- Issue #69 verification on 2026-10-29, based on the merged #68 source at
+  `e69876082410ea4601198c71bfc9d03df9385f08` plus the Action API and test
+  changes committed with this entry:
+  - Red: 13 PostgreSQL API cases failed with missing-route 404 responses before
+    implementation (after starting the existing PostgreSQL container).
+  - Green: 15 Action API cases passed, covering role/session/Origin gates,
+    ownership concealment, ordered safe reads, active assignees, validation,
+    lifecycle pairs, concurrency, exact retries, terminal parents, and rollback.
+  - `rtk npm run test:isolated` from `server/`: **28 files passed, 124 tests
+    passed, 0 failed, 0 skipped**, including inherited Labs 1–3 cases.
+  - `rtk npm run build` from `server/`: passed. `rtk git diff --check`: passed.
+  - The isolated runner provisions a migrated schema under `TEST_DATABASE_URL`
+    and supplies it as the test child process's `DATABASE_URL`; inherited
+    database tests can therefore run without the development database.
+  - Ticket status transitions, gates, and history API remain Issue #70 work;
+    Action mutations already acquire the inherited Ticket status advisory lock.
+- Other Lab 4 test rows remain planned as marked in the matrix.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
   those results are not a new Lab 4 run.

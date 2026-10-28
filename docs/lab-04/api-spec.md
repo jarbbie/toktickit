@@ -1,7 +1,8 @@
 # Lab 4 REST API Contract
 
-**Status:** Draft for Issue #67. Proposed choices require peer review before
-implementation. Base path is /api. Existing Labs 1–3 routes and cookie-session,
+**Status:** Engineering contract reviewed and merged through PR #76 for Issue
+#67. Actions Taken implementation is tracked in #69; other Lab 4 endpoints
+remain tracked by their respective issues. Base path is /api. Existing Labs 1–3 routes and cookie-session,
 Origin/CSRF, password-change, safe-error, and no-store rules remain in force.
 
 ## 1. Shared Rules
@@ -33,6 +34,12 @@ Origin/CSRF, password-change, safe-error, and no-store rules remain in force.
   writes require an actionable parent status as defined below, so resolution,
   cancellation, and Action writes cannot race. Failed transactions write no
   partial Action, Ticket, version, timestamp, or event state.
+- Requester and support Ticket detail responses include `workflowVersion`.
+  Support clients refresh Ticket detail to obtain the current token before
+  an Action mutation. Missing concurrency tokens return the corresponding
+  409 stale-version code; malformed token types or values return 400.
+- Browser CORS requests may send `Idempotency-Key`, and may read the
+  `Idempotent-Replayed` response header.
 
 ## 2. Response Shapes
 

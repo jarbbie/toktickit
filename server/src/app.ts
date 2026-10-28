@@ -4,6 +4,7 @@ import multer from "multer";
 import { randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient, UserRole } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
+import { registerActionRoutes } from "./actions.js";
 import { generateTicketNumber } from "./ticket-number.js";
 import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
 import {
@@ -266,6 +267,7 @@ const staffTicketSelect = {
   requestedPriority: true,
   itPriority: true,
   status: true,
+  workflowVersion: true,
   ownerId: true,
   resolutionIndicatedAt: true,
   createdAt: true,
@@ -306,8 +308,13 @@ app.use(cors({
     callback(null, !origin || origin === configuredClientOrigin());
   },
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type", "Idempotency-Key"],
+  exposedHeaders: ["Idempotent-Replayed"],
 }));
+app.use(["/api/staff/actions", "/api/staff/tickets/:ticketId/actions", "/api/tickets/:ticketId/actions"], (_req, res, next) => {
+  noStore(res);
+  next();
+});
 app.use(express.json({ limit: "100kb" }));
 app.use((error: Error & { type?: string }, _req: Request, res: Response, next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
@@ -1026,7 +1033,7 @@ app.get("/api/tickets/:ticketId", ...requesterAuthentication, async (req: Reques
     const prisma = getPrisma();
     const ticket = await prisma.ticket.findFirst({
       where: { id: ticketId, requesterId },
-      select: { id: true, ticketNumber: true, requesterId: true, categoryId: true, relatedSystemId: true, summary: true, description: true, requestedPriority: true, itPriority: true, status: true, ownerId: true, resolutionIndicatedAt: true, createdAt: true, updatedAt: true, requester: { select: personSelect }, owner: { select: { id: true, name: true, role: true } }, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, attachments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: attachmentSelect } },
+      select: { id: true, ticketNumber: true, requesterId: true, categoryId: true, relatedSystemId: true, summary: true, description: true, requestedPriority: true, itPriority: true, status: true, workflowVersion: true, ownerId: true, resolutionIndicatedAt: true, createdAt: true, updatedAt: true, requester: { select: personSelect }, owner: { select: { id: true, name: true, role: true } }, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, attachments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: attachmentSelect } },
     });
     if (!ticket) {
       notFound(res, "Ticket not found.");
@@ -1319,6 +1326,8 @@ app.post("/api/tickets", ...requesterAuthentication, async (req: Request, res: R
     res.status(500).json({ error: "Unable to create ticket." });
   }
 });
+
+registerActionRoutes(app, completedAuthentication, staffAuthentication);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/")) {
