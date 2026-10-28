@@ -44,8 +44,14 @@ export const ticketFixtures = Array.from({ length: 24 }, (_, index) => ({
   relatedSystemIndex: index % relatedSystems.length,
 }));
 
+// The earlier Lab 4 draft used DASH01 and resolved it without an Action.
+// Keep that existing terminal row untouched under BR-35; seed this corrected
+// sample under a new number so its completion Action precedes its resolution.
+export const legacyRecentResolvedTicketNumber = "TKT-2026-L4DASH01";
+export const legacyRecentResolvedActionKey = "00000000-0000-4000-8000-000000000005";
+
 export const recentResolvedTicketFixture = {
-  ticketNumber: "TKT-2026-L4DASH01",
+  ticketNumber: "TKT-2026-L4DASH02",
   summary: "Confirm the dashboard resolution window",
   description: "Seeded Lab 4 Ticket with a recorded recent resolution.",
   requestedPriority: "HIGH" as const,
@@ -57,7 +63,7 @@ export const recentResolvedTicketFixture = {
 };
 
 export const recentResolvedActionFixture = {
-  key: "00000000-0000-4000-8000-000000000005",
+  key: "00000000-0000-4000-8000-000000000006",
   performerIndex: 0,
   assigneeIndex: null,
   actionAt: "2026-10-27T06:00:00.000Z",
@@ -326,12 +332,10 @@ export async function seedDatabase(prisma: SeedClient) {
     where: { idempotencyKey: recentResolvedActionFixture.key },
     select: { id: true },
   });
-  // Repair databases seeded by the earlier Lab 4 version, which created this
-  // resolved fixture without its required completion Action. This is specific
-  // to this deterministic fixture; terminal legacy Tickets use the fallback below.
+  // Never add Action history to a terminal parent. If the corrected fixture
+  // already exists in an actionable state, its missing Action can still be seeded.
   const canCreateRecentResolvedAction = !recentResolvedTicket
-    || actionableTicketStatuses.includes(recentResolvedTicket.status)
-    || recentResolvedTicket.status === "RESOLVED";
+    || actionableTicketStatuses.includes(recentResolvedTicket.status);
   if (!recentResolvedAction && canCreateRecentResolvedAction) {
     await createSeedAction(
       prisma,

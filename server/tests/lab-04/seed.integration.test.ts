@@ -5,6 +5,8 @@ import {
   actionFixtures,
   categories,
   lab4DashboardUsers,
+  legacyRecentResolvedActionKey,
+  legacyRecentResolvedTicketNumber,
   recentResolvedActionFixture,
   recentResolvedTicketFixture,
   relatedSystems,
@@ -272,7 +274,7 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
     });
   }, 120_000);
 
-  it("repairs the earlier resolved fixture without duplicating its resolution event", async () => {
+  it("leaves the earlier resolved fixture untouched and seeds a valid replacement", async () => {
     await withIsolatedSchema(async (prisma) => {
       for (const migration of migrations) await applyMigration(prisma, migration);
 
@@ -291,9 +293,9 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
       for (const staff of activeStaff) staffRows.set(staff.email, await prisma.user.create({ data: staff }));
 
       const resolvedAt = new Date("2026-10-27T07:00:00.000Z");
-      const oldResolvedTicket = await prisma.ticket.create({
+      const legacyTicket = await prisma.ticket.create({
         data: {
-          ticketNumber: recentResolvedTicketFixture.ticketNumber,
+          ticketNumber: legacyRecentResolvedTicketNumber,
           summary: recentResolvedTicketFixture.summary,
           description: recentResolvedTicketFixture.description,
           requesterId: requesterRows.get(activeRequesters[recentResolvedTicketFixture.requesterIndex].email)!.id,
@@ -303,47 +305,104 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
           requestedPriority: recentResolvedTicketFixture.requestedPriority,
           itPriority: recentResolvedTicketFixture.itPriority,
           status: "RESOLVED",
-          workflowVersion: 2,
+          workflowVersion: 4,
           createdAt: new Date("2026-10-26T07:00:00.000Z"),
-          updatedAt: resolvedAt,
+          updatedAt: new Date(Date.now() + 1_000),
         },
       });
       await prisma.ticketStatusEvent.create({
         data: {
-          ticketId: oldResolvedTicket.id,
+          ticketId: legacyTicket.id,
           fromStatus: "OPEN",
           toStatus: "RESOLVED",
           actorId: staffRows.get(activeStaff[0].email)!.id,
           changedAt: resolvedAt,
         },
       });
+      const legacyAction = await prisma.actionTaken.create({
+        data: {
+          ticketId: legacyTicket.id,
+          actionAt: new Date("2026-10-27T06:00:00.000Z"),
+          description: "Verify the requested service after completing the repair.",
+          result: "The requester confirmed the service is working again.",
+          performedById: staffRows.get(activeStaff[0].email)!.id,
+          status: "COMPLETED",
+          followUpRequired: false,
+          version: 2,
+          idempotencyKey: legacyRecentResolvedActionKey,
+          creationFingerprint: "a".repeat(64),
+        },
+      });
+      await prisma.actionEvent.create({
+        data: {
+          actionId: legacyAction.id,
+          actorId: staffRows.get(activeStaff[0].email)!.id,
+          type: "CREATED",
+          after: { status: "PLANNED", version: 1 },
+        },
+      });
+      await prisma.actionEvent.create({
+        data: {
+          actionId: legacyAction.id,
+          actorId: staffRows.get(activeStaff[0].email)!.id,
+          type: "STATUS_CHANGED",
+          before: { status: "PLANNED", version: 1 },
+          after: { status: "COMPLETED", version: 2 },
+        },
+      });
+      const legacyBefore = await prisma.ticket.findUniqueOrThrow({
+        where: { id: legacyTicket.id },
+        select: { status: true, workflowVersion: true, updatedAt: true },
+      });
+      const legacyActionsBefore = await prisma.actionTaken.findMany({
+        where: { ticketId: legacyTicket.id },
+        include: { events: true },
+      });
 
       await runSeed(prisma);
 
-      const repairedTicket = await prisma.ticket.findUniqueOrThrow({
-        where: { id: oldResolvedTicket.id },
+      const legacyAfter = await prisma.ticket.findUniqueOrThrow({
+        where: { id: legacyTicket.id },
         select: { status: true, workflowVersion: true, updatedAt: true },
       });
-      expect(repairedTicket).toMatchObject({ status: "RESOLVED", workflowVersion: 4 });
+      expect(legacyAfter).toEqual(legacyBefore);
+      expect(await prisma.actionTaken.findMany({
+        where: { ticketId: legacyTicket.id },
+        include: { events: true },
+      })).toEqual(legacyActionsBefore);
+      expect(await prisma.actionEvent.count({ where: { actionId: legacyAction.id } })).toBe(2);
+      expect(await prisma.ticketStatusEvent.count({
+        where: { ticketId: legacyTicket.id, toStatus: "RESOLVED" },
+      })).toBe(1);
+
+      const replacementTicket = await prisma.ticket.findUniqueOrThrow({
+        where: { ticketNumber: recentResolvedTicketFixture.ticketNumber },
+        select: { id: true, status: true, workflowVersion: true, updatedAt: true },
+      });
+      expect(replacementTicket).toMatchObject({ status: "RESOLVED", workflowVersion: 4 });
       const completionAction = await prisma.actionTaken.findUniqueOrThrow({
         where: { idempotencyKey: recentResolvedActionFixture.key },
       });
       expect(completionAction).toMatchObject({
-        ticketId: oldResolvedTicket.id,
+        ticketId: replacementTicket.id,
         status: "COMPLETED",
         followUpRequired: false,
       });
       expect(await prisma.actionEvent.count({ where: { actionId: completionAction.id } })).toBe(2);
       expect(await prisma.ticketStatusEvent.count({
-        where: { ticketId: oldResolvedTicket.id, toStatus: "RESOLVED" },
+        where: { ticketId: replacementTicket.id, toStatus: "RESOLVED" },
       })).toBe(1);
 
       const afterRepair = {
         actions: await prisma.actionTaken.count(),
         actionEvents: await prisma.actionEvent.count(),
         statusEvents: await prisma.ticketStatusEvent.count(),
-        ticket: await prisma.ticket.findUniqueOrThrow({
-          where: { id: oldResolvedTicket.id },
+        legacy: await prisma.ticket.findUniqueOrThrow({
+          where: { id: legacyTicket.id },
+          select: { status: true, workflowVersion: true, updatedAt: true },
+        }),
+        replacement: await prisma.ticket.findUniqueOrThrow({
+          where: { id: replacementTicket.id },
           select: { workflowVersion: true, updatedAt: true },
         }),
       };
@@ -352,8 +411,12 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
         actions: await prisma.actionTaken.count(),
         actionEvents: await prisma.actionEvent.count(),
         statusEvents: await prisma.ticketStatusEvent.count(),
-        ticket: await prisma.ticket.findUniqueOrThrow({
-          where: { id: oldResolvedTicket.id },
+        legacy: await prisma.ticket.findUniqueOrThrow({
+          where: { id: legacyTicket.id },
+          select: { status: true, workflowVersion: true, updatedAt: true },
+        }),
+        replacement: await prisma.ticket.findUniqueOrThrow({
+          where: { id: replacementTicket.id },
           select: { workflowVersion: true, updatedAt: true },
         }),
       }).toEqual(afterRepair);
