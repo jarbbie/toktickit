@@ -36,16 +36,16 @@ export async function executeSql(client: SqlExecutor, sql: string): Promise<void
   const protectedSql = sql
     .replace(/^\s*BEGIN;\s*/i, "")
     .replace(/\s*COMMIT;\s*$/i, "")
-    .replace(/(?:DO|CREATE FUNCTION)[\s\S]*?\$\$;/gi, (block) => {
+    .replace(/(\$(?:[a-z_][a-z0-9_]*)?\$)[\s\S]*?\1/gi, (block) => {
       blocks.push(block);
-      return `__DOLLAR_BLOCK_${blocks.length - 1}__;`;
+      return `__DOLLAR_BLOCK_${blocks.length - 1}__`;
     });
 
   for (const part of protectedSql.split(";")) {
     const statement = part.trim();
     if (!statement) continue;
-    const match = statement.match(/__DOLLAR_BLOCK_(\d+)__/);
-    await client.$executeRawUnsafe(match ? blocks[Number(match[1])] : statement);
+    const restoredStatement = statement.replace(/__DOLLAR_BLOCK_(\d+)__/g, (_, index) => blocks[Number(index)]);
+    await client.$executeRawUnsafe(restoredStatement);
   }
 }
 

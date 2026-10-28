@@ -204,11 +204,11 @@ describe.skipIf(!testDatabaseEnabled)("Lab 4 PostgreSQL seed", () => {
         await prisma.$executeRaw`
           INSERT INTO "Ticket" (
             "ticketNumber", "requesterId", "ownerId", "categoryId", "relatedSystemId",
-            "requestedPriority", "itPriority", status, summary, description
+            "requestedPriority", "itPriority", status, summary, description, "updatedAt"
           ) VALUES (
             ${fixture.ticketNumber}, ${requesterId}, ${ownerId}, ${categoryId}, ${relatedSystemId},
             ${fixture.requestedPriority}::"RequestedPriority", ${fixture.itPriority}::"RequestedPriority",
-            ${terminalStatuses[fixtureIndex]}::"TicketStatus", ${fixture.summary}, ${fixture.description}
+            ${terminalStatuses[fixtureIndex]}::"TicketStatus", ${fixture.summary}, ${fixture.description}, CURRENT_TIMESTAMP
           )
         `;
       }
