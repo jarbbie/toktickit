@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { ApiError, type ReferenceData, type StaffQueueItem, type StaffQueueQuery, type StaffQueueResponse, loadReferenceData, loadStaffTickets } from "./api.js";
 
@@ -27,14 +27,28 @@ function statusBadge(status: string) {
 function readFilters(params: URLSearchParams): StaffQueueQuery {
   const page = Number(params.get("page"));
   const pageSize = Number(params.get("pageSize"));
+  const statusGroupValue = params.get("statusGroup");
+  const statusGroup = statusGroupValue === "open" ? "open" : undefined;
+  const statusValue = params.get("status");
+  const status = statuses.includes(statusValue as typeof statuses[number]) ? statusValue as StaffQueueQuery["status"] : "";
+  const itPriorityValue = params.get("itPriority");
+  const itPriority = priorities.includes(itPriorityValue as typeof priorities[number]) ? itPriorityValue as StaffQueueQuery["itPriority"] : "";
+  const itPriorityGroupValue = params.get("itPriorityGroup");
+  const itPriorityGroup = statusGroup === "open" && itPriorityGroupValue === "high_or_urgent" ? "high_or_urgent" : undefined;
+  const sortValue = params.get("sortBy");
+  const sortOptions: NonNullable<StaffQueueQuery["sortBy"]>[] = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "itPriority", "status", "urgentWork"];
+  const sortBy = sortOptions.includes(sortValue as NonNullable<StaffQueueQuery["sortBy"]>) ? sortValue as StaffQueueQuery["sortBy"] : initialFilters.sortBy;
   return {
     search: params.get("search") ?? initialFilters.search,
     categoryId: params.get("categoryId") ?? initialFilters.categoryId,
     requestedPriority: (params.get("requestedPriority") as StaffQueueQuery["requestedPriority"]) ?? initialFilters.requestedPriority,
-    itPriority: (params.get("itPriority") as StaffQueueQuery["itPriority"]) ?? initialFilters.itPriority,
-    status: (params.get("status") as StaffQueueQuery["status"]) ?? initialFilters.status,
+    itPriority: itPriorityGroup ? "" : itPriority,
+    status: statusGroup ? "" : status,
+    statusGroup,
+    updatedAfter: params.get("updatedAfter") ?? undefined,
+    itPriorityGroup,
     ownership: (params.get("ownership") as StaffQueueQuery["ownership"]) ?? initialFilters.ownership,
-    sortBy: (params.get("sortBy") as StaffQueueQuery["sortBy"]) ?? initialFilters.sortBy,
+    sortBy: sortBy === "urgentWork" && !(statusGroup === "open" && itPriorityGroup === "high_or_urgent") ? initialFilters.sortBy : sortBy,
     direction: (params.get("direction") as StaffQueueQuery["direction"]) ?? initialFilters.direction,
     page: Number.isInteger(page) && page > 0 ? page : 1,
     pageSize: pageSizes.includes(pageSize as typeof pageSizes[number]) ? pageSize : 10,
@@ -43,12 +57,33 @@ function readFilters(params: URLSearchParams): StaffQueueQuery {
 
 function queueParams(filters: StaffQueueQuery) {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") params.set(key, String(value));
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "" && !(filters.sortBy === "urgentWork" && key === "direction")) params.set(key, String(value));
+  }
   return params;
+}
+
+function queueRequest(filters: StaffQueueQuery): StaffQueueQuery {
+  if (filters.sortBy !== "urgentWork") return filters;
+  const query = { ...filters };
+  delete query.direction;
+  return query;
 }
 
 function dateLabel(value: string) {
   return new Date(value).toLocaleString();
+}
+
+function queueFilterLabels(filters: StaffQueueQuery) {
+  const labels: string[] = [];
+  if (filters.statusGroup === "open") labels.push("Open Tickets");
+  if (filters.ownership === "unassigned") labels.push("Unassigned");
+  if (filters.ownership === "mine") labels.push("My Tickets");
+  if (filters.status && !filters.statusGroup) labels.push(enumLabel(filters.status));
+  if (filters.itPriorityGroup === "high_or_urgent") labels.push("HIGH or URGENT IT Priority");
+  if (filters.itPriority && !filters.itPriorityGroup) labels.push(`${enumLabel(filters.itPriority)} IT Priority`);
+  if (filters.updatedAfter) labels.push(`Updated since ${new Date(filters.updatedAfter).toLocaleDateString()}`);
+  return labels;
 }
 
 function ownerLabel(ticket: StaffQueueItem) {
@@ -58,17 +93,14 @@ function ownerLabel(ticket: StaffQueueItem) {
 export default function StaffQueue() {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const [filters, setFilters] = useState<StaffQueueQuery>(() => readFilters(searchParams));
+  const searchKey = searchParams.toString();
+  const filters = useMemo(() => readFilters(new URLSearchParams(searchKey)), [searchKey]);
   const [references, setReferences] = useState<ReferenceData | null>(null);
   const [referenceFailure, setReferenceFailure] = useState(false);
   const [referenceRetry, setReferenceRetry] = useState(0);
   const [result, setResult] = useState<StaffQueueResponse | null>(null);
   const [failure, setFailure] = useState<ApiError | Error | null>(null);
   const [retry, setRetry] = useState(0);
-
-  useEffect(() => {
-    setSearchParams(queueParams(filters), { replace: true });
-  }, [filters, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +117,7 @@ export default function StaffQueue() {
     let cancelled = false;
     setResult(null);
     setFailure(null);
-    void loadStaffTickets(filters).then((data) => {
+    void loadStaffTickets(queueRequest(filters)).then((data) => {
       if (!cancelled) setResult(data);
     }).catch((error) => {
       if (!cancelled) setFailure(error instanceof Error ? error : new Error("Unable to load staff tickets."));
@@ -94,18 +126,32 @@ export default function StaffQueue() {
   }, [filters, retry]);
 
   function update<K extends keyof StaffQueueQuery>(key: K, value: StaffQueueQuery[K]) {
-    setFilters((current) => ({ ...current, [key]: value, page: 1 }));
+    const next: StaffQueueQuery = { ...filters, [key]: value, page: 1 };
+    if (key === "statusGroup" && value) next.status = "";
+    if (key === "status") {
+      next.statusGroup = undefined;
+      next.itPriorityGroup = undefined;
+    }
+    if (key === "itPriorityGroup" && value) next.itPriority = "";
+    if (key === "itPriority") next.itPriorityGroup = undefined;
+    if (key === "sortBy" && value !== "urgentWork" && next.itPriorityGroup === "high_or_urgent" && next.statusGroup === "open") {
+      // Keep the group filter while allowing a different queue sort.
+    } else if (key !== "sortBy" && next.sortBy === "urgentWork" && !(next.statusGroup === "open" && next.itPriorityGroup === "high_or_urgent")) {
+      next.sortBy = "updatedAt";
+    }
+    setSearchParams(queueParams(next));
   }
 
   function clearFilters() {
-    setFilters({ ...initialFilters });
+    setSearchParams(queueParams(initialFilters));
   }
 
   function changePage(page: number) {
-    setFilters((current) => ({ ...current, page }));
+    setSearchParams(queueParams({ ...filters, page }));
   }
 
-  const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.itPriority || filters.status || filters.ownership !== "all");
+  const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.itPriority || filters.itPriorityGroup || filters.status || filters.statusGroup || filters.updatedAfter || filters.ownership !== "all");
+  const activeFilterLabels = queueFilterLabels(filters);
   const outOfRange = Boolean(result && result.totalPages > 0 && result.page > result.totalPages);
   const firstItem = result && result.items.length > 0 ? (result.page - 1) * result.pageSize + 1 : 0;
   const lastItem = result ? Math.min(result.page * result.pageSize, result.totalItems) : 0;
@@ -119,6 +165,7 @@ export default function StaffQueue() {
       <div><h1 className="h3 mb-1">Ticket Queue</h1><p className="text-secondary mb-0">Review and triage support requests across the organization.</p></div>
       <button className="btn btn-outline-secondary" onClick={clearFilters}><span aria-hidden="true">↻</span> Clear Filters</button>
     </header>
+    {activeFilterLabels.length > 0 && <p className="dashboard-active-filter" role="status">Active queue filters: {activeFilterLabels.join(" · ")}</p>}
     {referenceFailure && <div className="alert alert-danger" role="alert">Unable to load queue reference data. <button className="btn btn-sm btn-danger ms-2" onClick={() => { setReferences(null); setReferenceFailure(false); setReferenceRetry((value) => value + 1); }}>Retry</button></div>}
     <div className="card staff-queue-filter-card mb-4"><div className="card-body staff-queue-filter-grid">
       <div className="staff-queue-filter-search"><label className="form-label" htmlFor="staff-ticket-search">Search tickets</label><input className="form-control" id="staff-ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number, summary, or Requester" /></div>
@@ -127,8 +174,16 @@ export default function StaffQueue() {
       <div><label className="form-label" htmlFor="staff-it-priority">IT Priority</label><select className="form-select" id="staff-it-priority" value={filters.itPriority} onChange={(event) => update("itPriority", event.target.value as StaffQueueQuery["itPriority"])}><option value="">All priorities</option>{priorities.map((priority) => <option key={priority} value={priority}>{enumLabel(priority)}</option>)}</select></div>
       <div><label className="form-label" htmlFor="staff-status">Current Status</label><select className="form-select" id="staff-status" value={filters.status} onChange={(event) => update("status", event.target.value as StaffQueueQuery["status"])}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{enumLabel(status)}</option>)}</select></div>
       <div><label className="form-label" htmlFor="staff-ownership">Ownership</label><select className="form-select" id="staff-ownership" value={filters.ownership} onChange={(event) => update("ownership", event.target.value as StaffQueueQuery["ownership"])}><option value="all">All</option><option value="mine">Mine</option><option value="assigned">Assigned</option><option value="unassigned">Unassigned</option></select></div>
-      <div><label className="form-label" htmlFor="staff-sort">Sort by</label><select className="form-select" id="staff-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as StaffQueueQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created Date</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option><option value="itPriority">IT Priority</option><option value="status">Current Status</option></select></div>
-      <div><label className="form-label" htmlFor="staff-direction">Direction</label><select className="form-select" id="staff-direction" value={filters.direction} onChange={(event) => update("direction", event.target.value as StaffQueueQuery["direction"])}><option value="desc">Newest / highest first</option><option value="asc">Oldest / lowest first</option></select></div>
+      <div><label className="form-label" htmlFor="staff-sort">Sort by</label><select className="form-select" id="staff-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as StaffQueueQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created Date</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option><option value="itPriority">IT Priority</option><option value="status">Current Status</option><option disabled={!(filters.statusGroup === "open" && filters.itPriorityGroup === "high_or_urgent")} value="urgentWork">Urgent Work priority then age</option></select></div>
+      <div>
+        <label className="form-label" htmlFor="staff-direction">Direction</label>
+        <select aria-describedby={filters.sortBy === "urgentWork" ? "staff-direction-help" : undefined} className="form-select" disabled={filters.sortBy === "urgentWork"} id="staff-direction" value={filters.sortBy === "urgentWork" ? "fixed" : filters.direction} onChange={(event) => update("direction", event.target.value as StaffQueueQuery["direction"])}>
+          {filters.sortBy === "urgentWork" && <option disabled value="fixed">Fixed urgent-work order</option>}
+          <option value="desc">Newest / highest first</option>
+          <option value="asc">Oldest / lowest first</option>
+        </select>
+        {filters.sortBy === "urgentWork" && <small className="form-text" id="staff-direction-help">URGENT tickets come first, then HIGH; tickets with older updates come first within each priority.</small>}
+      </div>
       <div><label className="form-label" htmlFor="staff-page-size">Rows per page</label><select className="form-select" id="staff-page-size" value={filters.pageSize} onChange={(event) => update("pageSize", Number(event.target.value))}><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></div>
     </div></div>
     {!result && !failure && <p role="status">Loading ticket queue…</p>}

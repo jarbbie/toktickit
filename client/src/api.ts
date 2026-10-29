@@ -76,6 +76,7 @@ export interface TicketListItem {
   category: ReferenceItem;
   createdAt: string;
   updatedAt: string;
+  resolvedAt?: string | null;
 }
 
 export interface TicketListResponse {
@@ -99,6 +100,59 @@ export interface StaffQueueResponse {
   pageSize: number;
   totalItems: number;
   totalPages: number;
+}
+
+export interface DashboardMetric {
+  count: number;
+  href: string;
+}
+
+export interface RequesterDashboardTicket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  status: TicketStatus;
+  itPriority: TicketInput["requestedPriority"];
+  updatedAt: string;
+  resolvedAt?: string | null;
+  href: string;
+}
+
+export interface RequesterDashboard {
+  asOf: string;
+  windowStart: string;
+  counts: {
+    openTickets: DashboardMetric;
+    waitingForRequester: DashboardMetric;
+    recentlyResolved: DashboardMetric;
+  };
+  recentlyUpdated: RequesterDashboardTicket[];
+  recentlyResolvedTickets: RequesterDashboardTicket[];
+}
+
+export interface StaffDashboardTicket {
+  id: number;
+  ticketNumber: string;
+  summary: string;
+  requester: { id: number; name: string };
+  status: TicketStatus;
+  itPriority: TicketInput["requestedPriority"];
+  owner: { id: number; name: string; role: UserRole } | null;
+  updatedAt: string;
+  href: string;
+}
+
+export interface StaffDashboard {
+  asOf: string;
+  windowStart: string;
+  counts: {
+    unassignedOpen: DashboardMetric;
+    ownedByMeOpen: DashboardMetric;
+    byStatus: { status: TicketStatus; count: number; href: string }[];
+    byITPriority: { itPriority: TicketInput["requestedPriority"]; count: number; href: string }[];
+  };
+  recentlyUpdated: StaffDashboardTicket[];
+  urgentTickets: StaffDashboardTicket[];
 }
 
 export interface StaffOwnerOption {
@@ -228,7 +282,10 @@ export interface TicketQuery {
   categoryId?: string;
   requestedPriority?: TicketInput["requestedPriority"] | "";
   status?: TicketStatus | "";
-  sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority";
+  statusGroup?: "open" | "resolved";
+  updatedAfter?: string;
+  resolvedAfter?: string;
+  sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority" | "resolvedAt";
   direction?: "asc" | "desc";
   page?: number;
   pageSize?: number;
@@ -240,8 +297,11 @@ export interface StaffQueueQuery {
   requestedPriority?: TicketInput["requestedPriority"] | "";
   itPriority?: TicketInput["requestedPriority"] | "";
   status?: TicketStatus | "";
+  statusGroup?: "open";
+  updatedAfter?: string;
+  itPriorityGroup?: "high_or_urgent";
   ownership?: "all" | "mine" | "assigned" | "unassigned";
-  sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority" | "itPriority" | "status";
+  sortBy?: "updatedAt" | "createdAt" | "ticketNumber" | "requestedPriority" | "itPriority" | "status" | "urgentWork";
   direction?: "asc" | "desc";
   page?: number;
   pageSize?: number;
@@ -268,6 +328,14 @@ export async function loadReferenceData(): Promise<ReferenceData> {
   ]);
 
   return { categories, relatedSystems };
+}
+
+export function loadRequesterDashboard() {
+  return loadJson<RequesterDashboard>("/api/requester/dashboard");
+}
+
+export function loadStaffDashboard() {
+  return loadJson<StaffDashboard>("/api/staff/dashboard");
 }
 
 export function login(email: string, password: string) {

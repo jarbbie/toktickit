@@ -1,7 +1,8 @@
-import { Fragment, type FormEvent, type ReactNode, useEffect, useState } from "react";
-import { NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Fragment, type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, type AuthResult, type AuthUser, type CreatedTicket, type PublicComment, type ReferenceData, type Requester, type TicketDetail, type TicketListResponse, type TicketQuery, addPublicComment, attachmentDownloadUrl, changePassword, createTicket, currentUser, indicateResolution, loadPublicComments, loadReferenceData, loadTicket, loadTickets, login, logout, removeAttachment, uploadAttachment } from "./api.js";
 import ActionsTaken from "./ActionsTaken.js";
+import Dashboard from "./Dashboard.js";
 import StaffQueue from "./StaffQueue.js";
 import StaffTicketDetail from "./StaffTicketDetail.js";
 import TicketStatusHistory from "./TicketStatusHistory.js";
@@ -34,14 +35,15 @@ function roleLabel(role: AuthUser["role"]) {
   return role === "IT_STAFF" ? "IT Staff" : role === "ADMINISTRATOR" ? "Administrator" : "Requester";
 }
 
-function roleHome(user: AuthUser) {
-  return user.role === "REQUESTER" ? "/tickets" : user.role === "IT_STAFF" ? "/staff/tickets" : "/admin/users";
+function roleHome() {
+  return "/dashboard";
 }
 
 function AppHeader({ user, onLogout, logoutError }: { user: AuthUser; onLogout: () => void; logoutError: string }) {
   return <header className="app-header"><div className="container app-header-inner d-flex flex-wrap align-items-center gap-2">
     <strong className="app-brand"><svg aria-hidden="true" className="app-logo-mark" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" /><path d="M16 7.5v8.5H8.5" /><path d="M10.5 6.2 13 4.8" /></svg>TokTickIT</strong>
     <nav className="app-main-nav d-flex align-items-center gap-1" aria-label="Main navigation">
+      <NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/dashboard"><svg aria-hidden="true" className="nav-icon" viewBox="0 0 20 20"><path d="M3 3h5v5H3zM12 3h5v5h-5zM3 12h5v5H3zM12 12h5v5h-5z" /></svg>Dashboard</NavLink>
       {user.role === "REQUESTER" && <><NavLink end className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets"><svg aria-hidden="true" className="nav-icon" viewBox="0 0 20 20"><path d="M5 2.5h7l3 3v12H5Z" /><path d="M12 2.5v3h3M7.5 9h5M7.5 12h5" /></svg>My Tickets</NavLink>
       <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/tickets/new"><span aria-hidden="true" className="nav-icon nav-icon-add">+</span>Create Ticket</NavLink></>}
       {user.role !== "REQUESTER" && <NavLink className={({ isActive }) => `app-nav-link${isActive ? " active" : ""}`} to="/staff/tickets"><svg aria-hidden="true" className="nav-icon" viewBox="0 0 20 20"><path d="M3 4.5h14v11H3ZM6 8h8M6 11h5" /></svg>Ticket Queue</NavLink>}
@@ -55,13 +57,78 @@ function AppHeader({ user, onLogout, logoutError }: { user: AuthUser; onLogout: 
 }
 
 function Shell({ user, onLogout, logoutError, children, wide = false }: { user: AuthUser; onLogout: () => void; logoutError: string; children: ReactNode; wide?: boolean }) {
-  return <main className="app-shell min-vh-100"><AppHeader user={user} onLogout={onLogout} logoutError={logoutError} /><div className={`container app-content${wide ? " app-content-wide" : ""} py-5`}>{children}</div></main>;
+  const location = useLocation();
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content) return;
+    const focusHeading = () => {
+      const heading = content.querySelector("h1");
+      if (!heading) return false;
+      heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+      return true;
+    };
+    if (focusHeading()) return;
+    const observer = new MutationObserver(() => {
+      if (focusHeading()) observer.disconnect();
+    });
+    observer.observe(content, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [location.pathname]);
+  return <main className="app-shell min-vh-100"><AppHeader user={user} onLogout={onLogout} logoutError={logoutError} /><div ref={contentRef} className={`container app-content${wide ? " app-content-wide" : ""} py-5`}>{children}</div></main>;
 }
 
 const initialTicketFilters: TicketQuery = { search: "", categoryId: "", requestedPriority: "", status: "", sortBy: "updatedAt", direction: "desc", page: 1, pageSize: 10 };
+const requesterStatuses: TicketQuery["status"][] = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"];
+const requesterSorts: NonNullable<TicketQuery["sortBy"]>[] = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "resolvedAt"];
+
+function readTicketFilters(params: URLSearchParams): TicketQuery {
+  const statusGroupValue = params.get("statusGroup");
+  const statusGroup = statusGroupValue === "open" || statusGroupValue === "resolved" ? statusGroupValue : undefined;
+  const statusValue = params.get("status");
+  const status = requesterStatuses.includes(statusValue as TicketQuery["status"]) ? statusValue as TicketQuery["status"] : "";
+  const requestedPriorityValue = params.get("requestedPriority");
+  const requestedPriority = ["LOW", "MEDIUM", "HIGH", "URGENT"].includes(requestedPriorityValue ?? "") ? requestedPriorityValue as TicketQuery["requestedPriority"] : "";
+  const sortValue = params.get("sortBy");
+  const sortBy = requesterSorts.includes(sortValue as NonNullable<TicketQuery["sortBy"]>) ? sortValue as TicketQuery["sortBy"] : initialTicketFilters.sortBy;
+  const page = Number(params.get("page"));
+  const pageSize = Number(params.get("pageSize"));
+  return {
+    search: params.get("search") ?? "",
+    categoryId: params.get("categoryId") ?? "",
+    requestedPriority,
+    status: statusGroup ? "" : status,
+    statusGroup,
+    updatedAfter: params.get("updatedAfter") ?? undefined,
+    resolvedAfter: statusGroup === "resolved" ? params.get("resolvedAfter") ?? undefined : undefined,
+    sortBy: sortBy === "resolvedAt" && statusGroup !== "resolved" ? "updatedAt" : sortBy,
+    direction: statusGroup === "resolved" && sortBy === "resolvedAt" ? "desc" : params.get("direction") === "asc" ? "asc" : "desc",
+    page: Number.isInteger(page) && page > 0 ? page : 1,
+    pageSize: Number.isInteger(pageSize) && pageSize > 0 ? pageSize : initialTicketFilters.pageSize,
+  };
+}
+
+function ticketFilterParams(filters: TicketQuery) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") params.set(key, String(value));
+  return params;
+}
+
+function dashboardFilterLabels(filters: TicketQuery) {
+  const labels: string[] = [];
+  if (filters.statusGroup === "open") labels.push("Open Tickets");
+  if (filters.statusGroup === "resolved") labels.push("Resolved Tickets");
+  if (filters.status && !filters.statusGroup) labels.push(enumLabel(filters.status));
+  if (filters.updatedAfter) labels.push(`Updated since ${new Date(filters.updatedAfter).toLocaleDateString()}`);
+  if (filters.resolvedAfter) labels.push(`Resolved since ${new Date(filters.resolvedAfter).toLocaleDateString()}`);
+  return labels;
+}
 
 function MyTickets({ data }: { data: ReferenceData }) {
-  const [filters, setFilters] = useState<TicketQuery>(initialTicketFilters);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchKey = searchParams.toString();
+  const filters = useMemo(() => readTicketFilters(new URLSearchParams(searchKey)), [searchKey]);
   const [result, setResult] = useState<TicketListResponse | null>(null);
   const [failure, setFailure] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -79,37 +146,53 @@ function MyTickets({ data }: { data: ReferenceData }) {
   }, [filters, retry]);
 
   function update<K extends keyof TicketQuery>(key: K, value: TicketQuery[K]) {
-    setFilters((current) => ({ ...current, [key]: value, page: 1 }));
+    const next: TicketQuery = { ...filters, [key]: value, page: 1 };
+    if (key === "statusGroup") {
+      next.status = "";
+      if (value !== "resolved") next.resolvedAfter = undefined;
+      if (value !== "resolved" && next.sortBy === "resolvedAt") next.sortBy = "updatedAt";
+    }
+    if (key === "status") {
+      next.statusGroup = undefined;
+      next.resolvedAfter = undefined;
+      if (next.sortBy === "resolvedAt") next.sortBy = "updatedAt";
+    }
+    setSearchParams(ticketFilterParams(next));
   }
 
   function changePage(page: number) {
-    setFilters((current) => ({ ...current, page }));
+    setSearchParams(ticketFilterParams({ ...filters, page }));
   }
 
   function changeSort(sortBy: TicketQuery["sortBy"]) {
-    setFilters((current) => ({ ...current, sortBy, direction: current.sortBy === sortBy && current.direction === "asc" ? "desc" : "asc", page: 1 }));
+    const direction = filters.statusGroup === "resolved" && sortBy === "resolvedAt"
+      ? "desc"
+      : filters.sortBy === sortBy && filters.direction === "asc" ? "desc" : "asc";
+    setSearchParams(ticketFilterParams({ ...filters, sortBy, direction, page: 1 }));
   }
 
   function sortMark(sortBy: TicketQuery["sortBy"]) {
     return filters.sortBy === sortBy ? filters.direction === "asc" ? "↑" : "↓" : "↕";
   }
 
-  const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status);
+  const hasFilters = Boolean(filters.search || filters.categoryId || filters.requestedPriority || filters.status || filters.statusGroup || filters.updatedAfter || filters.resolvedAfter);
+  const dashboardLabels = dashboardFilterLabels(filters);
   const firstItem = result && result.items.length > 0 ? (result.page - 1) * result.pageSize + 1 : 0;
   const lastItem = result ? Math.min(result.page * result.pageSize, result.totalItems) : 0;
   const visiblePages = result ? Array.from({ length: result.totalPages }, (_, index) => index + 1).filter((page) => result.totalPages <= 7 || page === 1 || page === result.totalPages || result.page <= 3 && page <= 5 || result.page >= result.totalPages - 2 && page >= result.totalPages - 4 || Math.abs(page - result.page) <= 1) : [];
   return <section className="my-tickets-page">
-    <header className="ticket-list-heading d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div><h1 className="h3 mb-1">My Tickets</h1><p className="text-secondary mb-0">View and track all of your support requests.</p></div><div className="d-flex gap-2"><button className="btn btn-outline-secondary" onClick={() => setFilters(initialTicketFilters)}><span aria-hidden="true">↻</span> Clear Filters</button><NavLink className="btn btn-zen-primary" to="/tickets/new"><span aria-hidden="true">+</span> Create Ticket</NavLink></div></header>
+    <header className="ticket-list-heading d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4"><div><h1 className="h3 mb-1">My Tickets</h1><p className="text-secondary mb-0">View and track all of your support requests.</p></div><div className="d-flex gap-2"><button className="btn btn-outline-secondary" onClick={() => setSearchParams(ticketFilterParams(initialTicketFilters))}><span aria-hidden="true">↻</span> Clear Filters</button><NavLink className="btn btn-zen-primary" to="/tickets/new"><span aria-hidden="true">+</span> Create Ticket</NavLink></div></header>
+    {dashboardLabels.length > 0 && <p className="dashboard-active-filter" role="status">Active filters: {dashboardLabels.join(" · ")}</p>}
     <div className="card ticket-filter-card mb-4"><div className="card-body ticket-filter-grid">
       <div className="ticket-filter-search"><label className="form-label" htmlFor="ticket-search">Search tickets</label><div className="search-control"><svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg><input className="form-control" id="ticket-search" value={filters.search} onChange={(event) => update("search", event.target.value)} placeholder="Ticket number or summary" /></div></div>
       <div><label className="form-label" htmlFor="ticket-category">Category</label><select className="form-select" id="ticket-category" value={filters.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">All categories</option>{data.categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
       <div><label className="form-label" htmlFor="ticket-priority">Requested Priority</label><select className="form-select" id="ticket-priority" value={filters.requestedPriority} onChange={(event) => update("requestedPriority", event.target.value as TicketQuery["requestedPriority"])}><option value="">All priorities</option>{["LOW", "MEDIUM", "HIGH", "URGENT"].map((item) => <option key={item}>{item}</option>)}</select></div>
-      <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option>{["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"].map((status) => <option key={status}>{status}</option>)}</select></div>
+      <div><label className="form-label" htmlFor="ticket-status">Current Status</label><select className="form-select" id="ticket-status" value={filters.status} onChange={(event) => update("status", event.target.value as TicketQuery["status"])}><option value="">All statuses</option>{requesterStatuses.map((status) => <option key={status}>{status}</option>)}</select></div>
     </div></div>
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>IT Priority</th><th>Current Status</th><th><button aria-label={`Sort by Last Updated ${filters.sortBy === "updatedAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("updatedAt")}>Last Updated <span aria-hidden="true">{sortMark("updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{priorityBadge(ticket.itPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
+    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>IT Priority</th><th>Current Status</th><th><button aria-label={`Sort by ${filters.statusGroup === "resolved" ? "Resolved Date" : "Last Updated"} ${filters.sortBy === (filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt") ? (filters.statusGroup === "resolved" ? "newest first (fixed)" : filters.direction) : ""}`} className="table-sort" onClick={() => changeSort(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}>{filters.statusGroup === "resolved" ? "Resolved At" : "Last Updated"} <span aria-hidden="true">{sortMark(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{priorityBadge(ticket.itPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(filters.statusGroup === "resolved" ? ticket.resolvedAt ?? ticket.updatedAt : ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
   </section>;
 }
 
@@ -385,7 +468,7 @@ function ChangePassword({ user, mandatory, onChanged, onLogout }: { user: AuthUs
       const result = await changePassword(currentPassword, newPassword);
       setCurrentPassword(""); setNewPassword(""); setConfirmation("");
       onChanged(result);
-      navigate(roleHome(result.user), { replace: true });
+      navigate(roleHome(), { replace: true });
     } catch (cause) {
       const apiError = cause instanceof ApiError ? cause : null;
       setFieldErrors(apiError?.fieldErrors ?? {});
@@ -397,7 +480,7 @@ function ChangePassword({ user, mandatory, onChanged, onLogout }: { user: AuthUs
     <PasswordInput id="current-password" label="Current Password" value={currentPassword} onChange={setCurrentPassword} error={fieldErrors.currentPassword} autoComplete="current-password" />
     <PasswordInput id="new-password" label="New Password" value={newPassword} onChange={setNewPassword} error={fieldErrors.newPassword} autoComplete="new-password" />
     <PasswordInput id="confirm-password" label="Confirm New Password" value={confirmation} onChange={setConfirmation} error={fieldErrors.confirmation} autoComplete="new-password" />
-    <div className="d-flex flex-wrap gap-2 mt-4"><button className="btn btn-zen-primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save Password"}</button>{mandatory ? <button className="btn btn-outline-secondary" disabled={busy} type="button" onClick={onLogout}>Logout</button> : <NavLink className="btn btn-outline-secondary" to={roleHome(user)}>Cancel</NavLink>}</div>
+    <div className="d-flex flex-wrap gap-2 mt-4"><button className="btn btn-zen-primary" disabled={busy} type="submit">{busy ? "Saving…" : "Save Password"}</button>{mandatory ? <button className="btn btn-outline-secondary" disabled={busy} type="button" onClick={onLogout}>Logout</button> : <NavLink className="btn btn-outline-secondary" to={roleHome()}>Cancel</NavLink>}</div>
   </form></div></section></main>;
 }
 
@@ -409,7 +492,7 @@ function PasswordInput({ id, label, value, onChange, error, autoComplete }: { id
 }
 
 function AccessDenied({ user, onLogout, logoutError }: { user: AuthUser; onLogout: () => void; logoutError: string }) {
-  return <Shell user={user} onLogout={onLogout} logoutError={logoutError}><section className="card shadow-sm"><div className="card-body"><h1 className="h3">Access denied</h1><p>You do not have permission to open this page.</p><NavLink className="btn btn-zen-primary" to={roleHome(user)}>Go to my workspace</NavLink></div></section></Shell>;
+  return <Shell user={user} onLogout={onLogout} logoutError={logoutError}><section className="card shadow-sm"><div className="card-body"><h1 className="h3">Access denied</h1><p>You do not have permission to open this page.</p><NavLink className="btn btn-zen-primary" to={roleHome()}>Go to my workspace</NavLink></div></section></Shell>;
 }
 
 export default function App() {
@@ -459,15 +542,16 @@ export default function App() {
 
   const requesterContent = referenceFailure ? <div className="alert alert-danger" role="alert">Unable to load ticket reference data. <button className="btn btn-sm btn-danger ms-2" onClick={() => void loadReferences()}>Retry</button></div> : !referenceData ? <p role="status">Loading your workspace…</p> : null;
   return <Routes>
-    <Route path="/login" element={<Navigate replace to={roleHome(user)} />} />
+    <Route path="/login" element={<Navigate replace to={roleHome()} />} />
     <Route path="/change-password" element={<ChangePassword user={user} mandatory={false} onLogout={() => void signOut()} onChanged={(result) => { setAuth(result); setState("ready"); }} />} />
+    <Route path="/dashboard" element={<Shell {...commonShell} wide><Dashboard user={user} /></Shell>} />
     <Route path="/tickets" element={user.role === "REQUESTER" ? <Shell {...commonShell} wide>{requesterContent ?? <MyTickets data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/new" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <CreateTicket requester={requester} data={referenceData!} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/tickets/:ticketId" element={user.role === "REQUESTER" ? <Shell {...commonShell}>{requesterContent ?? <TicketRoute requester={requester} />}</Shell> : <AccessDenied {...commonShell} />} />
     <Route path="/staff/tickets" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffQueue /></Shell>} />
     <Route path="/staff/tickets/:ticketId" element={user.role === "REQUESTER" ? <AccessDenied {...commonShell} /> : <Shell {...commonShell} wide><StaffTicketDetailRoute currentUserName={user.name} /></Shell>} />
     <Route path="/admin/users" element={user.role === "ADMINISTRATOR" ? <Shell {...commonShell} wide><UserManagement currentUserId={user.id} onSelfReset={() => { setAuth(null); setReferenceData(null); setState("guest"); }} /></Shell> : <AccessDenied {...commonShell} />} />
-    <Route path="*" element={<Navigate replace to={roleHome(user)} />} />
+    <Route path="*" element={<Navigate replace to={roleHome()} />} />
   </Routes>;
 }
 
