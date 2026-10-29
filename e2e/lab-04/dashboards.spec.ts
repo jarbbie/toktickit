@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { accounts, expectNoHorizontalOverflow, logout, signIn } from "../lab-03/helpers";
-import { captureLab4AllViewports } from "./helpers";
+import { expect, test, type Page } from "../../client/e2e/test-api";
+import { accounts, expectNoHorizontalOverflow, logout, signIn } from "../../client/e2e/lab-03/helpers";
+import { captureLab4AllViewports } from "../../client/e2e/lab-04/helpers";
 
-async function expectDashboardLayout(page: import("@playwright/test").Page, role: "requester" | "staff") {
+async function expectDashboardLayout(page: Page, role: "requester" | "staff") {
   for (const width of [1440, 820, 390, 767, 768, 991, 992]) {
     await page.setViewportSize({ width, height: width === 820 ? 1180 : width === 390 ? 844 : 1000 });
     await expectNoHorizontalOverflow(page);
@@ -15,8 +15,21 @@ async function expectDashboardLayout(page: import("@playwright/test").Page, role
 }
 
 test("role dashboards have keyboard-accessible drill-downs and responsive layouts", async ({ page }) => {
+  const browserErrors: string[] = [];
+  const unauthorizedPaths: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error" && !/Failed to load resource: .*401 \(Unauthorized\)/.test(message.text())) {
+      browserErrors.push(message.text());
+    }
+  });
+  page.on("response", (response) => {
+    if (response.status() === 401) unauthorizedPaths.push(new URL(response.url()).pathname);
+  });
+
   await signIn(page, accounts.anan, "Dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.locator("main")).not.toContainText(/\b(?:TODO|TBD|coming soon|placeholder)\b/i);
   const navigation = page.getByRole("navigation", { name: "Main navigation" });
   await expect(navigation.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
   await expect(navigation.getByRole("link", { name: "My Tickets" })).toBeVisible();
@@ -38,6 +51,7 @@ test("role dashboards have keyboard-accessible drill-downs and responsive layout
   await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
   await expect(page.getByRole("link", { name: "My Tickets" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Tickets by Status" })).toBeVisible();
+  await expect(page.locator("main")).not.toContainText(/\b(?:TODO|TBD|coming soon|placeholder)\b/i);
 
   await page.getByRole("link", { name: /Unassigned Open Tickets/ }).click();
   await expect(page).toHaveURL(/\/staff\/tickets\?statusGroup=open&ownership=unassigned/);
@@ -46,4 +60,6 @@ test("role dashboards have keyboard-accessible drill-downs and responsive layout
   await expect(page.getByRole("link", { name: /View urgent work/i })).toBeVisible();
   await expectDashboardLayout(page, "staff");
   await captureLab4AllViewports(page, "staff-dashboard", "/dashboard", "staff-dashboard");
+  expect(browserErrors).toEqual([]);
+  expect(unauthorizedPaths.every((pathname) => pathname === "/api/auth/me")).toBe(true);
 });

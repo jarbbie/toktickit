@@ -80,7 +80,7 @@ test("Administrator user management, safety conflicts, reset gate, and forbidden
   await page.getByRole("textbox", { name: "New Password", exact: true }).fill(changedPassword);
   await page.getByRole("textbox", { name: "Confirm New Password", exact: true }).fill(changedPassword);
   await page.getByRole("button", { name: "Save Password" }).click();
-  await expect(page.getByRole("heading", { name: "My Tickets" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Dashboard", exact: true })).toBeVisible();
   await logout(page);
 
   await signIn(page, accounts.nicha, "My Tickets");
