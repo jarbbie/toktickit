@@ -106,6 +106,12 @@ a disposable PostgreSQL database ending in `_test` (for example,
 test creates and drops only a uniquely named temporary schema in that database.
 The guard rejects other database names; no test runs `prisma migrate reset`.
 
+To run the complete server suite, including inherited Lab 3 tests that read
+`DATABASE_URL`, use `rtk npm run test:isolated --prefix server`. It requires
+`TEST_DATABASE_URL`, prepares a temporary migrated schema in that test database,
+runs Vitest with the child process's `DATABASE_URL` pointing to that schema,
+and removes the schema afterwards. The application database is not used.
+
 ## Run locally
 
 Start the API in one terminal:

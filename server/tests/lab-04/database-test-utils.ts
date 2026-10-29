@@ -92,7 +92,7 @@ export async function applyLab3Baseline(prisma: PrismaClient, storageKey = "lega
   }
 }
 
-export async function withIsolatedSchema<T>(run: (prisma: PrismaClient) => Promise<T>): Promise<T> {
+export async function withIsolatedSchema<T>(run: (prisma: PrismaClient, databaseUrl: string) => Promise<T>): Promise<T> {
   const testUrl = requireTestDatabaseUrl();
   const schema = `lab4_test_${randomUUID().replaceAll("-", "")}`;
   const adminUrl = new URL(testUrl);
@@ -107,7 +107,7 @@ export async function withIsolatedSchema<T>(run: (prisma: PrismaClient) => Promi
     isolatedUrl.searchParams.set("schema", schema);
     const prisma = new PrismaClient({ datasources: { db: { url: isolatedUrl.toString() } } });
     try {
-      return await run(prisma);
+      return await run(prisma, isolatedUrl.toString());
     } finally {
       await prisma.$disconnect();
     }
