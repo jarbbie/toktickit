@@ -157,8 +157,8 @@ any limitation to this file only after those commands are run.
   - The test generated and visually checked responsive captures under
     `artifacts/lab-04/screenshots/actions-taken/` (desktop, tablet, mobile for
     both roles, plus the support audit-history view). All three sizes passed the
-    page horizontal-overflow check. The PNGs remain local to this run and are
-    not included in the PR; rerunning the E2E command recreates them.
+    page horizontal-overflow check. The seven PNG captures are included in PR
+    #79; rerunning the E2E command recreates them.
 - Other Lab 4 test rows remain planned as marked in the matrix.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
