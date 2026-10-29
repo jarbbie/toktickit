@@ -1,9 +1,9 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Data-foundation migration, recovery, and seed tests (#68) and
-Actions Taken API integration tests (#69) are implemented.
-PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose
-database name ends in `_test`; remaining Lab 4 tests are still planned.
+**Status:** Data-foundation tests (#68), Actions Taken API tests (#69), and the
+Actions Taken Ticket Detail UI for #70 are implemented. PostgreSQL tests
+require a disposable `TEST_DATABASE_URL` whose database name ends in `_test`;
+remaining Lab 4 work is still planned.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the
@@ -38,14 +38,14 @@ and this matrix before implementation continues.
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 local warmed reads; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Planned |
 | UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Planned |
 | UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no foreign data. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Planned |
-| UI-03 | UI component | AC-02, AC-06, AC-15 | Action create/read layout, auto performer, field validation, conditional note, Attachment Notes without upload control, retained draft on failure. | client/tests/lab-04/ActionsTaken.test.tsx | Planned |
-| UI-04 | UI/authz | AC-03, AC-07 | Assignee options/rejection, Requester read-only view, hidden controls plus API denial feedback. | client/tests/lab-04/ActionsTaken.test.tsx | Planned |
-| UI-05 | UI/component | AC-04, AC-16 | Action edit, version conflict refresh, draft retention, safe error and one-request busy behavior. | client/tests/lab-04/ActionsTaken.test.tsx | Planned |
-| UI-06 | UI/workflow | AC-05, AC-11 | Action Start/Complete/Cancel controls, result required, terminal state, confirmation/cancel behavior, parent refresh. | client/tests/lab-04/ActionsTaken.test.tsx | Planned |
+| UI-03 | UI component | AC-02, AC-06, AC-15 | Action create/read layout, auto performer, field validation, conditional note, Attachment Notes without upload control, retained draft on failure. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
+| UI-04 | UI/authz | AC-03, AC-07 | Assignee options/rejection, Requester read-only view, hidden controls plus API denial feedback. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
+| UI-05 | UI/component | AC-04, AC-16 | Action edit, version conflict refresh, draft retention, safe error, busy behavior, explicit Bangkok timestamp conversion, and preservation of seconds on untouched timestamps. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
+| UI-06 | UI/workflow | AC-05, AC-11 | Action Start/Complete/Cancel controls, result required, terminal state, confirmation/cancel behavior, parent refresh. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-07 | UI/workflow | AC-10, AC-11, AC-12 | Ticket permitted transitions, gate feedback/focus, ordered read-only status history, requester role visibility. | client/tests/lab-04/TicketWorkflow.test.tsx | Planned |
 | STYLE-01 | Style/accessibility | AC-15, AC-17 | Zen Green tokens, labels, semantic alerts, status text cues, visible focus, dialogs, long text, disabled/busy controls. | client/tests/lab-04/ZenGreen.test.tsx | Planned |
 | RESP-01 | Responsive | AC-17 | Major dashboards, Actions, workflow screens at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no clipping/overlap/page overflow. | client/tests/lab-04/responsive-accessibility.test.tsx | Planned |
-| E2E-01 | E2E/security | AC-02–AC-07, AC-15, AC-16 | Staff creates, assigns, edits, starts, completes, cancels Actions; inactive assignee, Requester writes, safe failure, different staff Actions on one Ticket. | e2e/lab-04/actions-taken-flow.spec.ts | Planned |
+| E2E-01 | E2E/security | AC-02–AC-07, AC-15, AC-16 | Requester read-only access; Staff creates, assigns, edits, starts, completes, and cancels Actions; inactive-assignee rejection preserves the draft; UTC browser submits Asia/Bangkok time with +07:00; responsive screenshots have no horizontal overflow. | client/e2e/lab-04/actions-taken-flow.spec.ts | Passed locally; 2026-10-30 |
 | E2E-02 | E2E/workflow | AC-10–AC-12, AC-16 | Full Ticket status path, resolution gate bypass attempt, append-only history/order, requester advisory signal, role visibility. | e2e/lab-04/ticket-resolution.spec.ts | Planned |
 | E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17 | Requester isolation, Staff/Admin metrics/drill-down, non-zero and zero data, error state, responsive dashboard screenshots. | e2e/lab-04/dashboards.spec.ts | Planned |
 | REG-01 | Regression | AC-18 | Existing authenticated and Lab 1/2/3 server/client suites keep passing for login, ownership, Ticket, attachments, comments, notes, user management. | Existing server/tests/lab-01..lab-03 and client/tests/lab-01..lab-03 paths | Planned |
@@ -81,7 +81,7 @@ and this matrix before implementation continues.
 |---|---|---|
 | Requester dashboard | Desktop/tablet/mobile; own data, empty/zero/recent/resolved states | Planned |
 | Staff/Admin dashboard | Desktop/tablet/mobile; counts, drill-down, urgent list, safe failure | Planned |
-| Actions Taken | List/create/edit/assignment/transition/complete/cancel, validation/conflict, read-only Requester | Planned |
+| Actions Taken | List/create/edit/assignment/transition/complete/cancel, validation/conflict, read-only Requester | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
 | Ticket workflow/history | Confirmations, resolution gate, ordered history, requester advisory signal | Planned |
 | Keyboard and semantics | Tab order, visible focus, labels/errors, dialog focus trap/Escape/restore, status/alert announcements | Planned |
 | Layout | 1440×1000, 820×1180, 390×844 and 767/768/991/992 boundaries; no clipping/overlap/page overflow | Planned |
@@ -97,7 +97,7 @@ rtk npm test --prefix server
 rtk npm run build --prefix server
 rtk npm test --prefix client
 rtk npm run build --prefix client
-rtk npm run test:e2e --prefix client
+rtk npm run test:e2e:isolated --prefix server
 rtk git diff --check
 ~~~
 
@@ -143,6 +143,28 @@ any limitation to this file only after those commands are run.
     database tests can therefore run without the development database.
   - Ticket status transitions, gates, and history API remain Issue #70 work;
     Action mutations already acquire the inherited Ticket status advisory lock.
+- Issue #70 Actions Taken UI verification on 2026-10-30, based on merged PR #78
+  (`33b0a05600b38fa5fa24a9d2d4db1953a5170484`):
+  - `rtk npm test --prefix client`: **14 files passed; 50 tests passed**.
+  - `rtk npm run build --prefix client` and `rtk npm run build --prefix server`:
+    passed.
+  - The isolated Actions Taken E2E flow passed **3 tests**, covering Requester
+    read-only display, support create/assign/edit/start/complete/cancel, an
+    account deactivated during form entry, and a UTC browser submitting the
+    selected time with the explicit Asia/Bangkok `+07:00` offset. The rejected
+    save kept the draft, refreshed active assignees, and succeeded after
+    selecting an active user.
+    The runner migrated, seeded, and dropped a temporary schema in the existing
+    `toktickit_test` database; it did not use the development schema.
+  - The test generated and visually checked responsive captures under
+    `artifacts/lab-04/screenshots/actions-taken/` (desktop, tablet, mobile for
+    both roles, plus the support audit-history view). All three sizes passed the
+    page horizontal-overflow check. The seven PNG captures are included in PR
+    #79; rerunning the E2E command recreates them.
+  - Review follow-up: the form now initializes and submits Action dates in
+    Asia/Bangkok independently of browser timezone. Editing another field omits
+    an untouched date from the patch, preserving stored seconds. The regression
+    test uses an Action timestamp with non-zero seconds.
 - Other Lab 4 test rows remain planned as marked in the matrix.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;

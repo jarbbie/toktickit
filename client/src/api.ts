@@ -16,6 +16,7 @@ export interface ReferenceData {
 
 export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
 export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "RESOLVED" | "CLOSED" | "REOPENED" | "CANCELLED";
+export type ActionStatus = "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export interface AuthUser {
   id: number;
@@ -117,6 +118,7 @@ export interface TicketDetail extends TicketListItem {
   itPriority: TicketInput["requestedPriority"];
   ownerId: number | null;
   owner: { id: number; name: string; role: UserRole } | null;
+  workflowVersion: number;
   resolutionIndicatedAt: string | null;
   attachments: Attachment[];
 }
@@ -139,6 +141,77 @@ export interface InternalNote {
   body: string;
   author: { id: number; name: string };
   createdAt: string;
+}
+
+export interface ActionPerson {
+  id: number;
+  name: string;
+  role: UserRole;
+}
+
+export interface ActionSnapshot {
+  actionAt: string;
+  description: string;
+  result: string | null;
+  performedBy: ActionPerson;
+  assignee: ActionPerson | null;
+  status: ActionStatus;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  version: number;
+}
+
+export interface ActionEvent {
+  id: number;
+  actionId: number;
+  actor: ActionPerson;
+  type: "CREATED" | "EDITED" | "ASSIGNED" | "STATUS_CHANGED";
+  before: ActionSnapshot | null;
+  after: ActionSnapshot | null;
+  createdAt: string;
+}
+
+export interface ActionRecord extends ActionSnapshot {
+  id: number;
+  ticketId: number;
+  createdAt: string;
+  updatedAt: string;
+  events?: ActionEvent[];
+}
+
+export interface ActionCreateInput {
+  actionAt: string;
+  description: string;
+  assigneeId: number | null;
+  followUpRequired: boolean;
+  followUpNote: string | null;
+  attachmentNotes: string | null;
+  expectedWorkflowVersion: number;
+}
+
+export interface ActionEditInput {
+  expectedVersion: number;
+  expectedWorkflowVersion: number;
+  actionAt?: string;
+  description?: string;
+  result?: string | null;
+  followUpRequired?: boolean;
+  followUpNote?: string | null;
+  attachmentNotes?: string | null;
+}
+
+export interface ActionAssignmentInput {
+  expectedVersion: number;
+  expectedWorkflowVersion: number;
+  assigneeId: number | null;
+}
+
+export interface ActionTransitionInput {
+  expectedVersion: number;
+  expectedWorkflowVersion: number;
+  status: Exclude<ActionStatus, "PLANNED">;
+  result?: string;
 }
 
 export interface TicketQuery {
@@ -282,6 +355,36 @@ export function loadStaffTickets(query: StaffQueueQuery) {
 
 export function loadStaffTicket(ticketId: number) {
   return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}`);
+}
+
+export function loadActions(ticketId: number) {
+  return loadJson<ActionRecord[]>(`/api/tickets/${ticketId}/actions`);
+}
+
+export function createAction(ticketId: number, input: ActionCreateInput, idempotencyKey: string) {
+  return loadJson<ActionRecord>(`/api/staff/tickets/${ticketId}/actions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify(input),
+  });
+}
+
+export function editAction(actionId: number, input: ActionEditInput) {
+  return loadJson<ActionRecord>(`/api/staff/actions/${actionId}`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  });
+}
+
+export function assignAction(actionId: number, input: ActionAssignmentInput) {
+  return loadJson<ActionRecord>(`/api/staff/actions/${actionId}/assignee`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  });
+}
+
+export function transitionAction(actionId: number, input: ActionTransitionInput) {
+  return loadJson<ActionRecord>(`/api/staff/actions/${actionId}/status`, {
+    method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input),
+  });
 }
 
 export function claimStaffTicket(ticketId: number) {

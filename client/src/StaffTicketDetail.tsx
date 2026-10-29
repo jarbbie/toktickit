@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import ActionsTaken from "./ActionsTaken.js";
 import {
   ApiError,
   type InternalNote,
@@ -90,7 +91,7 @@ function NoteList({ notes }: { notes: InternalNote[] }) {
   </li>)}</ul>;
 }
 
-export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
+export default function StaffTicketDetail({ ticketId, currentUserName = "Current user" }: { ticketId: number; currentUserName?: string }) {
   const location = useLocation();
   const [ticket, setTicket] = useState<StaffTicketDetailData | null>(null);
   const [comments, setComments] = useState<PublicComment[] | null>(null);
@@ -164,6 +165,12 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
     setOwnerSelection(data.ownerId === null ? "" : String(data.ownerId));
     setPrioritySelection(data.itPriority);
     setStatusSelection("");
+  }
+
+  async function refreshTicketForActions() {
+    const data = await loadStaffTicket(ticketId);
+    setTicket(data);
+    return data.workflowVersion;
   }
 
   async function claim() {
@@ -318,6 +325,8 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
       <ReadonlyField label="Summary" value={ticket.summary} wide />
       <ReadonlyField label="Description" value={ticket.description} wide multiline />
     </div></div></section>
+
+    <ActionsTaken ticketId={ticket.id} ticketStatus={ticket.status} workflowVersion={ticket.workflowVersion} currentUserName={currentUserName} assigneeOptions={ticket.ownerOptions} refreshTicket={refreshTicketForActions} />
 
     <section className="card shadow-sm mb-3 staff-operations-card" aria-labelledby="staff-ticket-operations-heading"><div className="card-body"><div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h2 className="h5 mb-1" id="staff-ticket-operations-heading">Ticket Operations</h2><p className="text-secondary mb-0">Operational controls are enforced by the server.</p></div>{busy && <span role="status" className="text-secondary">Saving…</span>}</div>
       {operationError && <div className="alert alert-danger" role="alert">{operationError}</div>}
