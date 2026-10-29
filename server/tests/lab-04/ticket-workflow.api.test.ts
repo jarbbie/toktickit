@@ -112,6 +112,7 @@ describe.skipIf(!testDatabaseEnabled)("Ticket workflow API on PostgreSQL", () =>
       const ticket = await f.ticket("OPEN");
       const missingVersion = await transition(f, ticket.id, "IN_PROGRESS", undefined);
       expect(missingVersion.status).toBe(409);
+      expect(missingVersion.headers["cache-control"]).toBe("no-store");
       expect(missingVersion.body.code).toBe("STALE_TICKET_WORKFLOW");
       const malformedVersion = await request(app).patch(`/api/staff/tickets/${ticket.id}/status`).set("Origin", origin).set("Cookie", f.cookies[0]).send({ status: "IN_PROGRESS", expectedWorkflowVersion: "1" });
       expect(malformedVersion.status).toBe(400);
@@ -231,8 +232,10 @@ describe.skipIf(!testDatabaseEnabled)("Ticket workflow API on PostgreSQL", () =>
       const unauthenticated = await request(app).get(`/api/tickets/${ticket.id}/status-events`);
       const support = await request(app).get(`/api/tickets/${ticket.id}/status-events`).set("Cookie", f.cookies[0]);
       expect(foreign.status).toBe(404);
+      expect(foreign.headers["cache-control"]).toBe("no-store");
       expect(foreign.body).toEqual(missing.body);
       expect(unauthenticated.status).toBe(401);
+      expect(unauthenticated.headers["cache-control"]).toBe("no-store");
       expect(support.status).toBe(200);
     });
   });

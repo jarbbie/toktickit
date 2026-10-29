@@ -926,7 +926,7 @@ app.patch("/api/staff/tickets/:ticketId/it-priority", ...staffAuthentication, as
   }
 });
 
-app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (req: Request, res: Response) => {
+app.patch("/api/staff/tickets/:ticketId/status", (_req, res, next) => { noStore(res); next(); }, ...staffAuthentication, async (req: Request, res: Response) => {
   try {
     const body = validateObject(req.body ?? {}, ["status", "expectedWorkflowVersion"]);
     validateQuery(req.query as Record<string, unknown>, []);
@@ -981,7 +981,6 @@ app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (
       });
       return loadStaffTicketDetail(transaction, ticketId);
     });
-    noStore(res);
     res.json(detail);
   } catch (error) {
     if (error instanceof TicketNotFoundError) {
@@ -1004,7 +1003,7 @@ app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (
   }
 });
 
-app.get("/api/tickets/:ticketId/status-events", ...completedAuthentication, async (req: Request, res: Response) => {
+app.get("/api/tickets/:ticketId/status-events", (_req, res, next) => { noStore(res); next(); }, ...completedAuthentication, async (req: Request, res: Response) => {
   try {
     validateQuery(req.query as Record<string, unknown>, []);
     if (req.body !== undefined) validateObject(req.body, []);
@@ -1019,7 +1018,6 @@ app.get("/api/tickets/:ticketId/status-events", ...completedAuthentication, asyn
       orderBy: [{ changedAt: "asc" }, { id: "asc" }],
       select: { id: true, ticketId: true, fromStatus: true, toStatus: true, changedAt: true, actor: { select: { id: true, name: true, role: true } } },
     });
-    noStore(res);
     res.json(events.map((event) => ({ ...event, changedAt: event.changedAt.toISOString() })));
   } catch (error) {
     if (error instanceof RequestError) {

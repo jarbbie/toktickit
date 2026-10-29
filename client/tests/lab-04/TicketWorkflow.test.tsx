@@ -69,4 +69,31 @@ describe("Ticket status workflow", () => {
     expect(update).toHaveBeenCalledWith(4, "RESOLVED", ticket.workflowVersion);
     await waitFor(() => expect(api.loadStaffTicket).toHaveBeenCalledTimes(2));
   });
+
+  it("keeps a stale target visible but prevents resubmission when refresh makes it illegal", async () => {
+    const refreshedTicket = { ...ticket, status: "RESOLVED" as const, workflowVersion: 5 };
+    vi.spyOn(api, "loadStaffTicket").mockResolvedValueOnce(ticket).mockResolvedValueOnce(refreshedTicket);
+    vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
+    vi.spyOn(api, "loadInternalNotes").mockResolvedValue([]);
+    vi.spyOn(api, "loadTicketStatusEvents").mockResolvedValue([]);
+    const update = vi.spyOn(api, "updateStaffTicketStatus").mockRejectedValue(new api.ApiError(
+      "The Ticket has changed. Refresh and retry.", 409, "STALE_TICKET_WORKFLOW",
+    ));
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={["/staff/tickets/4"]}><StaffTicketDetail ticketId={4} /></MemoryRouter>);
+
+    await user.selectOptions(await screen.findByLabelText("Next status"), "IN_PROGRESS");
+    await user.click(screen.getByRole("button", { name: "Update Status" }));
+    const select = await screen.findByLabelText("Next status");
+    await waitFor(() => expect(select).toHaveValue("IN_PROGRESS"));
+    expect(screen.getByRole("option", { name: "In Progress (no longer permitted)" })).toBeDisabled();
+    expect(screen.getByText("This status is no longer permitted. Choose another status.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Update Status" })).toBeDisabled();
+
+    await user.selectOptions(select, "REOPENED");
+    expect(select).toHaveValue("REOPENED");
+    expect(screen.getByRole("button", { name: "Update Status" })).toBeEnabled();
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(4, "IN_PROGRESS", ticket.workflowVersion);
+  });
 });

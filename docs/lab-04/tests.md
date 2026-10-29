@@ -172,7 +172,7 @@ any limitation to this file only after those commands are run.
     Staff, Administrator, and Requester, gate and stale-write behavior, the
     shared Action/resolution lock, history access, and inherited Lab 1–3 server
     regressions.
-  - `rtk npm test --prefix client`: **15 files passed; 53 tests passed**.
+  - `rtk npm test --prefix client`: **15 files passed; 54 tests passed**.
   - `rtk npm run build --prefix server` and `rtk npm run build --prefix client`:
     passed. `rtk git diff --check`: passed.
   - `rtk npm run test:e2e:isolated --prefix server --
@@ -185,6 +185,11 @@ any limitation to this file only after those commands are run.
     `artifacts/lab-04/screenshots/ticket-workflow/`; Playwright checked each
     viewport for horizontal overflow. Desktop and mobile captures were visually
     inspected for both roles.
+  - Review follow-up: a stale status target remains visible as a disabled
+    option after refresh, and the UI prevents resubmission unless the target is
+    still permitted. Status-update and history responses set `Cache-Control:
+    no-store` before authentication or handler processing, including errors;
+    regressions cover stale UI state and 409, 404, and 401 responses.
 - Other Lab 4 test rows remain planned as marked in the matrix.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
