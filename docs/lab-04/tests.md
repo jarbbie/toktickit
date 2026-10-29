@@ -206,12 +206,16 @@ any limitation to this file only after those commands are run.
     populations.
 - Issue #73 Dashboard UI verification on 2026-10-30, against `lab4-staging`
   commit `b3ce566e8af3909b37b1ede8b03740094608f0c6`, implementation commit
-  `b4457d2304023e88c720647d4c68e32c0e692989`:
-  - `rtk npm test --prefix client -- --reporter=dot`: **20 files passed; 68
+  `eade9b68eee2602a128b9a5a58ec777ff631ddbf`:
+  - `rtk npm test --prefix client -- --reporter=dot`: **20 files passed; 69
     tests passed; 0 failed**. This includes Requester and Staff/Admin dashboard
     states, exact drill-down filters, existing Lab 1–3 client regressions, and
     the updated change-password return route to `/dashboard`.
   - `rtk npm run build --prefix client` and `rtk git diff --check`: passed.
+  - PR #82 review follow-up: Resolved At stays newest-first after header clicks
+    and exposes the fixed order accessibly; Urgent Work disables the direction
+    selector and omits direction from its API request; a delayed dashboard-to-
+    Ticket Detail navigation focuses the heading once the Ticket loads.
   - `rtk npm run test:e2e:isolated --prefix server --
     lab-04/dashboards.spec.ts`: **1 test passed** against the disposable
     `_test` schema. Keyboard metric activation, role navigation, Queue/My
