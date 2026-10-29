@@ -16,7 +16,7 @@ const ticket: StaffTicketDetailData = {
   id: 4, ticketNumber: "TKT-2026-A1B2C3D4", requesterId: 1, requester: { id: 1, name: "Nicha Somchai" },
   categoryId: 2, category: { id: 2, name: "Hardware" }, relatedSystemId: 3, relatedSystem: { id: 3, name: "VPN" },
   summary: "VPN cannot connect", description: "The VPN disconnects immediately after sign-in.", requestedPriority: "MEDIUM" as const,
-  itPriority: "HIGH" as const, status: "OPEN" as const, ownerId: 7, owner: owners[0], resolutionIndicatedAt: "2026-09-18T09:30:00.000Z",
+  itPriority: "HIGH" as const, status: "OPEN" as const, ownerId: 7, owner: owners[0], workflowVersion: 1, resolutionIndicatedAt: "2026-09-18T09:30:00.000Z",
   createdAt: "2026-09-18T08:00:00.000Z", updatedAt: "2026-09-18T10:00:00.000Z", attachments: [attachment, removedAttachment], ownerOptions: owners,
 };
 
@@ -61,7 +61,7 @@ describe("Staff Ticket Detail", () => {
 
     await user.click(await screen.findByRole("button", { name: "Claim Ticket" }));
     expect(claim).toHaveBeenCalledWith(4);
-    expect(await screen.findByRole("status")).toHaveTextContent("Ticket claimed successfully.");
+    expect(await screen.findByText("Ticket claimed successfully.")).toHaveAttribute("role", "status");
 
     firstRender.unmount();
     mockLoads();

@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
-    "test:isolated": "tsx tests/lab-04/run-server-tests.ts"
+    "test:isolated": "tsx tests/lab-04/run-server-tests.ts",
+    "test:e2e:isolated": "node --import tsx tests/lab-04/run-client-e2e.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -167,6 +167,38 @@ body {
 .staff-attachment-list .list-group-item { background: #fafbfa; }
 .staff-attachment-list strong { overflow-wrap: anywhere; }
 
+.zen-status-planned { background: #eaf6ef; border-color: #b7dbc5; color: #0b7a46; }
+.zen-status-completed { background: #eaf6ef; border-color: #b7dbc5; color: #0b7a46; }
+.actions-taken-card { border-top: 3px solid #0b7a46; min-width: 0; overflow: hidden; }
+.actions-taken-heading, .actions-taken-editor-heading, .actions-taken-item-heading { align-items: flex-start; display: flex; flex-wrap: wrap; gap: .75rem; justify-content: space-between; }
+.actions-taken-heading { align-items: center; }
+.actions-taken-editor { background: #f7faf8; border: 1px solid #d7e4db; border-radius: .4rem; padding: 1rem; }
+.actions-performer-label { background: #eef8f2; border-radius: .3rem; margin: 1rem 0 0; padding: .55rem .7rem; }
+.actions-taken-form { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.actions-form-field { min-width: 0; }
+.actions-form-field textarea { resize: vertical; }
+.actions-form-wide { grid-column: 1 / -1; }
+.actions-form-checkbox { align-items: center; display: flex; gap: .55rem; }
+.actions-form-checkbox .form-check-input { float: none; margin: 0; }
+.actions-form-actions { display: flex; justify-content: flex-end; }
+.actions-taken-list { display: grid; gap: 1rem; list-style: none; margin-bottom: 0; padding: 0; }
+.actions-taken-item { border: 1px solid #d7e4db; border-radius: .4rem; min-width: 0; padding: 1rem; }
+.actions-item-controls { align-items: center; display: flex; flex-wrap: wrap; gap: .45rem; }
+.actions-taken-fields { display: grid; gap: .7rem 1.2rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 1rem 0; }
+.actions-taken-fields > div, .actions-history-changes > div { min-width: 0; }
+.actions-taken-fields dt, .actions-history-changes dt { color: #59645e; font-size: .8rem; font-weight: 700; }
+.actions-taken-fields dd, .actions-history-changes dd { margin: .15rem 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.actions-history { border-top: 1px solid #d7dadd; padding-top: .7rem; }
+.actions-history summary { color: #006b3c; cursor: pointer; font-weight: 700; }
+.actions-history-list { display: grid; gap: .8rem; list-style: none; margin: .8rem 0 0; padding: 0; }
+.actions-history-list > li { background: #f7faf8; border-radius: .3rem; padding: .7rem; }
+.actions-history-meta { display: flex; flex-wrap: wrap; gap: .3rem 1rem; justify-content: space-between; }
+.actions-history-meta span { color: #59645e; font-size: .8rem; }
+.actions-history-changes { display: grid; gap: .4rem .8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: .5rem 0 0; }
+.actions-modal-backdrop { align-items: center; background: rgb(20 34 27 / 50%); display: grid; inset: 0; justify-items: center; overflow-y: auto; padding: 1rem; position: fixed; z-index: 1080; }
+.actions-confirmation { background: white; border-radius: .55rem; box-shadow: 0 1rem 3rem rgb(0 0 0 / 25%); max-height: calc(100vh - 2rem); max-width: 34rem; overflow-y: auto; padding: 1.4rem; width: 100%; }
+.actions-confirmation:focus { outline: 3px solid #9ccdaf; outline-offset: 2px; }
+
 .admin-users-page { margin: 0 auto; max-width: 1280px; }
 .admin-users-heading { align-items: flex-end; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1.25rem; }
 .admin-users-heading h1 { font-size: 1.65rem; }
@@ -248,4 +280,12 @@ body {
   .staff-entry-list { max-height: none; }
   .ticket-table-footer { align-items: flex-start; flex-direction: column; gap: .75rem; }
   .ticket-pagination .page-number:not([aria-current="page"]), .ticket-pagination .page-ellipsis { display: none; }
+}
+
+@media (max-width: 767.98px) {
+  .actions-taken-form, .actions-taken-fields, .actions-history-changes { grid-template-columns: 1fr; }
+  .actions-form-wide { grid-column: auto; }
+  .actions-item-controls { width: 100%; }
+  .actions-item-controls .btn { flex: 1 1 auto; min-height: 2.6rem; }
+  .actions-taken-item { padding: .8rem; }
 }
