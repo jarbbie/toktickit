@@ -1,9 +1,9 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Data-foundation tests (#68), Actions Taken API tests (#69), and the
-Actions Taken Ticket Detail UI for #70 are implemented. PostgreSQL tests
+**Status:** Data foundation (#68), Actions Taken API (#69), Actions Taken UI
+(#70), and Ticket workflow/history (#71) are implemented. PostgreSQL tests
 require a disposable `TEST_DATABASE_URL` whose database name ends in `_test`;
-remaining Lab 4 work is still planned.
+dashboard and final hardening work remains planned.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the
@@ -26,13 +26,13 @@ and this matrix before implementation continues.
 | API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change; a same-assignee retry stays read-only after that assignee is deactivated. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-04 | API/validation | AC-04, AC-06 | Edit boundaries, conditional follow-up, attachment-note length/plain-text behavior, result validation, event snapshots, and Action version increment. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-05 | API/workflow | AC-05, AC-11, AC-16 | Start/complete/cancel transitions, required completion Result, terminal behavior, repeat calls, and no partial event on rejection. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
-| API-06 | API/history | AC-10, AC-12 | Ticket status events are append-only, actor/from/to/time are correct, equal timestamps have stable ID order, and Requesters see only own history. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
-| API-07 | API/workflow | AC-10, AC-11 | All eight Ticket statuses × all roles: allowed transitions succeed; disallowed, same-state, and Requester attempts reject. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
-| API-08 | API/concurrency | AC-11, AC-16 | Resolution/cancellation gates are server-enforced; Action creation/follow-up and Ticket resolve races serialize; stale workflow version returns 409 and writes nothing. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
-| API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts | Planned |
+| API-06 | API/history | AC-10, AC-12 | Ticket status events are append-only, actor/from/to/time are correct, equal timestamps have stable ID order, and Requesters see only own history. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
+| API-07 | API/workflow | AC-10, AC-11 | All 64 current/next status pairs are covered; allowed transitions succeed, disallowed and same-state attempts reject, and Requester writes are forbidden. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
+| API-08 | API/concurrency | AC-11, AC-16 | Resolution/cancellation gates are server-enforced; Action creation and Ticket resolution share a lock; competing status writes return one stale 409; rejected writes change no state. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
+| API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts; client/e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
 | API-10 | API/dashboard | AC-08 | Requester counts/lists match fixture queries and Bangkok date boundaries; foreign Requester data never appears; zero metrics and drill-down filters/sorts (`statusGroup`, `updatedAfter`, `resolvedAfter`, `resolvedAt`) are exact, including legacy Tickets without status events. | server/tests/lab-04/requester-dashboard.api.test.ts; server/tests/lab-04/requester-list.api.test.ts | Planned |
 | API-11 | API/dashboard | AC-09 | Staff/Admin counts and lists match real DB queries, correct status/priority ordering, empty states, safe Requester `{id,name}` summaries without email, and Queue filters/sorts (`statusGroup`, `updatedAfter`, `itPriorityGroup`, `urgentWork`). | server/tests/lab-04/staff-dashboard.api.test.ts; server/tests/lab-04/staff-queue.api.test.ts | Planned |
-| API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/safe-errors.api.test.ts | Action API passed; remaining workflow scope in #70 |
+| API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/safe-errors.api.test.ts; server/tests/lab-04/ticket-workflow.api.test.ts | Action safe failures passed; Ticket workflow safe conflicts passed locally; 2026-10-30 |
 | API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Action API passed; remaining workflow scope in #70 |
 | API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 local warmed reads; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Planned |
@@ -42,11 +42,11 @@ and this matrix before implementation continues.
 | UI-04 | UI/authz | AC-03, AC-07 | Assignee options/rejection, Requester read-only view, hidden controls plus API denial feedback. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-05 | UI/component | AC-04, AC-16 | Action edit, version conflict refresh, draft retention, safe error, busy behavior, explicit Bangkok timestamp conversion, and preservation of seconds on untouched timestamps. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-06 | UI/workflow | AC-05, AC-11 | Action Start/Complete/Cancel controls, result required, terminal state, confirmation/cancel behavior, parent refresh. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
-| UI-07 | UI/workflow | AC-10, AC-11, AC-12 | Ticket permitted transitions, gate feedback/focus, ordered read-only status history, requester role visibility. | client/tests/lab-04/TicketWorkflow.test.tsx | Planned |
+| UI-07 | UI/workflow | AC-10, AC-11, AC-12 | Ticket permitted transitions, gate feedback/focus, ordered read-only status history, requester role visibility. | client/tests/lab-04/TicketWorkflow.test.tsx | Passed locally; 2026-10-30 |
 | STYLE-01 | Style/accessibility | AC-15, AC-17 | Zen Green tokens, labels, semantic alerts, status text cues, visible focus, dialogs, long text, disabled/busy controls. | client/tests/lab-04/ZenGreen.test.tsx | Planned |
 | RESP-01 | Responsive | AC-17 | Major dashboards, Actions, workflow screens at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no clipping/overlap/page overflow. | client/tests/lab-04/responsive-accessibility.test.tsx | Planned |
 | E2E-01 | E2E/security | AC-02–AC-07, AC-15, AC-16 | Requester read-only access; Staff creates, assigns, edits, starts, completes, and cancels Actions; inactive-assignee rejection preserves the draft; UTC browser submits Asia/Bangkok time with +07:00; responsive screenshots have no horizontal overflow. | client/e2e/lab-04/actions-taken-flow.spec.ts | Passed locally; 2026-10-30 |
-| E2E-02 | E2E/workflow | AC-10–AC-12, AC-16 | Full Ticket status path, resolution gate bypass attempt, append-only history/order, requester advisory signal, role visibility. | e2e/lab-04/ticket-resolution.spec.ts | Planned |
+| E2E-02 | E2E/workflow | AC-10–AC-12, AC-16 | Full Ticket status path, resolution/cancellation gates, append-only history/order, requester advisory signal, role visibility, and responsive screenshots. | client/e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
 | E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17 | Requester isolation, Staff/Admin metrics/drill-down, non-zero and zero data, error state, responsive dashboard screenshots. | e2e/lab-04/dashboards.spec.ts | Planned |
 | REG-01 | Regression | AC-18 | Existing authenticated and Lab 1/2/3 server/client suites keep passing for login, ownership, Ticket, attachments, comments, notes, user management. | Existing server/tests/lab-01..lab-03 and client/tests/lab-01..lab-03 paths | Planned |
 | VIS-01 | Visual/manual | AC-15, AC-17 | Inspect required screenshots for readable text, focus, breakpoints, no overlap/clipping, no unfinished controls; record each viewport/result. | artifacts/lab-04/screenshots/{staff-dashboard,requester-dashboard,actions-taken,ticket-workflow}/ | Planned |
@@ -82,7 +82,7 @@ and this matrix before implementation continues.
 | Requester dashboard | Desktop/tablet/mobile; own data, empty/zero/recent/resolved states | Planned |
 | Staff/Admin dashboard | Desktop/tablet/mobile; counts, drill-down, urgent list, safe failure | Planned |
 | Actions Taken | List/create/edit/assignment/transition/complete/cancel, validation/conflict, read-only Requester | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
-| Ticket workflow/history | Confirmations, resolution gate, ordered history, requester advisory signal | Planned |
+| Ticket workflow/history | Confirmations, resolution/cancellation gates, ordered history, requester advisory signal | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
 | Keyboard and semantics | Tab order, visible focus, labels/errors, dialog focus trap/Escape/restore, status/alert announcements | Planned |
 | Layout | 1440×1000, 820×1180, 390×844 and 767/768/991/992 boundaries; no clipping/overlap/page overflow | Planned |
 
@@ -141,8 +141,8 @@ any limitation to this file only after those commands are run.
   - The isolated runner provisions a migrated schema under `TEST_DATABASE_URL`
     and supplies it as the test child process's `DATABASE_URL`; inherited
     database tests can therefore run without the development database.
-  - Ticket status transitions, gates, and history API remain Issue #70 work;
-    Action mutations already acquire the inherited Ticket status advisory lock.
+  - Ticket status transitions, gates, and history API were completed in Issue
+    #71; Action mutations use the same Ticket advisory lock.
 - Issue #70 Actions Taken UI verification on 2026-10-30, based on merged PR #78
   (`33b0a05600b38fa5fa24a9d2d4db1953a5170484`):
   - `rtk npm test --prefix client`: **14 files passed; 50 tests passed**.
@@ -165,6 +165,25 @@ any limitation to this file only after those commands are run.
     Asia/Bangkok independently of browser timezone. Editing another field omits
     an untouched date from the patch, preserving stored seconds. The regression
     test uses an Action timestamp with non-zero seconds.
+- Issue #71 Ticket workflow verification on 2026-10-30, based on merged PR #79
+  (`25fa17dc136e9ddb17e633b3a401e32307987e99`) and the workflow increment:
+  - `rtk npm run test:isolated --prefix server`: **29 files passed; 131 tests
+    passed; 0 failed; 0 skipped**, including every Ticket status pair, gate and
+    stale-write behavior, the shared Action/resolution lock, history access,
+    and inherited Lab 1–3 server regressions.
+  - `rtk npm test --prefix client`: **15 files passed; 53 tests passed**.
+  - `rtk npm run build --prefix server` and `rtk npm run build --prefix client`:
+    passed. `rtk git diff --check`: passed.
+  - `rtk npm run test:e2e:isolated --prefix server --
+    lab-04/ticket-resolution.spec.ts`: **1 test passed**. It covered the full
+    status path, resolution and cancellation gates, completed Actions, Requester
+    advisory feedback, and read-only status history. The isolated runner used a
+    temporary schema in `toktickit_test` and separate API/client ports so it
+    did not reuse the existing development server.
+  - Six desktop/tablet/mobile screenshots for Staff and Requester are under
+    `artifacts/lab-04/screenshots/ticket-workflow/`; Playwright checked each
+    viewport for horizontal overflow. Desktop and mobile captures were visually
+    inspected for both roles.
 - Other Lab 4 test rows remain planned as marked in the matrix.
 - Lab 4 product verification: not started.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;

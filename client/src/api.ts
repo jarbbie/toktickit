@@ -18,6 +18,15 @@ export type UserRole = "REQUESTER" | "IT_STAFF" | "ADMINISTRATOR";
 export type TicketStatus = "NEW" | "OPEN" | "IN_PROGRESS" | "WAITING_FOR_REQUESTER" | "RESOLVED" | "CLOSED" | "REOPENED" | "CANCELLED";
 export type ActionStatus = "PLANNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
+export interface TicketStatusEvent {
+  id: number;
+  ticketId: number;
+  fromStatus: TicketStatus;
+  toStatus: TicketStatus;
+  actor: { id: number; name: string; role: UserRole };
+  changedAt: string;
+}
+
 export interface AuthUser {
   id: number;
   name: string;
@@ -399,8 +408,12 @@ export function updateStaffItPriority(ticketId: number, itPriority: TicketInput[
   return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/it-priority`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itPriority }) });
 }
 
-export function updateStaffTicketStatus(ticketId: number, status: TicketStatus) {
-  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+export function updateStaffTicketStatus(ticketId: number, status: TicketStatus, expectedWorkflowVersion: number) {
+  return loadJson<StaffTicketDetail>(`/api/staff/tickets/${ticketId}/status`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status, expectedWorkflowVersion }) });
+}
+
+export function loadTicketStatusEvents(ticketId: number) {
+  return loadJson<TicketStatusEvent[]>(`/api/tickets/${ticketId}/status-events`);
 }
 
 export async function loadTicket(ticketId: number): Promise<TicketDetail> {

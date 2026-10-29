@@ -36,6 +36,9 @@ class ResolutionConflictError extends Error {}
 class TicketAlreadyAssignedError extends Error {}
 class OwnerUnavailableError extends Error {}
 class InvalidStatusTransitionError extends Error {}
+class TicketWorkflowError extends Error {
+  constructor(readonly code: string, message: string, readonly details?: Record<string, number>) { super(message); }
+}
 class UserNotFoundError extends Error {}
 class EmailInUseError extends Error {}
 class AdminSafetyConflictError extends Error {
@@ -925,21 +928,57 @@ app.patch("/api/staff/tickets/:ticketId/it-priority", ...staffAuthentication, as
 
 app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (req: Request, res: Response) => {
   try {
-    const body = validateObject(req.body ?? {}, ["status"]);
+    const body = validateObject(req.body ?? {}, ["status", "expectedWorkflowVersion"]);
     validateQuery(req.query as Record<string, unknown>, []);
     const ticketId = queryInteger(req.params.ticketId, "ticketId");
     if (!Object.prototype.hasOwnProperty.call(body, "status")) throw new RequestError("status is required.");
     const status = requiredStatus(body.status);
+    const expectedWorkflowVersion = body.expectedWorkflowVersion === undefined
+      ? undefined
+      : requiredId(body.expectedWorkflowVersion, "expectedWorkflowVersion");
     if (!requireAllowedOrigin(req, res)) return;
+    const user = authenticatedUser(req);
     const detail = await getPrisma().$transaction(async (transaction) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
-      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, status: true } });
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, status: true, workflowVersion: true } });
       if (!ticket) throw new TicketNotFoundError();
+      if (expectedWorkflowVersion === undefined || ticket.workflowVersion !== expectedWorkflowVersion) {
+        throw new TicketWorkflowError("STALE_TICKET_WORKFLOW", "The Ticket has changed. Refresh and retry.");
+      }
       if (!allowedStatusTransitions[ticket.status as typeof statuses[number]].includes(status)) throw new InvalidStatusTransitionError();
-      const data = status === "REOPENED"
-        ? { status, resolutionIndicatedAt: null, updatedAt: new Date() }
-        : { status, updatedAt: new Date() };
-      await transaction.ticket.update({ where: { id: ticketId }, data });
+
+      if (status === "RESOLVED" || status === "CANCELLED") {
+        const [completedActions, activeActions, followUpActions] = await Promise.all([
+          transaction.actionTaken.count({ where: { ticketId, status: "COMPLETED" } }),
+          transaction.actionTaken.count({ where: { ticketId, status: { in: ["PLANNED", "IN_PROGRESS"] } } }),
+          transaction.actionTaken.count({ where: { ticketId, followUpRequired: true } }),
+        ]);
+        if (status === "RESOLVED" && (completedActions === 0 || activeActions > 0 || followUpActions > 0)) {
+          const requirements = [
+            completedActions === 0 ? "record at least one completed Action" : "",
+            activeActions > 0 ? `complete or cancel ${activeActions} active Action${activeActions === 1 ? "" : "s"}` : "",
+            followUpActions > 0 ? `clear ${followUpActions} required follow-up${followUpActions === 1 ? "" : "s"}` : "",
+          ].filter(Boolean);
+          throw new TicketWorkflowError("RESOLUTION_BLOCKED", `Before resolving, ${requirements.join(" and ")}.`, { completedActions, activeActions, followUpActions });
+        }
+        if (status === "CANCELLED" && activeActions > 0) {
+          throw new TicketWorkflowError("CANCELLATION_BLOCKED", `Complete or cancel ${activeActions} active Action${activeActions === 1 ? "" : "s"} before cancelling this Ticket.`, { activeActions });
+        }
+      }
+
+      const changedAt = new Date();
+      await transaction.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status,
+          workflowVersion: { increment: 1 },
+          updatedAt: changedAt,
+          ...(status === "REOPENED" ? { resolutionIndicatedAt: null } : {}),
+        },
+      });
+      await transaction.ticketStatusEvent.create({
+        data: { ticketId, fromStatus: ticket.status, toStatus: status, actorId: user.id, changedAt },
+      });
       return loadStaffTicketDetail(transaction, ticketId);
     });
     noStore(res);
@@ -953,11 +992,41 @@ app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (
       conflictWithCode(res, "That status transition is not permitted.", "INVALID_STATUS_TRANSITION");
       return;
     }
+    if (error instanceof TicketWorkflowError) {
+      res.status(409).json({ error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) });
+      return;
+    }
     if (error instanceof RequestError) {
       res.status(400).json({ error: error.message });
       return;
     }
     res.status(500).json({ error: "Unable to update ticket status." });
+  }
+});
+
+app.get("/api/tickets/:ticketId/status-events", ...completedAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, []);
+    if (req.body !== undefined) validateObject(req.body, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const ticket = await findReadableTicket(getPrisma(), ticketId, req);
+    if (!ticket) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    const events = await getPrisma().ticketStatusEvent.findMany({
+      where: { ticketId },
+      orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+      select: { id: true, ticketId: true, fromStatus: true, toStatus: true, changedAt: true, actor: { select: { id: true, name: true, role: true } } },
+    });
+    noStore(res);
+    res.json(events.map((event) => ({ ...event, changedAt: event.changedAt.toISOString() })));
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message, code: "VALIDATION_ERROR" });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load Ticket status history." });
   }
 });
 

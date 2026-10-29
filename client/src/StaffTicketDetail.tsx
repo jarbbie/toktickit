@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import ActionsTaken from "./ActionsTaken.js";
 import {
@@ -18,6 +18,7 @@ import {
   updateStaffItPriority,
   updateStaffTicketStatus,
 } from "./api.js";
+import TicketStatusHistory from "./TicketStatusHistory.js";
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 type Priority = typeof priorities[number];
@@ -108,10 +109,17 @@ export default function StaffTicketDetail({ ticketId, currentUserName = "Current
   const [statusSelection, setStatusSelection] = useState<TicketStatus | "">("");
   const [pendingOwner, setPendingOwner] = useState<number | null | undefined>(undefined);
   const [pendingStatus, setPendingStatus] = useState<TicketStatus | null>(null);
+  const [operationErrorCode, setOperationErrorCode] = useState<string | undefined>();
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [commentBody, setCommentBody] = useState("");
   const [commentError, setCommentError] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteError, setNoteError] = useState("");
+  const operationErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (operationError) operationErrorRef.current?.focus();
+  }, [operationError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,11 +160,13 @@ export default function StaffTicketDetail({ ticketId, currentUserName = "Current
 
   function clearOperationFeedback() {
     setOperationError("");
+    setOperationErrorCode(undefined);
     setSuccessMessage("");
   }
 
   function operationFailed(error: unknown, fallback: string, reloadOnConflict = true) {
     setOperationError(errorLabel(error, fallback));
+    setOperationErrorCode(error instanceof ApiError ? error.code : undefined);
     if (reloadOnConflict && error instanceof ApiError && (error.status === 404 || error.status === 409)) setRetry((value) => value + 1);
   }
 
@@ -170,6 +180,7 @@ export default function StaffTicketDetail({ ticketId, currentUserName = "Current
   async function refreshTicketForActions() {
     const data = await loadStaffTicket(ticketId);
     setTicket(data);
+    setHistoryRefreshToken((value) => value + 1);
     return data.workflowVersion;
   }
 
@@ -227,11 +238,27 @@ export default function StaffTicketDetail({ ticketId, currentUserName = "Current
     clearOperationFeedback();
     setBusy("status");
     try {
-      applyTicket(await updateStaffTicketStatus(ticket.id, nextStatus));
+      applyTicket(await updateStaffTicketStatus(ticket.id, nextStatus, ticket.workflowVersion));
+      setHistoryRefreshToken((value) => value + 1);
       setSuccessMessage(`Status changed to ${enumLabel(nextStatus)}.`);
       setPendingStatus(null);
     } catch (error) {
-      operationFailed(error, "Unable to update ticket status.");
+      setOperationError(errorLabel(error, "Unable to update ticket status."));
+      setOperationErrorCode(error instanceof ApiError ? error.code : undefined);
+      setPendingStatus(null);
+      if (error instanceof ApiError && error.status === 409) {
+        const selectedStatus = nextStatus;
+        try {
+          const refreshed = await loadStaffTicket(ticketId);
+          setTicket(refreshed);
+          setOwnerSelection(refreshed.ownerId === null ? "" : String(refreshed.ownerId));
+          setPrioritySelection(refreshed.itPriority);
+          setStatusSelection(selectedStatus);
+          setHistoryRefreshToken((value) => value + 1);
+        } catch {
+          // Keep the rejected selection and server conflict visible if refresh also fails.
+        }
+      }
     } finally { setBusy(null); }
   }
 
@@ -327,9 +354,10 @@ export default function StaffTicketDetail({ ticketId, currentUserName = "Current
     </div></div></section>
 
     <ActionsTaken ticketId={ticket.id} ticketStatus={ticket.status} workflowVersion={ticket.workflowVersion} currentUserName={currentUserName} assigneeOptions={ticket.ownerOptions} refreshTicket={refreshTicketForActions} />
+    <TicketStatusHistory ticketId={ticket.id} refreshToken={historyRefreshToken} />
 
     <section className="card shadow-sm mb-3 staff-operations-card" aria-labelledby="staff-ticket-operations-heading"><div className="card-body"><div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h2 className="h5 mb-1" id="staff-ticket-operations-heading">Ticket Operations</h2><p className="text-secondary mb-0">Operational controls are enforced by the server.</p></div>{busy && <span role="status" className="text-secondary">Saving…</span>}</div>
-      {operationError && <div className="alert alert-danger" role="alert">{operationError}</div>}
+      {operationError && <div className="alert alert-danger" ref={operationErrorRef} role="alert" tabIndex={-1}>{operationError}{(operationErrorCode === "RESOLUTION_BLOCKED" || operationErrorCode === "CANCELLATION_BLOCKED") && <div className="mt-2"><a href={`#actions-taken-heading-${ticket.id}`}>Review Actions Taken</a></div>}</div>}
       {successMessage && <div className="alert alert-success" role="status">{successMessage}</div>}
       <div className="staff-operation-grid">
         <div className="staff-operation-control"><label className="form-label" htmlFor="staff-owner">Ticket Owner</label><select className="form-select" id="staff-owner" value={ownerSelection} disabled={busy !== null} onChange={(event) => chooseOwner(event.target.value)}><option value="">Unassigned</option>{ownerOptions.map((owner) => <option key={owner.id} value={owner.id}>{ownerOptionLabel(owner)}</option>)}</select><div className="form-text">Current owner: {ownerLabel(ticket)}</div>{ticket.ownerId === null && <button className="btn btn-zen-primary mt-2" disabled={busy !== null} onClick={() => void claim()} type="button">{busy === "claim" ? "Claiming…" : "Claim Ticket"}</button>}</div>
