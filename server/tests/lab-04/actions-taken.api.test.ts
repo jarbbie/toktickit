@@ -183,6 +183,33 @@ describe.skipIf(!testDatabaseEnabled)("Actions Taken API on PostgreSQL", () => {
     });
   });
 
+  it("returns a read-only 200 when the unchanged assignee has since been deactivated", async () => {
+    await withApi(async (f) => {
+      const created = await create(f, { ...input, assigneeId: f.users[1].id });
+      expect(created.status).toBe(201);
+      await f.prisma.user.update({ where: { id: f.users[1].id }, data: { isActive: false } });
+
+      const before = await state(f);
+      const retry = await patch(f, created.body.id, "/assignee", {
+        expectedVersion: 1,
+        expectedWorkflowVersion: 2,
+        assigneeId: f.users[1].id,
+      });
+      expect(retry.status).toBe(200);
+      expect(retry.body).toMatchObject({ id: created.body.id, version: 1, assignee: { id: f.users[1].id } });
+      expect(await state(f)).toEqual(before);
+
+      const changedToInactive = await patch(f, created.body.id, "/assignee", {
+        expectedVersion: 1,
+        expectedWorkflowVersion: 2,
+        assigneeId: f.users[4].id,
+      });
+      expect(changedToInactive.status).toBe(409);
+      expect(changedToInactive.body.code).toBe("ACTION_ASSIGNEE_UNAVAILABLE");
+      expect(await state(f)).toEqual(before);
+    });
+  });
+
   it("edits resulting follow-up state, clears notes and preserves chronological snapshots", async () => {
     await withApi(async (f) => {
       const created = await create(f, { ...input, followUpRequired: true, followUpNote: " Call tomorrow " });

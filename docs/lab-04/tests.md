@@ -23,7 +23,7 @@ and this matrix before implementation continues.
 | DB-GUARD-01 | Unit | AC-13 | Reject unsafe or non-PostgreSQL test URLs before any temporary schema is created. | server/tests/lab-04/database-test-utils.test.ts | Passed locally; 2026-10-28 |
 | API-01 | API/authz | AC-01, AC-07, AC-12 | Requester reads own Actions/history only; forged owner/actor fields are rejected; cross-owner reads are concealed as 404; Staff/Admin read all. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-02 | API/integration | AC-02, AC-05, AC-16 | Create Action derives performer from session, stores event, returns 201; exact idempotency replay returns same record; mismatched key replay returns 409. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
-| API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
+| API-03 | API/authz | AC-03, AC-07 | Assign/reassign/unassign rules; active Staff/Admin accepted; Requester, inactive, missing, and wrong-role assignees rejected without partial change; a same-assignee retry stays read-only after that assignee is deactivated. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-04 | API/validation | AC-04, AC-06 | Edit boundaries, conditional follow-up, attachment-note length/plain-text behavior, result validation, event snapshots, and Action version increment. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-05 | API/workflow | AC-05, AC-11, AC-16 | Start/complete/cancel transitions, required completion Result, terminal behavior, repeat calls, and no partial event on rejection. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-06 | API/history | AC-10, AC-12 | Ticket status events are append-only, actor/from/to/time are correct, equal timestamps have stable ID order, and Requesters see only own history. | server/tests/lab-04/ticket-workflow.api.test.ts | Planned |
@@ -129,10 +129,13 @@ any limitation to this file only after those commands are run.
   changes committed with this entry:
   - Red: 13 PostgreSQL API cases failed with missing-route 404 responses before
     implementation (after starting the existing PostgreSQL container).
-  - Green: 15 Action API cases passed, covering role/session/Origin gates,
+  - Green: 16 Action API cases passed, covering role/session/Origin gates,
     ownership concealment, ordered safe reads, active assignees, validation,
     lifecycle pairs, concurrency, exact retries, terminal parents, and rollback.
-  - `rtk npm run test:isolated` from `server/`: **28 files passed, 124 tests
+  - Review regression: retrying the current assignment after the assignee was
+    deactivated returns 200 and leaves Ticket, Action, and event state unchanged;
+    assigning a different inactive account still returns 409.
+  - `rtk npm run test:isolated` from `server/`: **28 files passed, 125 tests
     passed, 0 failed, 0 skipped**, including inherited Labs 1–3 cases.
   - `rtk npm run build` from `server/`: passed. `rtk git diff --check`: passed.
   - The isolated runner provisions a migrated schema under `TEST_DATABASE_URL`

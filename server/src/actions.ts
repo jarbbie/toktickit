@@ -219,8 +219,9 @@ export function registerActionRoutes(app: Express, authenticated: RequestHandler
         } else if (operation === "assignee") {
           if (current.status === "COMPLETED" || current.status === "CANCELLED") conflict("ACTION_TERMINAL", "A terminal Action cannot be reassigned.");
           if (!("assigneeId" in body)) invalid("assigneeId", "assigneeId is required; use null to unassign.");
-          const assigneeId = await assignee(tx, body.assigneeId);
+          const assigneeId = body.assigneeId === null ? null : id(body.assigneeId, "assigneeId");
           if (current.assigneeId === assigneeId) return current;
+          await assignee(tx, assigneeId);
           changes = { assigneeId };
         } else {
           if (typeof body.status !== "string" || !["IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(body.status)) invalid("status", "status must be IN_PROGRESS, COMPLETED, or CANCELLED.");
