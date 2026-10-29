@@ -206,7 +206,7 @@ any limitation to this file only after those commands are run.
     populations.
 - Issue #73 Dashboard UI verification on 2026-10-30, against `lab4-staging`
   commit `b3ce566e8af3909b37b1ede8b03740094608f0c6`, implementation commit
-  `eade9b68eee2602a128b9a5a58ec777ff631ddbf`:
+  `IMPLEMENTATION_SHA`:
   - `rtk npm test --prefix client -- --reporter=dot`: **20 files passed; 69
     tests passed; 0 failed**. This includes Requester and Staff/Admin dashboard
     states, exact drill-down filters, existing Lab 1–3 client regressions, and
@@ -216,6 +216,9 @@ any limitation to this file only after those commands are run.
     and exposes the fixed order accessibly; Urgent Work disables the direction
     selector and omits direction from its API request; a delayed dashboard-to-
     Ticket Detail navigation focuses the heading once the Ticket loads.
+  - The dashboard Playwright command below ran on original PR head
+    `0d168af8f52890928605e815ed243d244753f58d`, before the review follow-up; it
+    remains baseline evidence.
   - `rtk npm run test:e2e:isolated --prefix server --
     lab-04/dashboards.spec.ts`: **1 test passed** against the disposable
     `_test` schema. Keyboard metric activation, role navigation, Queue/My
