@@ -150,3 +150,34 @@ test("keeps an Action draft when the selected assignee is deactivated before sav
   await expect(adminPage.getByText("User changes saved.", { exact: true })).toBeVisible();
   await adminContext.close();
 });
+
+test("interprets the Action date/time as Bangkok time in a UTC browser", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: "http://localhost:5173", timezoneId: "UTC" });
+  try {
+    const page = await context.newPage();
+    await signIn(page, accounts.anan, "My Tickets");
+    await fillCreateTicket(page, `Lab 4 Bangkok timestamp ${Date.now()}`);
+    await page.getByRole("button", { name: "Submit Ticket" }).click();
+    await expect(page.getByRole("heading", { name: /Ticket created:/ })).toBeVisible();
+    await page.getByRole("link", { name: "View Ticket Details" }).click();
+    const ticketId = page.url().split("/").pop()!;
+
+    await logout(page);
+    await signIn(page, accounts.supportOne, "Ticket Queue");
+    await page.goto(`/staff/tickets/${ticketId}`);
+    await page.getByRole("button", { name: "Add Action" }).click();
+    await page.getByLabel(/Action Date\/Time/).fill("2026-10-14T09:30");
+    await page.getByLabel(/Action Description/).fill("Record a Bangkok-local timestamp");
+
+    const requestPromise = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname === `/api/staff/tickets/${ticketId}/actions`);
+    await page.getByRole("button", { name: "Create Action" }).click();
+    const request = await requestPromise;
+    expect(request.postDataJSON().actionAt).toBe("2026-10-14T09:30:00+07:00");
+    await expect(page.getByText("Action created.", { exact: true })).toBeVisible();
+
+    const expectedBangkokDisplay = await page.evaluate(() => new Date("2026-10-14T09:30:00+07:00").toLocaleString(undefined, { timeZone: "Asia/Bangkok" }));
+    await expect(page.locator(".actions-taken-item").first().locator("h3")).toHaveText(expectedBangkokDisplay);
+  } finally {
+    await context.close();
+  }
+});

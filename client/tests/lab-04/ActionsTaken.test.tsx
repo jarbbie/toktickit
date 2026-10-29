@@ -70,13 +70,16 @@ describe("Actions Taken on Ticket Detail", () => {
     await user.click(screen.getByLabelText("Follow-Up Required"));
     await user.type(screen.getByLabelText(/Follow-up Note/), "Call requester tomorrow");
     await user.type(screen.getByLabelText("Attachment Notes"), "See the VPN screenshot");
+    const actionAtInput = screen.getByLabelText(/Action Date\/Time/) as HTMLInputElement;
+    const selectedActionAt = actionAtInput.value;
     await user.click(screen.getByRole("button", { name: "Create Action" }));
 
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     const [ticketId, input, key] = create.mock.calls[0];
     expect(ticketId).toBe(4);
     expect(input).toMatchObject({ description: "Check gateway health", assigneeId: 9, followUpRequired: true, followUpNote: "Call requester tomorrow", attachmentNotes: "See the VPN screenshot", expectedWorkflowVersion: 2 });
-    expect(new Date(input.actionAt).toISOString()).toBe(input.actionAt);
+    expect(input.actionAt).toBe(`${selectedActionAt}:00+07:00`);
+    expect(new Date(input.actionAt).toISOString()).toBe(new Date(`${selectedActionAt}:00+07:00`).toISOString());
     expect(key).toMatch(/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i);
     expect(await screen.findByText("Action created.")).toHaveAttribute("role", "status");
     expect(refreshTicket).toHaveBeenCalledOnce();
@@ -137,6 +140,25 @@ describe("Actions Taken on Ticket Detail", () => {
     expect(edit.mock.calls[1][1].expectedVersion).toBe(2);
     expect(edit.mock.calls[1][1].expectedWorkflowVersion).toBe(3);
     expect(load).toHaveBeenCalledTimes(3);
+  });
+
+  it("preserves stored Action seconds when another field is edited", async () => {
+    const withSeconds = { ...action, actionAt: "2026-10-29T02:30:37.000Z" };
+    loadList([withSeconds]);
+    const edit = vi.spyOn(api, "editAction").mockResolvedValue({ ...withSeconds, description: "Updated description", version: 2 });
+    const user = userEvent.setup();
+    renderActions();
+
+    await user.click(await screen.findByRole("button", { name: "Edit Action" }));
+    expect(screen.getByLabelText(/Action Date\/Time/)).toHaveValue("2026-10-29T09:30");
+    const description = screen.getByLabelText(/Action Description/);
+    await user.clear(description);
+    await user.type(description, "Updated description");
+    await user.click(screen.getByRole("button", { name: "Save Action" }));
+
+    await waitFor(() => expect(edit).toHaveBeenCalledOnce());
+    expect(edit.mock.calls[0][1]).not.toHaveProperty("actionAt");
+    expect(edit.mock.calls[0][1].description).toBe("Updated description");
   });
 
   it("requires a Result before completion and confirms cancellation without submitting when dismissed", async () => {

@@ -28,6 +28,7 @@ type FieldErrors = Partial<Record<keyof ActionForm, string>>;
 type PendingTransition = { actionId: number; status: "COMPLETED" | "CANCELLED" };
 
 const mutableTicketStatuses: readonly TicketStatus[] = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"];
+const actionTimeZone = "Asia/Bangkok";
 const statuses: Record<ActionStatus, readonly Exclude<ActionStatus, "PLANNED">[]> = {
   PLANNED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"],
   IN_PROGRESS: ["COMPLETED", "CANCELLED"],
@@ -46,12 +47,25 @@ function enumLabel(value: string) {
 
 function dateLabel(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString(undefined, { timeZone: actionTimeZone });
 }
 
 function localDateTimeValue(value = new Date()) {
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: actionTimeZone, calendar: "gregory", numberingSystem: "latn",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(value).map(({ type, value: part }) => [type, part]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
+function bangkokDateTimeWithOffset(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1] || hour > 23 || minute > 59) return null;
+  return `${value}:00+07:00`;
 }
 
 function emptyForm(): ActionForm {
@@ -156,6 +170,7 @@ export default function ActionsTaken({
   const [transitionFieldError, setTransitionFieldError] = useState("");
   const workflowVersionRef = useRef(ticketWorkflowVersion);
   const createAttemptRef = useRef<{ signature: string; key: string } | null>(null);
+  const originalActionAtInputRef = useRef<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const currentAction = formActionId === null ? null : actions?.find((action) => action.id === formActionId) ?? null;
@@ -165,6 +180,7 @@ export default function ActionsTaken({
     workflowVersionRef.current = ticketWorkflowVersion;
     setFormMode(null); setFormActionId(null); setForm(emptyForm()); setPendingTransition(null); setClearNotePending(false);
     createAttemptRef.current = null;
+    originalActionAtInputRef.current = null;
   }, [ticketId]);
 
   useEffect(() => {
@@ -211,21 +227,26 @@ export default function ActionsTaken({
   }
 
   function openCreate() {
+    originalActionAtInputRef.current = null;
     setFormMode("create"); setFormActionId(null); setForm(emptyForm()); setFieldErrors({}); setFormError(""); setOperationError(""); setSuccess(""); setRefreshWarning("");
   }
 
   function openEdit(action: ActionRecord) {
+    const actionAtInput = localDateTimeValue(new Date(action.actionAt));
+    originalActionAtInputRef.current = actionAtInput;
     setFormMode("edit"); setFormActionId(action.id); setFieldErrors({}); setFormError(""); setOperationError(""); setSuccess(""); setRefreshWarning("");
-    setForm({ actionAt: localDateTimeValue(new Date(action.actionAt)), description: action.description, result: action.result ?? "", assigneeId: action.assignee ? String(action.assignee.id) : "", followUpRequired: action.followUpRequired, followUpNote: action.followUpNote ?? "", attachmentNotes: action.attachmentNotes ?? "" });
+    setForm({ actionAt: actionAtInput, description: action.description, result: action.result ?? "", assigneeId: action.assignee ? String(action.assignee.id) : "", followUpRequired: action.followUpRequired, followUpNote: action.followUpNote ?? "", attachmentNotes: action.attachmentNotes ?? "" });
   }
 
   function openAssignment(action: ActionRecord) {
+    originalActionAtInputRef.current = null;
     setFormMode("assign"); setFormActionId(action.id); setFieldErrors({}); setFormError(""); setOperationError(""); setSuccess(""); setRefreshWarning("");
     setForm({ ...emptyForm(), assigneeId: action.assignee ? String(action.assignee.id) : "" });
   }
 
   function closeForm() {
     if (saving) return;
+    originalActionAtInputRef.current = null;
     setFormMode(null); setFormActionId(null); setFieldErrors({}); setFormError("");
   }
 
@@ -257,6 +278,7 @@ export default function ActionsTaken({
 
   async function refreshAfterWrite(message: string) {
     workflowVersionRef.current += 1;
+    originalActionAtInputRef.current = null;
     setSuccess(message); setOperationError("");
     setFormMode(null); setFormActionId(null); setFieldErrors({}); setFormError("");
     const [actionsLoaded, ticketLoaded] = await Promise.all([refreshActionList(), refreshParentTicket()]);
@@ -266,7 +288,7 @@ export default function ActionsTaken({
   function validateForm(mode: Exclude<FormMode, null>): FieldErrors {
     const errors: FieldErrors = {};
     if (mode === "assign") return errors;
-    if (!form.actionAt || Number.isNaN(new Date(form.actionAt).getTime())) errors.actionAt = "Enter a valid Action date and time.";
+    if (!bangkokDateTimeWithOffset(form.actionAt)) errors.actionAt = "Enter a valid Action date and time.";
     if (form.description.trim().length < 1 || form.description.trim().length > 2_000) errors.description = "Description must be between 1 and 2000 characters.";
     if (form.attachmentNotes.trim().length > 1_000) errors.attachmentNotes = "Attachment Notes must be no longer than 1000 characters.";
     if (form.followUpRequired && (form.followUpNote.trim().length < 1 || form.followUpNote.trim().length > 1_000)) errors.followUpNote = "Follow-up Note is required and must be no longer than 1000 characters.";
@@ -290,8 +312,10 @@ export default function ActionsTaken({
     setSaving(true);
     try {
       if (formMode === "create") {
+        const actionAt = bangkokDateTimeWithOffset(form.actionAt);
+        if (!actionAt) { setFormError("Enter a valid Action date and time."); return; }
         const input = {
-          actionAt: new Date(form.actionAt).toISOString(), description: form.description.trim(),
+          actionAt, description: form.description.trim(),
           assigneeId: form.assigneeId ? Number(form.assigneeId) : null, followUpRequired: form.followUpRequired,
           followUpNote: form.followUpRequired ? form.followUpNote.trim() : null,
           attachmentNotes: form.attachmentNotes.trim() || null, expectedWorkflowVersion: workflowVersionRef.current,
@@ -308,9 +332,12 @@ export default function ActionsTaken({
         await assignAction(currentAction!.id, { expectedVersion: currentAction!.version, expectedWorkflowVersion: workflowVersionRef.current, assigneeId });
         await refreshAfterWrite("Action assignee updated.");
       } else {
-        const actionAt = new Date(form.actionAt).toISOString();
         const changed: Parameters<typeof editAction>[1] = { expectedVersion: currentAction!.version, expectedWorkflowVersion: workflowVersionRef.current };
-        if (actionAt !== currentAction!.actionAt) changed.actionAt = actionAt;
+        if (form.actionAt !== originalActionAtInputRef.current) {
+          const actionAt = bangkokDateTimeWithOffset(form.actionAt);
+          if (!actionAt) { setFormError("Enter a valid Action date and time."); return; }
+          changed.actionAt = actionAt;
+        }
         if (form.description.trim() !== currentAction!.description) changed.description = form.description.trim();
         if ((form.result.trim() || null) !== currentAction!.result) changed.result = form.result.trim() || null;
         if (form.followUpRequired !== currentAction!.followUpRequired) changed.followUpRequired = form.followUpRequired;
