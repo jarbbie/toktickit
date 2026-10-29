@@ -57,8 +57,17 @@ function readFilters(params: URLSearchParams): StaffQueueQuery {
 
 function queueParams(filters: StaffQueueQuery) {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== "") params.set(key, String(value));
+  for (const [key, value] of Object.entries(filters)) {
+    if (value !== undefined && value !== "" && !(filters.sortBy === "urgentWork" && key === "direction")) params.set(key, String(value));
+  }
   return params;
+}
+
+function queueRequest(filters: StaffQueueQuery): StaffQueueQuery {
+  if (filters.sortBy !== "urgentWork") return filters;
+  const query = { ...filters };
+  delete query.direction;
+  return query;
 }
 
 function dateLabel(value: string) {
@@ -108,7 +117,7 @@ export default function StaffQueue() {
     let cancelled = false;
     setResult(null);
     setFailure(null);
-    void loadStaffTickets(filters).then((data) => {
+    void loadStaffTickets(queueRequest(filters)).then((data) => {
       if (!cancelled) setResult(data);
     }).catch((error) => {
       if (!cancelled) setFailure(error instanceof Error ? error : new Error("Unable to load staff tickets."));
@@ -166,7 +175,15 @@ export default function StaffQueue() {
       <div><label className="form-label" htmlFor="staff-status">Current Status</label><select className="form-select" id="staff-status" value={filters.status} onChange={(event) => update("status", event.target.value as StaffQueueQuery["status"])}><option value="">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{enumLabel(status)}</option>)}</select></div>
       <div><label className="form-label" htmlFor="staff-ownership">Ownership</label><select className="form-select" id="staff-ownership" value={filters.ownership} onChange={(event) => update("ownership", event.target.value as StaffQueueQuery["ownership"])}><option value="all">All</option><option value="mine">Mine</option><option value="assigned">Assigned</option><option value="unassigned">Unassigned</option></select></div>
       <div><label className="form-label" htmlFor="staff-sort">Sort by</label><select className="form-select" id="staff-sort" value={filters.sortBy} onChange={(event) => update("sortBy", event.target.value as StaffQueueQuery["sortBy"])}><option value="updatedAt">Last Updated</option><option value="createdAt">Created Date</option><option value="ticketNumber">Ticket Number</option><option value="requestedPriority">Requested Priority</option><option value="itPriority">IT Priority</option><option value="status">Current Status</option><option disabled={!(filters.statusGroup === "open" && filters.itPriorityGroup === "high_or_urgent")} value="urgentWork">Urgent Work priority then age</option></select></div>
-      <div><label className="form-label" htmlFor="staff-direction">Direction</label><select className="form-select" id="staff-direction" value={filters.direction} onChange={(event) => update("direction", event.target.value as StaffQueueQuery["direction"])}><option value="desc">Newest / highest first</option><option value="asc">Oldest / lowest first</option></select></div>
+      <div>
+        <label className="form-label" htmlFor="staff-direction">Direction</label>
+        <select aria-describedby={filters.sortBy === "urgentWork" ? "staff-direction-help" : undefined} className="form-select" disabled={filters.sortBy === "urgentWork"} id="staff-direction" value={filters.sortBy === "urgentWork" ? "fixed" : filters.direction} onChange={(event) => update("direction", event.target.value as StaffQueueQuery["direction"])}>
+          {filters.sortBy === "urgentWork" && <option disabled value="fixed">Fixed urgent-work order</option>}
+          <option value="desc">Newest / highest first</option>
+          <option value="asc">Oldest / lowest first</option>
+        </select>
+        {filters.sortBy === "urgentWork" && <small className="form-text" id="staff-direction-help">URGENT tickets come first, then HIGH; tickets with older updates come first within each priority.</small>}
+      </div>
       <div><label className="form-label" htmlFor="staff-page-size">Rows per page</label><select className="form-select" id="staff-page-size" value={filters.pageSize} onChange={(event) => update("pageSize", Number(event.target.value))}><option value="10">10</option><option value="20">20</option><option value="50">50</option></select></div>
     </div></div>
     {!result && !failure && <p role="status">Loading ticket queue…</p>}

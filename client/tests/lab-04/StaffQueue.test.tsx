@@ -32,10 +32,17 @@ describe("Lab 4 Staff Queue dashboard filters", () => {
   it("preserves the urgent priority group and dedicated sort without a conflicting status/priority", async () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(references);
     const load = vi.spyOn(api, "loadStaffTickets").mockResolvedValue(emptyQueue);
-    renderQueue("/staff/tickets?statusGroup=open&itPriorityGroup=high_or_urgent&sortBy=urgentWork&status=RESOLVED&itPriority=LOW");
+    renderQueue("/staff/tickets?statusGroup=open&itPriorityGroup=high_or_urgent&sortBy=urgentWork&direction=desc&status=RESOLVED&itPriority=LOW");
 
-    await waitFor(() => expect(load).toHaveBeenCalledWith(expect.objectContaining({ statusGroup: "open", itPriorityGroup: "high_or_urgent", sortBy: "urgentWork", status: "", itPriority: "" })));
+    await waitFor(() => {
+      const request = load.mock.calls[load.mock.calls.length - 1][0];
+      expect(request).toEqual(expect.objectContaining({ statusGroup: "open", itPriorityGroup: "high_or_urgent", sortBy: "urgentWork", status: "", itPriority: "" }));
+      expect(request).not.toHaveProperty("direction");
+    });
     expect(screen.getByLabelText("Sort by")).toHaveValue("urgentWork");
+    expect(screen.getByLabelText("Direction")).toBeDisabled();
+    expect(screen.getByLabelText("Direction")).toHaveValue("fixed");
+    expect(screen.getByText(/URGENT tickets come first, then HIGH; tickets with older updates come first within each priority/)).toBeInTheDocument();
     expect(screen.getByText(/HIGH or URGENT IT Priority/)).toBeInTheDocument();
 
     await userEvent.setup().selectOptions(screen.getByLabelText("Current Status"), "RESOLVED");

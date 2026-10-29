@@ -60,11 +60,21 @@ function Shell({ user, onLogout, logoutError, children, wide = false }: { user: 
   const location = useLocation();
   const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const heading = contentRef.current?.querySelector("h1");
-    if (heading) {
+    const content = contentRef.current;
+    if (!content) return;
+    const focusHeading = () => {
+      const heading = content.querySelector("h1");
+      if (!heading) return false;
       heading.setAttribute("tabindex", "-1");
       heading.focus({ preventScroll: true });
-    }
+      return true;
+    };
+    if (focusHeading()) return;
+    const observer = new MutationObserver(() => {
+      if (focusHeading()) observer.disconnect();
+    });
+    observer.observe(content, { childList: true, subtree: true });
+    return () => observer.disconnect();
   }, [location.pathname]);
   return <main className="app-shell min-vh-100"><AppHeader user={user} onLogout={onLogout} logoutError={logoutError} /><div ref={contentRef} className={`container app-content${wide ? " app-content-wide" : ""} py-5`}>{children}</div></main>;
 }
@@ -93,7 +103,7 @@ function readTicketFilters(params: URLSearchParams): TicketQuery {
     updatedAfter: params.get("updatedAfter") ?? undefined,
     resolvedAfter: statusGroup === "resolved" ? params.get("resolvedAfter") ?? undefined : undefined,
     sortBy: sortBy === "resolvedAt" && statusGroup !== "resolved" ? "updatedAt" : sortBy,
-    direction: params.get("direction") === "asc" ? "asc" : "desc",
+    direction: statusGroup === "resolved" && sortBy === "resolvedAt" ? "desc" : params.get("direction") === "asc" ? "asc" : "desc",
     page: Number.isInteger(page) && page > 0 ? page : 1,
     pageSize: Number.isInteger(pageSize) && pageSize > 0 ? pageSize : initialTicketFilters.pageSize,
   };
@@ -155,7 +165,10 @@ function MyTickets({ data }: { data: ReferenceData }) {
   }
 
   function changeSort(sortBy: TicketQuery["sortBy"]) {
-    setSearchParams(ticketFilterParams({ ...filters, sortBy, direction: filters.sortBy === sortBy && filters.direction === "asc" ? "desc" : "asc", page: 1 }));
+    const direction = filters.statusGroup === "resolved" && sortBy === "resolvedAt"
+      ? "desc"
+      : filters.sortBy === sortBy && filters.direction === "asc" ? "desc" : "asc";
+    setSearchParams(ticketFilterParams({ ...filters, sortBy, direction, page: 1 }));
   }
 
   function sortMark(sortBy: TicketQuery["sortBy"]) {
@@ -179,7 +192,7 @@ function MyTickets({ data }: { data: ReferenceData }) {
     {!result && !failure && <p role="status">Loading tickets…</p>}
     {failure && <div className="alert alert-danger" role="alert">Unable to load tickets. <button className="btn btn-sm btn-danger ms-2" onClick={() => setRetry((value) => value + 1)}>Retry</button></div>}
     {result && result.items.length === 0 && <div className="alert alert-info" role="status">{hasFilters ? "No tickets match your filters." : "No tickets yet."}</div>}
-    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>IT Priority</th><th>Current Status</th><th><button aria-label={`Sort by ${filters.statusGroup === "resolved" ? "Resolved Date" : "Last Updated"} ${filters.sortBy === (filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt") ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}>{filters.statusGroup === "resolved" ? "Resolved At" : "Last Updated"} <span aria-hidden="true">{sortMark(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{priorityBadge(ticket.itPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(filters.statusGroup === "resolved" ? ticket.resolvedAt ?? ticket.updatedAt : ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
+    {result && result.items.length > 0 && <div className="card ticket-table-card"><div className="table-responsive"><table className="table table-hover mb-0"><thead><tr><th><button aria-label={`Sort by Ticket Number ${filters.sortBy === "ticketNumber" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("ticketNumber")}>Ticket No. <span aria-hidden="true">{sortMark("ticketNumber")}</span></button></th><th><button aria-label={`Sort by Created Date ${filters.sortBy === "createdAt" ? filters.direction : ""}`} className="table-sort" onClick={() => changeSort("createdAt")}>Created Date <span aria-hidden="true">{sortMark("createdAt")}</span></button></th><th>Summary</th><th>Category</th><th>Requested Priority</th><th>IT Priority</th><th>Current Status</th><th><button aria-label={`Sort by ${filters.statusGroup === "resolved" ? "Resolved Date" : "Last Updated"} ${filters.sortBy === (filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt") ? (filters.statusGroup === "resolved" ? "newest first (fixed)" : filters.direction) : ""}`} className="table-sort" onClick={() => changeSort(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}>{filters.statusGroup === "resolved" ? "Resolved At" : "Last Updated"} <span aria-hidden="true">{sortMark(filters.statusGroup === "resolved" ? "resolvedAt" : "updatedAt")}</span></button></th></tr></thead><tbody>{result.items.map((ticket) => <tr key={ticket.id}><td><NavLink className="ticket-number-link" to={`/tickets/${ticket.id}`}>{ticket.ticketNumber}</NavLink></td><td>{new Date(ticket.createdAt).toLocaleString()}</td><td>{ticket.summary}</td><td>{ticket.category.name}</td><td>{priorityBadge(ticket.requestedPriority)}</td><td>{priorityBadge(ticket.itPriority)}</td><td>{statusBadge(ticket.status)}</td><td>{new Date(filters.statusGroup === "resolved" ? ticket.resolvedAt ?? ticket.updatedAt : ticket.updatedAt).toLocaleString()}</td></tr>)}</tbody></table></div><footer className="ticket-table-footer"><span>Showing {firstItem} to {lastItem} of {result.totalItems} tickets</span>{result.totalPages > 1 && <nav className="ticket-pagination" aria-label="Ticket pagination"><button className="btn btn-sm btn-outline-secondary" disabled={result.page === 1} onClick={() => changePage(result.page - 1)}>‹ Previous</button>{visiblePages.map((page, index) => <Fragment key={page}>{index > 0 && page - visiblePages[index - 1] > 1 && <span aria-hidden="true" className="page-ellipsis">…</span>}<button aria-current={page === result.page ? "page" : undefined} aria-label={`Page ${page}`} className={`btn btn-sm page-number${page === result.page ? " current-page" : " btn-outline-secondary"}`} onClick={() => changePage(page)}>{page}</button></Fragment>)}<button className="btn btn-sm btn-outline-secondary" disabled={result.page === result.totalPages} onClick={() => changePage(result.page + 1)}>Next ›</button></nav>}</footer></div>}
   </section>;
 }
 

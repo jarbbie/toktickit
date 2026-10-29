@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "../../src/App.js";
 import * as api from "../../src/api.js";
 
@@ -13,7 +13,12 @@ const resolvedList = {
 };
 
 function renderApp(path: string) {
-  return render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={[path]}><App /><LocationSearch /></MemoryRouter>);
+}
+
+function LocationSearch() {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
 }
 
 afterEach(() => vi.restoreAllMocks());
@@ -27,7 +32,16 @@ describe("Lab 4 My Tickets dashboard filters", () => {
     expect(await screen.findByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
     await waitFor(() => expect(load).toHaveBeenCalledWith(expect.objectContaining({ statusGroup: "resolved", resolvedAfter: "2026-10-24T17:00:00.000Z", sortBy: "resolvedAt", direction: "desc" })));
     expect(screen.getByText(/Active filters: Resolved Tickets/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Sort by Resolved Date/ })).toBeInTheDocument();
+    const resolvedSort = screen.getByRole("button", { name: "Sort by Resolved Date newest first (fixed)" });
+    expect(resolvedSort).toHaveTextContent("↓");
+
+    await userEvent.setup().click(resolvedSort);
+    await waitFor(() => {
+      const params = new URLSearchParams(screen.getByTestId("location-search").textContent ?? "");
+      expect(params.get("direction")).toBe("desc");
+      expect(load).toHaveBeenLastCalledWith(expect.objectContaining({ sortBy: "resolvedAt", direction: "desc" }));
+    });
+    expect(screen.getByRole("button", { name: "Sort by Resolved Date newest first (fixed)" })).toHaveTextContent("↓");
 
     await userEvent.setup().click(screen.getAllByRole("button", { name: "Clear Filters" })[0]);
     await waitFor(() => expect(load).toHaveBeenLastCalledWith(expect.not.objectContaining({ statusGroup: "resolved", resolvedAfter: expect.anything() })));

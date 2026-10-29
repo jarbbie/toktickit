@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import App from "../../src/App.js";
 import * as api from "../../src/api.js";
-import type { RequesterDashboard } from "../../src/api.js";
+import type { RequesterDashboard, TicketDetail } from "../../src/api.js";
 
 const dashboard: RequesterDashboard = {
   asOf: "2026-10-30T03:00:00.000Z",
@@ -45,6 +45,50 @@ describe("Requester Dashboard", () => {
 
     await user.tab();
     expect(screen.getByRole("link", { name: /Open Tickets: 2/ })).toHaveFocus();
+  });
+
+  it("focuses the Ticket Detail heading after a dashboard link loads asynchronously", async () => {
+    vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
+    vi.spyOn(api, "loadRequesterDashboard").mockResolvedValue(dashboard);
+    vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
+    let resolveTicket!: (value: TicketDetail) => void;
+    const pendingTicket = new Promise<TicketDetail>((resolve) => { resolveTicket = resolve; });
+    const loadTicket = vi.spyOn(api, "loadTicket").mockReturnValue(pendingTicket);
+    const user = userEvent.setup();
+    renderApp();
+
+    const dashboardTicketLink = await screen.findByRole("link", { name: /TKT-2026-ABC12345/ });
+    await user.click(dashboardTicketLink);
+    expect(await screen.findByText("Loading ticket…")).toBeInTheDocument();
+    expect(loadTicket).toHaveBeenCalledWith(12);
+
+    await act(async () => {
+      resolveTicket({
+        id: 12,
+        ticketNumber: "TKT-2026-ABC12345",
+        summary: "VPN disconnects after login",
+        requestedPriority: "MEDIUM",
+        itPriority: "HIGH",
+        status: "OPEN",
+        category: { id: 2, name: "Hardware" },
+        createdAt: "2026-10-29T00:00:00.000Z",
+        updatedAt: "2026-10-30T02:00:00.000Z",
+        requesterId: 1,
+        requester: { id: 1, name: "Nicha Somchai" },
+        description: "VPN disconnects after login.",
+        categoryId: 2,
+        relatedSystemId: 3,
+        relatedSystem: { id: 3, name: "VPN" },
+        ownerId: null,
+        owner: null,
+        workflowVersion: 1,
+        resolutionIndicatedAt: null,
+        attachments: [],
+      });
+    });
+
+    const ticketHeading = await screen.findByRole("heading", { name: "Ticket Details" });
+    await waitFor(() => expect(ticketHeading).toHaveFocus());
   });
 
   it("renders visible zero counts and helpful empty list actions", async () => {
