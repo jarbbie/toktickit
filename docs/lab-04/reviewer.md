@@ -1,8 +1,9 @@
 # Lab 4 Peer Review Record
 
 **Status:** Issues #67–#73 were reviewed by SupeemAFK and merged into
-`lab4-staging`. Issue #74 is the final regression and hardening increment.
-Record its PR and review only after GitHub confirms them.
+`lab4-staging`. PR [#83](https://github.com/jarbbie/toktickit/pull/83) for
+Issue #74 is open, and SupeemAFK has been asked to re-review. No approval or
+merge is claimed yet.
 
 ## Recording rules
 
@@ -35,12 +36,11 @@ Record its PR and review only after GitHub confirms them.
 | #71 | [#80](https://github.com/jarbbie/toktickit/pull/80), `feature/71-lab4-ticket-workflow` | `lab4-staging` | `10419448298b87aa80ad46c5d28bdf4b14b84a92` | `4b0cd0ba3e881889104973cf9f6a7e2397e9f8c3` | Approved and merged 2026-10-29 |
 | #72 | [#81](https://github.com/jarbbie/toktickit/pull/81), `feature/72-lab4-dashboard-api` | `lab4-staging` | `ad17126a8d6be1465fc9b155c3c9ae8115335e4f` | `b3ce566e8af3909b37b1ede8b03740094608f0c6` | Approved and merged 2026-10-29 |
 | #73 | [#82](https://github.com/jarbbie/toktickit/pull/82), `feature/73-lab4-dashboard-ui` | `lab4-staging` | `a5a394bd5df9f61c388559402f482913ce6d7f51` | `17734a4a0343999cc9b4b4d33ad00edf853f326c` | Approved and merged 2026-10-29 |
-| #74 | `feature/74-lab4-regression-hardening` | `lab4-staging` | Pending publication | Pending review | Hardening in progress; no approval or merge claimed |
+| #74 | [#83](https://github.com/jarbbie/toktickit/pull/83), `feature/74-lab4-regression-hardening` | `lab4-staging` | Review pending; current head linked from PR | Pending | Open; SupeemAFK re-review requested 2026-10-30 |
 
 ## Evidence boundary
 
 Review identities, verdicts, reviewed heads, and merge SHAs above come from
 GitHub PR review and merge records. Issue #74's row must be updated from GitHub
-after its PR is opened and again after peer review or merge. Release verification
-on `main` and the nine-part hand-in are tracked separately from this peer-review
-record.
+after peer review or merge. Release verification on `main` and the nine-part
+hand-in are tracked separately from this peer-review record.
