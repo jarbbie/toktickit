@@ -2,9 +2,9 @@
 
 **Status:** Data foundation (#68), Actions Taken API (#69), Actions Taken UI
 (#70), and Ticket workflow/history (#71) are merged. Dashboard APIs (#72) are
-implemented locally on their feature branch. PostgreSQL tests require a
-disposable `TEST_DATABASE_URL` whose database name ends in `_test`; dashboard
-UI (#73) and final hardening (#74) remain planned.
+merged. Dashboard UI (#73) is implemented on its feature branch; final
+hardening (#74) remains planned. PostgreSQL tests require a disposable
+`TEST_DATABASE_URL` whose database name ends in `_test`.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the
@@ -37,20 +37,20 @@ and this matrix before implementation continues.
 | API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Action API passed; remaining workflow scope in #70 |
 | API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 local warmed reads; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Planned |
-| UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Planned |
-| UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no foreign data. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Planned |
+| UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Passed locally; 2026-10-30 |
+| UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no requester ID from the URL. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Passed locally; 2026-10-30 |
 | UI-03 | UI component | AC-02, AC-06, AC-15 | Action create/read layout, auto performer, field validation, conditional note, Attachment Notes without upload control, retained draft on failure. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-04 | UI/authz | AC-03, AC-07 | Assignee options/rejection, Requester read-only view, hidden controls plus API denial feedback. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-05 | UI/component | AC-04, AC-16 | Action edit, version conflict refresh, draft retention, safe error, busy behavior, explicit Bangkok timestamp conversion, and preservation of seconds on untouched timestamps. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-06 | UI/workflow | AC-05, AC-11 | Action Start/Complete/Cancel controls, result required, terminal state, confirmation/cancel behavior, parent refresh. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-07 | UI/workflow | AC-10, AC-11, AC-12 | Ticket permitted transitions, gate feedback/focus, ordered read-only status history, requester role visibility. | client/tests/lab-04/TicketWorkflow.test.tsx | Passed locally; 2026-10-30 |
-| STYLE-01 | Style/accessibility | AC-15, AC-17 | Zen Green tokens, labels, semantic alerts, status text cues, visible focus, dialogs, long text, disabled/busy controls. | client/tests/lab-04/ZenGreen.test.tsx | Planned |
-| RESP-01 | Responsive | AC-17 | Major dashboards, Actions, workflow screens at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no clipping/overlap/page overflow. | client/tests/lab-04/responsive-accessibility.test.tsx | Planned |
+| STYLE-01 | Style/accessibility | AC-15, AC-17 | Zen Green dashboard cards, semantic metric links, text status/priority badges, loading and alert roles, route heading focus. | client/tests/lab-04/ZenGreen.test.tsx; client/e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
+| RESP-01 | Responsive | AC-17 | Dashboard cards/lists at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no page overflow and correct grid columns. | client/e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
 | E2E-01 | E2E/security | AC-02–AC-07, AC-15, AC-16 | Requester read-only access; Staff creates, assigns, edits, starts, completes, and cancels Actions; inactive-assignee rejection preserves the draft; UTC browser submits Asia/Bangkok time with +07:00; responsive screenshots have no horizontal overflow. | client/e2e/lab-04/actions-taken-flow.spec.ts | Passed locally; 2026-10-30 |
 | E2E-02 | E2E/workflow | AC-10–AC-12, AC-16 | Full Ticket status path, resolution/cancellation gates, append-only history/order, requester advisory signal, role visibility, and responsive screenshots. | client/e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
-| E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17 | Requester isolation, Staff/Admin metrics/drill-down, non-zero and zero data, error state, responsive dashboard screenshots. | e2e/lab-04/dashboards.spec.ts | Planned |
+| E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17 | Requester/Staff role navigation, keyboard metric drill-downs, operational links, responsive dashboard screenshots and layout checks. Component tests cover zero and safe-error states; dashboard API tests cover ownership isolation. | client/e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
 | REG-01 | Regression | AC-18 | Existing authenticated and Lab 1/2/3 server/client suites keep passing for login, ownership, Ticket, attachments, comments, notes, user management. | Existing server/tests/lab-01..lab-03 and client/tests/lab-01..lab-03 paths | Planned |
-| VIS-01 | Visual/manual | AC-15, AC-17 | Inspect required screenshots for readable text, focus, breakpoints, no overlap/clipping, no unfinished controls; record each viewport/result. | artifacts/lab-04/screenshots/{staff-dashboard,requester-dashboard,actions-taken,ticket-workflow}/ | Planned |
+| VIS-01 | Visual/manual | AC-15, AC-17 | Inspect required screenshots for readable text, focus, breakpoints, no overlap/clipping, no unfinished controls; record each viewport/result. | artifacts/lab-04/screenshots/{staff-dashboard,requester-dashboard,actions-taken,ticket-workflow}/ | Dashboard captures inspected; 2026-10-30 |
 | REL-01 | Release verification | AC-18 | Re-run full tests/builds/migration/seed/E2E from exact final main commit and link output in nine-part PDF. | docs/lab-04/tests.md and final-main CI/terminal evidence | Planned |
 
 ## 2. Acceptance Criterion Traceability
@@ -80,12 +80,12 @@ and this matrix before implementation continues.
 
 | Check | Evidence | Final status |
 |---|---|---|
-| Requester dashboard | Desktop/tablet/mobile; own data, empty/zero/recent/resolved states | Planned |
-| Staff/Admin dashboard | Desktop/tablet/mobile; counts, drill-down, urgent list, safe failure | Planned |
+| Requester dashboard | Desktop/tablet/mobile; own data, empty/zero/recent/resolved states | Passed at 1440×1000, 820×1180, and 390×844; breakpoint edges 767/768/991/992 passed; screenshots captured and visually inspected 2026-10-30 |
+| Staff/Admin dashboard | Desktop/tablet/mobile; counts, drill-down, urgent list, safe failure | Passed for Staff at 1440×1000, 820×1180, 390×844 and 767/768/991/992; Admin dashboard role tested; screenshots captured and visually inspected 2026-10-30 |
 | Actions Taken | List/create/edit/assignment/transition/complete/cancel, validation/conflict, read-only Requester | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
 | Ticket workflow/history | Confirmations, resolution/cancellation gates, ordered history, requester advisory signal | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
-| Keyboard and semantics | Tab order, visible focus, labels/errors, dialog focus trap/Escape/restore, status/alert announcements | Planned |
-| Layout | 1440×1000, 820×1180, 390×844 and 767/768/991/992 boundaries; no clipping/overlap/page overflow | Planned |
+| Keyboard and semantics | Tab order, visible focus, labels/errors, dialog focus trap/Escape/restore, status/alert announcements | Dashboard heading receives route focus; metric links work by keyboard; loading, forbidden, and failure states use status/alert roles; dashboard keyboard checks passed 2026-10-30 |
+| Layout | 1440×1000, 820×1180, 390×844 and 767/768/991/992 boundaries; no clipping/overlap/page overflow | Dashboard Playwright checks passed at all listed widths on 2026-10-30; no horizontal overflow |
 
 ## 4. Planned Final Commands
 
@@ -204,7 +204,24 @@ any limitation to this file only after those commands are run.
     inclusive list filters. Staff/Admin tests verify all-status and open-work
     counts, urgency ordering, owner summaries without email, and matching Queue
     populations.
-- Other Lab 4 test rows remain planned as marked in the matrix.
-- Lab 4 product verification: not started.
+- Issue #73 Dashboard UI verification on 2026-10-30, against `lab4-staging`
+  commit `b3ce566e8af3909b37b1ede8b03740094608f0c6`, implementation commit
+  `b4457d2304023e88c720647d4c68e32c0e692989`:
+  - `rtk npm test --prefix client -- --reporter=dot`: **20 files passed; 68
+    tests passed; 0 failed**. This includes Requester and Staff/Admin dashboard
+    states, exact drill-down filters, existing Lab 1–3 client regressions, and
+    the updated change-password return route to `/dashboard`.
+  - `rtk npm run build --prefix client` and `rtk git diff --check`: passed.
+  - `rtk npm run test:e2e:isolated --prefix server --
+    lab-04/dashboards.spec.ts`: **1 test passed** against the disposable
+    `_test` schema. Keyboard metric activation, role navigation, Queue/My
+    Tickets filters, viewport layouts at 1440, 820, 390, 767, 768, 991, and
+    992 pixels, and no horizontal overflow passed.
+  - Six responsive screenshots were captured and inspected under
+    `artifacts/lab-04/screenshots/{requester-dashboard,staff-dashboard}/`.
+    Each role has desktop (1440×1000), tablet (820×1180), and mobile (390×844)
+    captures.
+- Remaining unit, performance, and final-hardening rows remain planned as
+  marked in the matrix. Issue #74 owns the broader final verification.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
   those results are not a new Lab 4 run.
