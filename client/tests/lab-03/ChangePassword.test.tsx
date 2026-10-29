@@ -15,6 +15,11 @@ describe("Lab 3 Change Password", () => {
     vi.spyOn(api, "currentUser").mockResolvedValue({ user: initialUser, expiresAt: "2026-09-19T00:00:00.000Z" });
     const change = vi.spyOn(api, "changePassword").mockResolvedValue({ user: changedUser, expiresAt: "2026-09-19T00:00:00.000Z" });
     vi.spyOn(api, "loadReferenceData").mockResolvedValue({ categories: [], relatedSystems: [] });
+    vi.spyOn(api, "loadRequesterDashboard").mockResolvedValue({
+      asOf: "2026-10-30T00:00:00.000Z", windowStart: "2026-10-24T17:00:00.000Z",
+      counts: { openTickets: { count: 0, href: "/tickets?statusGroup=open" }, waitingForRequester: { count: 0, href: "/tickets?status=WAITING_FOR_REQUESTER" }, recentlyResolved: { count: 0, href: "/tickets?statusGroup=resolved" } },
+      recentlyUpdated: [], recentlyResolvedTickets: [],
+    });
     const user = userEvent.setup();
     render(<MemoryRouter initialEntries={["/tickets"]}><App /></MemoryRouter>);
 
@@ -45,6 +50,6 @@ describe("Lab 3 Change Password", () => {
     await user.type(screen.getByLabelText("Confirm New Password"), "Changed-Lab3-Password!");
     await user.click(screen.getByRole("button", { name: "Save Password" }));
     expect(change).toHaveBeenCalledWith("Lab3-Initial-2026!", "Changed-Lab3-Password!");
-    expect(await screen.findByRole("heading", { name: "My Tickets" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   });
 });

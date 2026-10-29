@@ -9,6 +9,9 @@ const screenshotsRoot = fileURLToPath(new URL("../../../artifacts/lab-04/screens
 export async function captureLab4(page: Page, screen: string, name: string, viewport?: { width: number; height: number }) {
   if (viewport) await page.setViewportSize(viewport);
   await expect(page.locator("main")).toBeVisible();
+  if (screen === "requester-dashboard" || screen === "staff-dashboard") {
+    await expect(page.locator(".dashboard-page .dashboard-metric").first()).toBeVisible();
+  }
   await expectNoHorizontalOverflow(page);
   const target = path.join(screenshotsRoot, screen, `${name}.png`);
   await mkdir(path.dirname(target), { recursive: true });
