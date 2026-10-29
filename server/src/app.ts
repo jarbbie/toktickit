@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient, type UserRole } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
 import { registerActionRoutes } from "./actions.js";
+import { isTicketStatusTransitionAllowed } from "./workflow-rules.js";
 import { generateTicketNumber } from "./ticket-number.js";
 import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
 import {
@@ -304,17 +305,6 @@ function compareResolvedAt(a: { id: number; statusEvents?: { changedAt: Date }[]
 const cacheResponse: (request: Request, response: Response, next: NextFunction) => void = (_request, response, next) => {
   noStore(response);
   next();
-};
-
-const allowedStatusTransitions: Record<typeof statuses[number], readonly typeof statuses[number][]> = {
-  NEW: ["OPEN", "IN_PROGRESS", "CANCELLED"],
-  OPEN: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  IN_PROGRESS: ["WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  WAITING_FOR_REQUESTER: ["IN_PROGRESS", "RESOLVED", "CANCELLED"],
-  RESOLVED: ["CLOSED", "REOPENED"],
-  CLOSED: ["REOPENED"],
-  REOPENED: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  CANCELLED: [],
 };
 
 const staffTicketSelect = {
@@ -1192,7 +1182,7 @@ app.patch("/api/staff/tickets/:ticketId/status", (_req, res, next) => { noStore(
       if (expectedWorkflowVersion === undefined || ticket.workflowVersion !== expectedWorkflowVersion) {
         throw new TicketWorkflowError("STALE_TICKET_WORKFLOW", "The Ticket has changed. Refresh and retry.");
       }
-      if (!allowedStatusTransitions[ticket.status as typeof statuses[number]].includes(status)) throw new InvalidStatusTransitionError();
+      if (!isTicketStatusTransitionAllowed(ticket.status as typeof statuses[number], status)) throw new InvalidStatusTransitionError();
 
       if (status === "RESOLVED" || status === "CANCELLED") {
         const [completedActions, activeActions, followUpActions] = await Promise.all([

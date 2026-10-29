@@ -6,8 +6,12 @@ const apiUrl = `http://localhost:${apiPort}`;
 const webUrl = `http://localhost:${webPort}`;
 
 export default defineConfig({
-  testDir: "./e2e",
-  testMatch: ["**/lab-02/**/*.spec.ts", "**/lab-03/**/*.spec.ts", "**/lab-04/**/*.spec.ts"],
+  testDir: "..",
+  testMatch: [
+    "e2e/lab-04/**/*.spec.ts",
+    "client/e2e/lab-02/**/*.spec.ts",
+    "client/e2e/lab-03/**/*.spec.ts",
+  ],
   timeout: 60_000,
   workers: 1,
   use: { baseURL: webUrl, trace: "retain-on-failure" },

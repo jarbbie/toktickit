@@ -19,7 +19,7 @@ test("authentication, mandatory password change, safe failures, busy state, and 
   await capture(page, "authentication", "login-inactive");
 
   const gate = page.getByRole("heading", { name: /Change your initial password to continue/ });
-  const home = page.getByRole("heading", { name: "My Tickets" });
+  const home = page.getByRole("heading", { name: "Dashboard", exact: true });
   await page.getByLabel("Email").fill(accounts.nicha.email);
   await page.getByRole("textbox", { name: "Password" }).fill(initialPassword);
   await page.getByRole("button", { name: "Sign in" }).click();

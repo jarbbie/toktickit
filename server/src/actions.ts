@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import type { ActionStatus, Prisma, TicketStatus } from "@prisma/client";
 import { noStore, requireAllowedOrigin, type AuthenticatedRequest } from "./auth.js";
 import { getPrisma } from "./prisma.js";
+import { isActionStatusTransitionAllowed } from "./workflow-rules.js";
 
 const personSelect = { id: true, name: true, role: true } as const;
 const people = { performedBy: { select: personSelect }, assignee: { select: personSelect } } as const;
@@ -10,10 +11,6 @@ type Action = Prisma.ActionTakenGetPayload<{ include: typeof people }>;
 type Transaction = Prisma.TransactionClient;
 type Body = Record<string, unknown>;
 const actionable: readonly TicketStatus[] = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"];
-const transitions: Record<ActionStatus, readonly ActionStatus[]> = {
-  PLANNED: ["IN_PROGRESS", "COMPLETED", "CANCELLED"], IN_PROGRESS: ["COMPLETED", "CANCELLED"], COMPLETED: [], CANCELLED: [],
-};
-
 class ActionError extends Error {
   constructor(readonly status: number, readonly code: string, message: string, readonly field?: string) { super(message); }
 }
@@ -47,7 +44,7 @@ function text(value: unknown, field: string, max: number, required = false): str
   if (trimmed.length > max || (required && !trimmed.length)) invalid(field, `${field} must contain ${required ? "1" : "0"}–${max} characters.`);
   return trimmed || null;
 }
-function timestamp(value: unknown): Date {
+export function parseActionTimestamp(value: unknown): Date {
   if (typeof value !== "string") invalid("actionAt", "actionAt requires an ISO 8601 timestamp with an explicit offset.");
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
   if (!match) invalid("actionAt", "actionAt requires an ISO 8601 timestamp with an explicit offset.");
@@ -62,8 +59,8 @@ function timestamp(value: unknown): Date {
   }
   return date;
 }
-function fields(body: Body, current?: Action) {
-  const actionAt = "actionAt" in body ? timestamp(body.actionAt) : current?.actionAt;
+export function validateActionFields(body: Body, current?: Action) {
+  const actionAt = "actionAt" in body ? parseActionTimestamp(body.actionAt) : current?.actionAt;
   if (!actionAt) invalid("actionAt", "actionAt is required.");
   const description = text("description" in body ? body.description : current?.description, "description", 2000, true)!;
   const followUpRequired = "followUpRequired" in body ? body.followUpRequired : current?.followUpRequired;
@@ -168,7 +165,7 @@ export function registerActionRoutes(app: Express, authenticated: RequestHandler
     const key = req.get("Idempotency-Key");
     if (!key || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(key)) invalid("Idempotency-Key", "A UUID Idempotency-Key header is required.");
     const normalizedKey = key.toLowerCase();
-    const data = fields(body);
+    const data = validateActionFields(body);
     const assigneeId = body.assigneeId === null || body.assigneeId === undefined ? null : id(body.assigneeId, "assigneeId");
     const user = actor(req);
     // Control versions are not Action content. A replay checks the normalized
@@ -215,7 +212,7 @@ export function registerActionRoutes(app: Express, authenticated: RequestHandler
         if (current.version !== expectedAction) conflict("STALE_ACTION", "The Action has changed. Refresh and retry.");
         let changes: Prisma.ActionTakenUncheckedUpdateInput;
         if (operation === "edit") {
-          changes = fields(body, current);
+          changes = validateActionFields(body, current);
         } else if (operation === "assignee") {
           if (current.status === "COMPLETED" || current.status === "CANCELLED") conflict("ACTION_TERMINAL", "A terminal Action cannot be reassigned.");
           if (!("assigneeId" in body)) invalid("assigneeId", "assigneeId is required; use null to unassign.");
@@ -226,7 +223,7 @@ export function registerActionRoutes(app: Express, authenticated: RequestHandler
         } else {
           if (typeof body.status !== "string" || !["IN_PROGRESS", "COMPLETED", "CANCELLED"].includes(body.status)) invalid("status", "status must be IN_PROGRESS, COMPLETED, or CANCELLED.");
           const status = body.status as ActionStatus;
-          if (!transitions[current.status].includes(status)) conflict("INVALID_ACTION_TRANSITION", "That Action status transition is not permitted.");
+          if (!isActionStatusTransitionAllowed(current.status, status)) conflict("INVALID_ACTION_TRANSITION", "That Action status transition is not permitted.");
           if (status !== "COMPLETED" && "result" in body) invalid("result", "Supply result when completing an Action, or use the edit operation.");
           changes = { status, ...(status === "COMPLETED" ? { result: text(body.result, "result", 2000, true) } : {}) };
         }

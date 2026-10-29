@@ -1,8 +1,8 @@
-import { expect, test } from "@playwright/test";
-import { accounts, fillCreateTicket, logout, signIn } from "../lab-03/helpers";
-import { captureLab4AllViewports } from "./helpers";
+import { expect, test, type Page } from "../../client/e2e/test-api";
+import { accounts, fillCreateTicket, logout, signIn } from "../../client/e2e/lab-03/helpers";
+import { captureLab4AllViewports } from "../../client/e2e/lab-04/helpers";
 
-async function changeStatus(page: import("@playwright/test").Page, target: string, label: string) {
+async function changeStatus(page: Page, target: string, label: string) {
   await page.getByLabel("Next status").selectOption(target);
   const confirmation = page.getByRole("dialog", { name: "Confirm status change" });
   if (await confirmation.count()) await confirmation.getByRole("button", { name: "Confirm status change" }).click();

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
-import { accounts, fillCreateTicket, logout, signIn } from "../lab-03/helpers";
-import { captureLab4, captureLab4AllViewports } from "./helpers";
+import { expect, test } from "../../client/e2e/test-api";
+import { accounts, fillCreateTicket, logout, signIn } from "../../client/e2e/lab-03/helpers";
+import { captureLab4, captureLab4AllViewports } from "../../client/e2e/lab-04/helpers";
 
 test("Requester reads Actions while Support creates, assigns, edits, starts, completes, and cancels them", async ({ page }) => {
   await signIn(page, accounts.anan, "My Tickets");

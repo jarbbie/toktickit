@@ -1,19 +1,22 @@
 # TokTickIT
 
 TokTickIT is an IT service desk application built incrementally for CPE334.
-Lab 3 replaces the Lab 2 development requester selector with authenticated,
-role-based workspaces:
+Labs 1–4 build an authenticated, role-based support workflow with Actions Taken,
+Ticket status history, and role-aware dashboards:
 
 - `client/` — React, TypeScript, Vite, Bootstrap, and Playwright
 - `server/` — Node.js, Express, TypeScript, Prisma, PostgreSQL, and Vitest/Supertest
 - `docs/lab-01/` through `docs/lab-04/` — contracts, test plans, AI-use
   reflections, and peer-review records
-- `artifacts/lab-03/screenshots/` — browser evidence captured by the Lab 3 E2E suite
+- `artifacts/lab-03/screenshots/` and `artifacts/lab-04/screenshots/` — responsive
+  browser evidence for authentication, Actions, Ticket workflow, and dashboards
 
 The three supported roles are Requester, IT Staff, and Administrator. Requesters
-create and track their own Tickets; IT Staff use the shared queue and Ticket
-Detail workflow; Administrators manage accounts and initial passwords. The
-server enforces ownership and role authorization independently of the UI.
+create and track their own Tickets and see their recent work on the dashboard.
+IT Staff use the shared queue, record Actions Taken, and advance Tickets through
+the permitted workflow. Administrators manage accounts and initial passwords.
+The server enforces ownership, roles, workflow rules, and write concurrency
+independently of the UI.
 
 ## Prerequisites
 
@@ -129,27 +132,42 @@ npm run dev
 ```
 
 Open <http://localhost:5173>, sign in with one of the documented local seed
-accounts, and complete the mandatory password change. The application now
-starts at Login; the former Development Requester selector is not part of Lab 3.
+accounts, and complete the mandatory password change. Requesters land on the
+dashboard and can open My Tickets or a Ticket's detail page. IT Staff and
+Administrators land on the staff dashboard, where they can open Ticket Queue,
+review a Ticket, record Actions, and advance its status. Administrators can
+open User Management from the account navigation.
+
+The Lab 4 contracts, design, test plan, and peer-review evidence are in
+[`docs/lab-04/`](docs/lab-04/). The Lab 4 E2E suites live at repository root in
+[`e2e/lab-04/`](e2e/lab-04/); their screenshots are under
+`artifacts/lab-04/screenshots/` in the dashboard and Actions Taken folders.
 
 ## Test and verification commands
 
-Run these commands from the repository root:
+Run these commands from the repository root. The isolated server and E2E
+runners require `TEST_DATABASE_URL` to point to a disposable PostgreSQL
+database whose name ends in `_test` (for example, `toktickit_test`). They create
+and drop temporary schemas there; they do not use the development database.
 
 ```bash
-npm test --prefix server
-npm run build --prefix server
-npm test --prefix client
-npm run build --prefix client
-npm run test:e2e --prefix client
-git diff --check
+rtk npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1
+rtk npm run build --prefix server
+rtk npm test --prefix client -- --reporter=dot
+rtk npm run build --prefix client
+rtk npm run test:e2e:isolated --prefix server
+rtk git diff --check
 ```
 
-The Playwright configuration seeds the local database, runs the authenticated
-Lab 2 regression and Lab 3 Login, Requester, IT Staff, Administrator, and
-responsive flows, and writes readable evidence under
-`artifacts/lab-03/screenshots/`. Use a disposable local database for E2E runs;
-the flows create test Tickets and one temporary Administrator-managed account.
+The isolated server runner runs the full inherited Labs 1–3 regression suite
+and the Lab 4 migration, seed, API, unit, and performance-smoke tests. The
+isolated Playwright runner migrates and seeds its temporary schema, starts its
+own API and client processes, and keeps discovery of the existing
+`client/e2e/lab-02/` and `client/e2e/lab-03/` suites alongside
+`e2e/lab-04/`. The browser flows exercise authentication, ownership, user
+administration, Actions, Ticket status history, dashboards, keyboard use, and
+responsive layouts; they write responsive captures under
+`artifacts/lab-03/screenshots/` and `artifacts/lab-04/screenshots/`.
 
 The complete Lab 3 contract and traceability records are in
 [`docs/lab-03/specification.md`](docs/lab-03/specification.md),
