@@ -10,6 +10,7 @@ vi.mock("../src/api.js", async (importOriginal) => {
       expiresAt: "2026-09-19T00:00:00.000Z",
     }),
     loadActions: vi.fn().mockResolvedValue([]),
+    loadTicketStatusEvents: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -20,4 +21,5 @@ beforeEach(async () => {
     expiresAt: "2026-09-19T00:00:00.000Z",
   });
   vi.mocked(api.loadActions).mockResolvedValue([]);
+  vi.mocked(api.loadTicketStatusEvents).mockResolvedValue([]);
 });

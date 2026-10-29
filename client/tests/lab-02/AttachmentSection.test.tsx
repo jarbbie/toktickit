@@ -23,6 +23,7 @@ describe("Attachment Section", () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
     vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
+    vi.spyOn(api, "loadTicketStatusEvents").mockResolvedValue([]);
     renderDetail();
 
     expect(await screen.findByRole("link", { name: "Download" })).toHaveAttribute("href", expect.stringContaining("/api/attachments/4/download"));
@@ -32,6 +33,7 @@ describe("Attachment Section", () => {
     vi.spyOn(api, "loadReferenceData").mockResolvedValue(referenceData);
     vi.spyOn(api, "loadTicket").mockResolvedValue(ticket);
     vi.spyOn(api, "loadPublicComments").mockResolvedValue([]);
+    vi.spyOn(api, "loadTicketStatusEvents").mockResolvedValue([]);
     vi.spyOn(api, "uploadAttachment").mockRejectedValue(new Error("Unable to upload attachment."));
     const user = userEvent.setup();
     renderDetail();
