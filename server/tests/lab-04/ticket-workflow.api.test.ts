@@ -77,28 +77,33 @@ describe.skipIf(!testDatabaseEnabled)("Ticket workflow API on PostgreSQL", () =>
     await withApi(async (f) => {
       for (const fromStatus of statuses) {
         for (const toStatus of statuses) {
-          const ticket = await f.ticket(fromStatus);
-          if (toStatus === "RESOLVED") await addCompletedAction(f, ticket.id);
-          const result = await transition(f, ticket.id, toStatus, 1);
-          if (allowed[fromStatus].includes(toStatus)) {
-            expect(result.status, `${fromStatus} -> ${toStatus}`).toBe(200);
-            expect(result.body).toMatchObject({ status: toStatus, workflowVersion: 2 });
-            const events = await f.prisma.ticketStatusEvent.findMany({ where: { ticketId: ticket.id } });
-            expect(events).toHaveLength(1);
-            expect(events[0]).toMatchObject({ fromStatus, toStatus, actorId: f.users[0].id });
-          } else {
-            expect(result.status, `${fromStatus} -> ${toStatus}`).toBe(409);
-            expect(result.body.code).toBe("INVALID_STATUS_TRANSITION");
-            expect(await f.prisma.ticketStatusEvent.count({ where: { ticketId: ticket.id } })).toBe(0);
-            expect((await f.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).workflowVersion).toBe(1);
+          for (const role of [
+            { cookie: f.cookies[0], actorId: f.users[0].id, requester: false },
+            { cookie: f.cookies[1], actorId: f.users[1].id, requester: false },
+            { cookie: f.cookies[2], actorId: f.users[2].id, requester: true },
+          ]) {
+            const ticket = await f.ticket(fromStatus);
+            if (toStatus === "RESOLVED" && !role.requester) await addCompletedAction(f, ticket.id);
+            const result = await transition(f, ticket.id, toStatus, 1, role.cookie);
+            if (role.requester) {
+              expect(result.status, `Requester ${fromStatus} -> ${toStatus}`).toBe(403);
+              expect(await f.prisma.ticketStatusEvent.count({ where: { ticketId: ticket.id } })).toBe(0);
+              expect((await f.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).workflowVersion).toBe(1);
+            } else if (allowed[fromStatus].includes(toStatus)) {
+              expect(result.status, `${fromStatus} -> ${toStatus}`).toBe(200);
+              expect(result.body).toMatchObject({ status: toStatus, workflowVersion: 2 });
+              const events = await f.prisma.ticketStatusEvent.findMany({ where: { ticketId: ticket.id } });
+              expect(events).toHaveLength(1);
+              expect(events[0]).toMatchObject({ fromStatus, toStatus, actorId: role.actorId });
+            } else {
+              expect(result.status, `${fromStatus} -> ${toStatus}`).toBe(409);
+              expect(result.body.code).toBe("INVALID_STATUS_TRANSITION");
+              expect(await f.prisma.ticketStatusEvent.count({ where: { ticketId: ticket.id } })).toBe(0);
+              expect((await f.prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } })).workflowVersion).toBe(1);
+            }
           }
         }
       }
-
-      const requesterTicket = await f.ticket("OPEN");
-      const forbidden = await transition(f, requesterTicket.id, "IN_PROGRESS", 1, f.cookies[2]);
-      expect(forbidden.status).toBe(403);
-      expect(await f.prisma.ticketStatusEvent.count({ where: { ticketId: requesterTicket.id } })).toBe(0);
     });
   });
 

@@ -27,7 +27,7 @@ and this matrix before implementation continues.
 | API-04 | API/validation | AC-04, AC-06 | Edit boundaries, conditional follow-up, attachment-note length/plain-text behavior, result validation, event snapshots, and Action version increment. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-05 | API/workflow | AC-05, AC-11, AC-16 | Start/complete/cancel transitions, required completion Result, terminal behavior, repeat calls, and no partial event on rejection. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | API-06 | API/history | AC-10, AC-12 | Ticket status events are append-only, actor/from/to/time are correct, equal timestamps have stable ID order, and Requesters see only own history. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
-| API-07 | API/workflow | AC-10, AC-11 | All 64 current/next status pairs are covered; allowed transitions succeed, disallowed and same-state attempts reject, and Requester writes are forbidden. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
+| API-07 | API/workflow | AC-10, AC-11 | All 64 current/next status pairs are tested for IT Staff, Administrator, and Requester; support follows the matrix and Requester writes are forbidden. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
 | API-08 | API/concurrency | AC-11, AC-16 | Resolution/cancellation gates are server-enforced; Action creation and Ticket resolution share a lock; competing status writes return one stale 409; rejected writes change no state. | server/tests/lab-04/ticket-workflow.api.test.ts | Passed locally; 2026-10-30 |
 | API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts; client/e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
 | API-10 | API/dashboard | AC-08 | Requester counts/lists match fixture queries and Bangkok date boundaries; foreign Requester data never appears; zero metrics and drill-down filters/sorts (`statusGroup`, `updatedAfter`, `resolvedAfter`, `resolvedAt`) are exact, including legacy Tickets without status events. | server/tests/lab-04/requester-dashboard.api.test.ts; server/tests/lab-04/requester-list.api.test.ts | Planned |
@@ -168,9 +168,10 @@ any limitation to this file only after those commands are run.
 - Issue #71 Ticket workflow verification on 2026-10-30, based on merged PR #79
   (`25fa17dc136e9ddb17e633b3a401e32307987e99`) and the workflow increment:
   - `rtk npm run test:isolated --prefix server`: **29 files passed; 131 tests
-    passed; 0 failed; 0 skipped**, including every Ticket status pair, gate and
-    stale-write behavior, the shared Action/resolution lock, history access,
-    and inherited Lab 1–3 server regressions.
+    passed; 0 failed; 0 skipped**, including all 64 status pairs across IT
+    Staff, Administrator, and Requester, gate and stale-write behavior, the
+    shared Action/resolution lock, history access, and inherited Lab 1–3 server
+    regressions.
   - `rtk npm test --prefix client`: **15 files passed; 53 tests passed**.
   - `rtk npm run build --prefix server` and `rtk npm run build --prefix client`:
     passed. `rtk git diff --check`: passed.
