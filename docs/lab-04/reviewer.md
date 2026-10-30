@@ -1,8 +1,9 @@
 # Lab 4 Peer Review Record
 
 **Status:** Issues #67–#74 were reviewed by SupeemAFK and merged into
-`lab4-staging`. Promotion to `main` and final-main verification are pending
-under Issue #75.
+`lab4-staging`. PR [#84](https://github.com/jarbbie/toktickit/pull/84) for
+Issue #75 is open to promote the increment to `main`; final-main verification
+and the submission PDF remain pending.
 
 ## Recording rules
 
@@ -37,9 +38,10 @@ under Issue #75.
 | #72 | [#81](https://github.com/jarbbie/toktickit/pull/81), `feature/72-lab4-dashboard-api` | `lab4-staging` | `ad17126a8d6be1465fc9b155c3c9ae8115335e4f` | `b3ce566e8af3909b37b1ede8b03740094608f0c6` | Approved and merged 2026-10-29 |
 | #73 | [#82](https://github.com/jarbbie/toktickit/pull/82), `feature/73-lab4-dashboard-ui` | `lab4-staging` | `a5a394bd5df9f61c388559402f482913ce6d7f51` | `17734a4a0343999cc9b4b4d33ad00edf853f326c` | Approved and merged 2026-10-29 |
 | #74 | [#83](https://github.com/jarbbie/toktickit/pull/83), `feature/74-lab4-regression-hardening` | `lab4-staging` | `2fb3097f079703b7b2f32d8040b0c2e803189de6` | `56f7e2c09b9d60c87ff7922fe6d96c6d852bf283` | Approved and merged 2026-10-29 |
+| #75 | [#84](https://github.com/jarbbie/toktickit/pull/84), `release/lab4-to-main` | `main` | Review pending; current head linked from PR | Pending | Open; SupeemAFK review request pending 2026-10-30 |
 
 ## Evidence boundary
 
 Review identities, verdicts, reviewed heads, and merge SHAs above come from
-GitHub PR review and merge records. Issue #75 release review and final-main
-verification will be recorded after those steps complete.
+GitHub PR review and merge records. PR #84 approval and merge details, final-main
+verification, and PDF hand-in will be recorded as those steps occur.
