@@ -110,7 +110,7 @@ test creates and drops only a uniquely named temporary schema in that database.
 The guard rejects other database names; no test runs `prisma migrate reset`.
 
 To run the complete server suite, including inherited Lab 3 tests that read
-`DATABASE_URL`, use `rtk npm run test:isolated --prefix server`. It requires
+`DATABASE_URL`, use `npm run test:isolated --prefix server`. It requires
 `TEST_DATABASE_URL`, prepares a temporary migrated schema in that test database,
 runs Vitest with the child process's `DATABASE_URL` pointing to that schema,
 and removes the schema afterwards. The application database is not used.
@@ -151,12 +151,12 @@ database whose name ends in `_test` (for example, `toktickit_test`). They create
 and drop temporary schemas there; they do not use the development database.
 
 ```bash
-rtk npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1
-rtk npm run build --prefix server
-rtk npm test --prefix client -- --reporter=dot
-rtk npm run build --prefix client
-rtk npm run test:e2e:isolated --prefix server
-rtk git diff --check
+npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1
+npm run build --prefix server
+npm test --prefix client -- --reporter=dot
+npm run build --prefix client
+npm run test:e2e:isolated --prefix server
+git diff --check
 ```
 
 The isolated server runner runs the full inherited Labs 1–3 regression suite

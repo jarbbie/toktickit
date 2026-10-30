@@ -91,12 +91,12 @@ inside that disposable database. Do not run destructive migration/reset
 commands against the populated development database.
 
 ~~~bash
-rtk npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1
-rtk npm run build --prefix server
-rtk npm test --prefix client -- --reporter=dot
-rtk npm run build --prefix client
-rtk npm run test:e2e:isolated --prefix server
-rtk git diff --check
+npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1
+npm run build --prefix server
+npm test --prefix client -- --reporter=dot
+npm run build --prefix client
+npm run test:e2e:isolated --prefix server
+git diff --check
 ~~~
 
 The client Playwright config discovers the required root `e2e/lab-04/` suites
@@ -107,7 +107,7 @@ they have run on the merged commit.
 ## 5. Results Log
 
 - Issue #74 integration verification on 2026-10-30, on the hardening branch:
-  - `rtk npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
+  - `npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
     **34 files passed; 149 tests passed; 0 failed; 0 skipped**. This includes
     the inherited Labs 1–3 server regressions, populated migration and recovery,
     seed/API coverage, the new Action validation and transition unit tests, and
@@ -116,10 +116,10 @@ they have run on the merged commit.
     per role on Node 22.18.0. Requester dashboard p95 was **11.7 ms** and Staff
     dashboard p95 was **18.4 ms**. Both response sets were summary-only and
     below the 500 ms threshold.
-  - `rtk npm run build --prefix server`: passed. The full client suite passed:
-    **20 files; 69 tests; 0 failures**. `rtk npm run build --prefix client`:
+  - `npm run build --prefix server`: passed. The full client suite passed:
+    **20 files; 69 tests; 0 failures**. `npm run build --prefix client`:
     passed.
-  - `rtk npm run test:e2e:isolated --prefix server`: **12 tests passed; 0
+  - `npm run test:e2e:isolated --prefix server`: **12 tests passed; 0
     failed; 0 skipped** across Labs 2–4. The first run exposed three outdated
     inherited Lab 3 expectations: the Requester home is now Dashboard, and a
     Ticket must have a completed Action before resolution. Updated those checks
@@ -145,7 +145,7 @@ they have run on the merged commit.
 - Issue #68 verification on 2026-10-28: PR source at
   `0ddcdc410775849b43a98526b57722769e7be1be` plus the SQL-helper and legacy
   fixture corrections committed with this result.
-- `rtk npm test -- tests/lab-02/database-seed.test.ts tests/lab-04` from
+- `npm test -- tests/lab-02/database-seed.test.ts tests/lab-04` from
   `server/`: **5 files passed; 7 tests passed; 0 failed; 0 skipped**. This
   includes populated migration, migration rollback/retry, all three seed
   integration cases, seed mocks, and the test-database URL guard.
@@ -155,8 +155,8 @@ they have run on the merged commit.
 - The first database run exposed a helper that split function bodies at
   internal semicolons and a raw legacy Ticket insert without `updatedAt`.
   Both test setup defects were corrected before the passing run.
-- `rtk npm run build` from `server/`: passed after the corrections.
-  `rtk git diff --check`: passed. These are focused PR checks, not a full-suite
+- `npm run build` from `server/`: passed after the corrections.
+  `git diff --check`: passed. These are focused PR checks, not a full-suite
   or final-main verification.
 - Issue #69 verification on 2026-10-29, based on the merged #68 source at
   `e69876082410ea4601198c71bfc9d03df9385f08` plus the Action API and test
@@ -169,9 +169,9 @@ they have run on the merged commit.
   - Review regression: retrying the current assignment after the assignee was
     deactivated returns 200 and leaves Ticket, Action, and event state unchanged;
     assigning a different inactive account still returns 409.
-  - `rtk npm run test:isolated` from `server/`: **28 files passed, 125 tests
+  - `npm run test:isolated` from `server/`: **28 files passed, 125 tests
     passed, 0 failed, 0 skipped**, including inherited Labs 1–3 cases.
-  - `rtk npm run build` from `server/`: passed. `rtk git diff --check`: passed.
+  - `npm run build` from `server/`: passed. `git diff --check`: passed.
   - The isolated runner provisions a migrated schema under `TEST_DATABASE_URL`
     and supplies it as the test child process's `DATABASE_URL`; inherited
     database tests can therefore run without the development database.
@@ -179,8 +179,8 @@ they have run on the merged commit.
     #71; Action mutations use the same Ticket advisory lock.
 - Issue #70 Actions Taken UI verification on 2026-10-30, based on merged PR #78
   (`33b0a05600b38fa5fa24a9d2d4db1953a5170484`):
-  - `rtk npm test --prefix client`: **14 files passed; 50 tests passed**.
-  - `rtk npm run build --prefix client` and `rtk npm run build --prefix server`:
+  - `npm test --prefix client`: **14 files passed; 50 tests passed**.
+  - `npm run build --prefix client` and `npm run build --prefix server`:
     passed.
   - The isolated Actions Taken E2E flow passed **3 tests**, covering Requester
     read-only display, support create/assign/edit/start/complete/cancel, an
@@ -201,15 +201,15 @@ they have run on the merged commit.
     test uses an Action timestamp with non-zero seconds.
 - Issue #71 Ticket workflow verification on 2026-10-30, based on merged PR #79
   (`25fa17dc136e9ddb17e633b3a401e32307987e99`) and the workflow increment:
-  - `rtk npm run test:isolated --prefix server`: **29 files passed; 131 tests
+  - `npm run test:isolated --prefix server`: **29 files passed; 131 tests
     passed; 0 failed; 0 skipped**, including all 64 status pairs across IT
     Staff, Administrator, and Requester, gate and stale-write behavior, the
     shared Action/resolution lock, history access, and inherited Lab 1–3 server
     regressions.
-  - `rtk npm test --prefix client`: **15 files passed; 54 tests passed**.
-  - `rtk npm run build --prefix server` and `rtk npm run build --prefix client`:
-    passed. `rtk git diff --check`: passed.
-  - `rtk npm run test:e2e:isolated --prefix server --
+  - `npm test --prefix client`: **15 files passed; 54 tests passed**.
+  - `npm run build --prefix server` and `npm run build --prefix client`:
+    passed. `git diff --check`: passed.
+  - `npm run test:e2e:isolated --prefix server --
     lab-04/ticket-resolution.spec.ts`: **1 test passed**. It covered the full
     status path, resolution and cancellation gates, completed Actions, Requester
     advisory feedback, and read-only status history. The isolated runner used a
@@ -226,12 +226,12 @@ they have run on the merged commit.
     regressions cover stale UI state and 409, 404, and 401 responses.
 - Issue #72 Dashboard API verification on 2026-10-30, based on `lab4-staging`
   commit `4b0cd0ba3e881889104973cf9f6a7e2397e9f8c3`:
-  - `rtk npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
+  - `npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
     **31 files passed; 137 tests passed; 0 failed; 0 skipped**, including
     dashboard authorization, metrics, Bangkok calendar windows,
     resolution-event ordering, zero results, safe failures, drill-down filters,
     and inherited Labs 1–3 regressions.
-  - `rtk npm run build --prefix server` and `rtk git diff --check`: passed.
+  - `npm run build --prefix server` and `git diff --check`: passed.
   - Requester dashboard tests verify owner-only counts and rows, latest
     resolution timestamps, legacy Tickets without status history, and exact
     inclusive list filters. Staff/Admin tests verify all-status and open-work
@@ -240,11 +240,11 @@ they have run on the merged commit.
 - Issue #73 Dashboard UI verification on 2026-10-30, against `lab4-staging`
   commit `b3ce566e8af3909b37b1ede8b03740094608f0c6`, implementation commit
   `eade9b68eee2602a128b9a5a58ec777ff631ddbf`:
-  - `rtk npm test --prefix client -- --reporter=dot`: **20 files passed; 69
+  - `npm test --prefix client -- --reporter=dot`: **20 files passed; 69
     tests passed; 0 failed**. This includes Requester and Staff/Admin dashboard
     states, exact drill-down filters, existing Lab 1–3 client regressions, and
     the updated change-password return route to `/dashboard`.
-  - `rtk npm run build --prefix client` and `rtk git diff --check`: passed.
+  - `npm run build --prefix client` and `git diff --check`: passed.
   - PR #82 review follow-up: Resolved At stays newest-first after header clicks
     and exposes the fixed order accessibly; Urgent Work disables the direction
     selector and omits direction from its API request; a delayed dashboard-to-
@@ -252,7 +252,7 @@ they have run on the merged commit.
   - The dashboard Playwright command below ran on original PR head
     `0d168af8f52890928605e815ed243d244753f58d`, before the review follow-up; it
     remains baseline evidence.
-  - `rtk npm run test:e2e:isolated --prefix server --
+  - `npm run test:e2e:isolated --prefix server --
     lab-04/dashboards.spec.ts`: **1 test passed** against the disposable
     `_test` schema. Keyboard metric activation, role navigation, Queue/My
     Tickets filters, viewport layouts at 1440, 820, 390, 767, 768, 991, and
