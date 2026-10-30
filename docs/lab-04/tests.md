@@ -1,8 +1,6 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Issues #67–#73 are merged to `lab4-staging`. Issue #74 is the
-current full-regression and release-hardening change. PostgreSQL tests require a disposable
-`TEST_DATABASE_URL` whose database name ends in `_test`.
+**Status:** Issues #67–#74 are merged to `lab4-staging`. Issue #75 covers promotion to `main`; REL-01 final-main verification and the nine-part PDF remain pending until after that merge. PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose database name ends in `_test`.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the

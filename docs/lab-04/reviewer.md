@@ -1,9 +1,8 @@
 # Lab 4 Peer Review Record
 
-**Status:** Issues #67–#73 were reviewed by SupeemAFK and merged into
-`lab4-staging`. PR [#83](https://github.com/jarbbie/toktickit/pull/83) for
-Issue #74 is open, and SupeemAFK has been asked to re-review. No approval or
-merge is claimed yet.
+**Status:** Issues #67–#74 were reviewed by SupeemAFK and merged into
+`lab4-staging`. Promotion to `main` and final-main verification are pending
+under Issue #75.
 
 ## Recording rules
 
@@ -24,6 +23,7 @@ merge is claimed yet.
 | 2026-10-29 | [#80 / #71](https://github.com/jarbbie/toktickit/pull/80) | CHANGES_REQUESTED: preserve stale targets visibly while preventing illegal resubmission, and apply `no-store` to workflow responses before auth/handler failures. | Both fixes and error-header/UI regressions were added. Approval at 18:34Z; merged at 18:36Z. |
 | 2026-10-29 | [#81 / #72](https://github.com/jarbbie/toktickit/pull/81) | APPROVED: dashboard metrics, seven-day Bangkok window, bounded summaries, drill-downs, staff ordering, authorization, and safe responses aligned with the contract. | Approved at 18:54Z and merged at 18:55Z. |
 | 2026-10-29 | [#82 / #73](https://github.com/jarbbie/toktickit/pull/82) | CHANGES_REQUESTED: keep resolved-date sort newest-first, remove direction control for fixed urgent-work ordering, and focus Ticket Detail after asynchronous load. | All three fixes and regressions were added. Approved reviewed head `a5a394bd5df9f61c388559402f482913ce6d7f51` at 19:32Z; merged at 19:34Z. |
+| 2026-10-29 | [#83 / #74](https://github.com/jarbbie/toktickit/pull/83) | APPROVED: root E2E discovery retained Labs 2–3 coverage; workflow-rule extraction, inherited resolution setup, performance smoke, and traceability aligned with the merged contract. | SupeemAFK [approved](https://github.com/jarbbie/toktickit/pull/83#pullrequestreview-5704279579) reviewed head `2fb3097f079703b7b2f32d8040b0c2e803189de6` at 20:10Z; merged into `lab4-staging` at 20:11Z. |
 
 ## Integration record
 
@@ -36,11 +36,10 @@ merge is claimed yet.
 | #71 | [#80](https://github.com/jarbbie/toktickit/pull/80), `feature/71-lab4-ticket-workflow` | `lab4-staging` | `10419448298b87aa80ad46c5d28bdf4b14b84a92` | `4b0cd0ba3e881889104973cf9f6a7e2397e9f8c3` | Approved and merged 2026-10-29 |
 | #72 | [#81](https://github.com/jarbbie/toktickit/pull/81), `feature/72-lab4-dashboard-api` | `lab4-staging` | `ad17126a8d6be1465fc9b155c3c9ae8115335e4f` | `b3ce566e8af3909b37b1ede8b03740094608f0c6` | Approved and merged 2026-10-29 |
 | #73 | [#82](https://github.com/jarbbie/toktickit/pull/82), `feature/73-lab4-dashboard-ui` | `lab4-staging` | `a5a394bd5df9f61c388559402f482913ce6d7f51` | `17734a4a0343999cc9b4b4d33ad00edf853f326c` | Approved and merged 2026-10-29 |
-| #74 | [#83](https://github.com/jarbbie/toktickit/pull/83), `feature/74-lab4-regression-hardening` | `lab4-staging` | Review pending; current head linked from PR | Pending | Open; SupeemAFK re-review requested 2026-10-30 |
+| #74 | [#83](https://github.com/jarbbie/toktickit/pull/83), `feature/74-lab4-regression-hardening` | `lab4-staging` | `2fb3097f079703b7b2f32d8040b0c2e803189de6` | `56f7e2c09b9d60c87ff7922fe6d96c6d852bf283` | Approved and merged 2026-10-29 |
 
 ## Evidence boundary
 
 Review identities, verdicts, reviewed heads, and merge SHAs above come from
-GitHub PR review and merge records. Issue #74's row must be updated from GitHub
-after peer review or merge. Release verification on `main` and the nine-part
-hand-in are tracked separately from this peer-review record.
+GitHub PR review and merge records. Issue #75 release review and final-main
+verification will be recorded after those steps complete.
