@@ -34,7 +34,7 @@ describe("Requester Dashboard", () => {
     renderApp();
 
     const heading = await screen.findByRole("heading", { name: "Dashboard" });
-    expect(heading).toHaveFocus();
+    await waitFor(() => expect(heading).toHaveFocus());
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByRole("link", { name: /Open Tickets: 2/ })).toHaveAttribute("href", "/tickets?statusGroup=open");
     expect(screen.getByRole("link", { name: /Waiting for Requester: 1/ })).toHaveAttribute("href", "/tickets?status=WAITING_FOR_REQUESTER");
