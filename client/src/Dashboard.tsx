@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { ApiError, type AuthUser, type RequesterDashboard as RequesterDashboardData, type RequesterDashboardTicket, type StaffDashboard as StaffDashboardData, type StaffDashboardTicket, loadRequesterDashboard, loadStaffDashboard } from "./api.js";
+import { ApiError, type AuthUser, type RequesterDashboard as RequesterDashboardData, type RequesterDashboardTicket, type StaffDashboard as StaffDashboardData, type StaffDashboardAction, type StaffDashboardTicket, loadRequesterDashboard, loadStaffDashboard } from "./api.js";
 
 type DashboardState<T> =
   | { key: string; status: "loading" }
@@ -96,6 +96,17 @@ function StaffTicketList({ tickets, emptyMessage }: { tickets: StaffDashboardTic
   </li>)}</ul>;
 }
 
+function StaffActionList({ actions, emptyMessage }: { actions: StaffDashboardAction[]; emptyMessage: string }) {
+  if (actions.length === 0) return <div className="dashboard-empty"><p>{emptyMessage}</p></div>;
+  return <ul className="dashboard-action-list">{actions.map((action) => <li key={action.id}>
+    <NavLink className="dashboard-action-link" to={action.href}>
+      <span className="dashboard-action-main"><strong>{action.ticketNumber}</strong><span>{action.summary}</span><small>{action.description}</small></span>
+      <StatusBadge status={action.status} />
+      <time className="dashboard-action-date" dateTime={action.actionAt}>{dateLabel(action.actionAt)}</time>
+    </NavLink>
+  </li>)}</ul>;
+}
+
 function requesterUpdatedHref(windowStart: string) {
   const params = new URLSearchParams({ updatedAfter: windowStart, sortBy: "updatedAt", direction: "desc" });
   return `/tickets?${params}`;
@@ -159,6 +170,13 @@ function StaffDashboard({ user }: { user: AuthUser }) {
           <StaffTicketList tickets={state.data.urgentTickets} emptyMessage="No HIGH or URGENT open tickets. View the Ticket Queue for all work." />
         </DashboardSection>
       </div>
+      <section className="card dashboard-list-section dashboard-my-actions" aria-labelledby="dashboard-my-actions-title">
+        <div className="dashboard-section-heading">
+          <div><h2 className="h5 mb-1" id="dashboard-my-actions-title">My Actions Taken</h2><p className="text-secondary mb-0">Actions recorded by you, with the five most recent shown.</p></div>
+          <strong className="dashboard-action-count" aria-label={`${state.data.myActionsTaken.count} Actions Taken`}>{state.data.myActionsTaken.count}</strong>
+        </div>
+        <StaffActionList actions={state.data.myActionsTaken.recent} emptyMessage="You have not recorded any Actions Taken yet." />
+      </section>
     </>}
   </section>;
 }

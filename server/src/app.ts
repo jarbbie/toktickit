@@ -813,7 +813,7 @@ app.get("/api/staff/dashboard", cacheResponse, ...staffAuthentication, async (re
     } as const;
     const prisma = getPrisma();
     const data = await prisma.$transaction(async (transaction) => {
-      const [unassignedOpen, ownedByMeOpen, statusGroups, priorityGroups, recentlyUpdated, urgentRows, highRows] = await Promise.all([
+      const [unassignedOpen, ownedByMeOpen, statusGroups, priorityGroups, recentlyUpdated, urgentRows, highRows, myActionsTakenCount, myRecentActionsTaken] = await Promise.all([
         transaction.ticket.count({ where: { status: { in: openTicketStatuses }, ownerId: null } }),
         transaction.ticket.count({ where: { status: { in: openTicketStatuses }, ownerId: user.id } }),
         transaction.ticket.groupBy({ by: ["status"], _count: { _all: true } }),
@@ -836,6 +836,20 @@ app.get("/api/staff/dashboard", cacheResponse, ...staffAuthentication, async (re
           take: 5,
           select,
         }),
+        transaction.actionTaken.count({ where: { performedById: user.id } }),
+        transaction.actionTaken.findMany({
+          where: { performedById: user.id },
+          orderBy: [{ actionAt: "desc" }, { id: "desc" }],
+          take: 5,
+          select: {
+            id: true,
+            ticketId: true,
+            actionAt: true,
+            description: true,
+            status: true,
+            ticket: { select: { ticketNumber: true, summary: true } },
+          },
+        }),
       ]);
       const statusCounts = new Map(statusGroups.map((group) => [group.status, typeof group._count === "object" ? group._count?._all ?? 0 : 0]));
       const priorityCounts = new Map(priorityGroups.map((group) => [group.itPriority, typeof group._count === "object" ? group._count?._all ?? 0 : 0]));
@@ -843,7 +857,7 @@ app.get("/api/staff/dashboard", cacheResponse, ...staffAuthentication, async (re
         const priorityDifference = (a.itPriority === "URGENT" ? 0 : 1) - (b.itPriority === "URGENT" ? 0 : 1);
         return priorityDifference || a.updatedAt.getTime() - b.updatedAt.getTime() || a.id - b.id;
       }).slice(0, 5);
-      return { unassignedOpen, ownedByMeOpen, statusCounts, priorityCounts, recentlyUpdated, urgentTickets };
+      return { unassignedOpen, ownedByMeOpen, statusCounts, priorityCounts, recentlyUpdated, urgentTickets, myActionsTakenCount, myRecentActionsTaken };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
     const asTicket = (ticket: typeof data.recentlyUpdated[number]) => ({ ...ticket, href: `/staff/tickets/${ticket.id}` });
     res.json({
@@ -861,6 +875,19 @@ app.get("/api/staff/dashboard", cacheResponse, ...staffAuthentication, async (re
       },
       recentlyUpdated: data.recentlyUpdated.map(asTicket),
       urgentTickets: data.urgentTickets.map(asTicket),
+      myActionsTaken: {
+        count: data.myActionsTakenCount,
+        recent: data.myRecentActionsTaken.map((action) => ({
+          id: action.id,
+          ticketId: action.ticketId,
+          ticketNumber: action.ticket.ticketNumber,
+          summary: action.ticket.summary,
+          description: action.description,
+          status: action.status,
+          actionAt: action.actionAt.toISOString(),
+          href: `/staff/tickets/${action.ticketId}`,
+        })),
+      },
     });
   } catch (error) {
     if (error instanceof RequestError) {

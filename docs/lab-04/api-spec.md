@@ -328,6 +328,12 @@ IT Staff/Admin only. Return StaffDashboard:
   descending then id descending.
 - urgentTickets: up to 5 open HIGH/URGENT Tickets, URGENT before HIGH, then
   oldest updatedAt first, then id.
+- myActionsTaken: count all Actions where performedById equals the authenticated
+  user and return up to 5 records ordered actionAt descending then Action ID
+  descending. Return only Action ID, ticketId, Ticket number/summary, Action
+  description/status/actionAt, and a staff Ticket Detail href. Assignee does
+  not determine this metric. The count and recent rows use the same
+  Repeatable Read transaction as the other dashboard metrics.
 - Empty arrays and zero counts are explicit. Administrators receive the same
   metrics and scope as IT Staff.
 

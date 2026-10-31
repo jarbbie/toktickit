@@ -51,7 +51,13 @@ ordering.
 Show “Unassigned Open Tickets”, “My Open Tickets”, status distribution for all
 eight statuses, and IT Priority counts for open-status Tickets. Show a concise
 recently updated list (up to 10) and an “Urgent Work” list (up to five HIGH or
-URGENT). An Administrator sees the same operational dashboard as IT Staff.
+URGENT). Show “My Actions Taken” with the authenticated user's all-time count
+and up to five latest Actions they performed, ordered by Action Date/Time
+descending then Action ID descending. The performer, not the Action assignee,
+determines this scope. Each Action row shows Ticket number, summary, Action
+description, status, and Action Date/Time and opens its parent Ticket Detail.
+An Administrator sees the same operational dashboard with their own Action
+scope.
 
 Every count/card/list has an accessible link to the Ticket Queue with exact
 filters: ownership=unassigned, ownership=mine, status, IT Priority, status
@@ -70,8 +76,9 @@ IT Priority filters cannot silently override a status/priority group. The
 Urgent Work link uses the dedicated urgent-work sort.
 
 Zero counts remain visible. Empty “Recently Updated” and “Urgent Work” lists
-have separate helpful messages and link to the Ticket Queue; do not fabricate
-example rows.
+have separate helpful messages and link to the Ticket Queue; an empty “My
+Actions Taken” list says that the user has not recorded any Actions yet. Do not
+fabricate example rows.
 
 ## 4. Ticket Detail: Actions Taken
 
