@@ -79,15 +79,17 @@ export async function signIn(page: Page, account: { email: string; changedPasswo
   await page.goto("/login");
   const initialGate = page.getByRole("heading", { name: /Change your initial password to continue/ });
   const home = page.getByRole("heading", { name: homeHeading });
+  const dashboard = page.getByRole("heading", { name: "Dashboard", exact: true });
+  const signedInHome = homeHeading === "Dashboard" ? dashboard : home.or(dashboard);
   await fillLogin(page, account.email, initialPassword);
 
   let currentPassword = initialPassword;
   try {
-    await expect(initialGate.or(home)).toBeVisible({ timeout: 8_000 });
+    await expect(initialGate.or(signedInHome)).toBeVisible({ timeout: 8_000 });
   } catch {
     await fillLogin(page, account.email, account.changedPassword);
     currentPassword = account.changedPassword;
-    await expect(initialGate.or(home)).toBeVisible({ timeout: 8_000 });
+    await expect(initialGate.or(signedInHome)).toBeVisible({ timeout: 8_000 });
   }
 
   if (await initialGate.isVisible()) {
@@ -96,7 +98,11 @@ export async function signIn(page: Page, account: { email: string; changedPasswo
     await page.getByRole("textbox", { name: "Confirm New Password", exact: true }).fill(account.changedPassword);
     await page.getByRole("button", { name: "Save Password" }).click();
   }
-  await expect(home).toBeVisible({ timeout: 8_000 });
+  if (homeHeading !== "Dashboard" && await dashboard.isVisible()) {
+    const destination = homeHeading === "My Tickets" ? "/tickets" : homeHeading === "Ticket Queue" ? "/staff/tickets" : homeHeading === "User Management" ? "/admin/users" : null;
+    if (destination) await page.goto(destination);
+  }
+  await expect(signedInHome).toBeVisible({ timeout: 8_000 });
 }
 
 export async function logout(page: Page) {

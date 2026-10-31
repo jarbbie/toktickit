@@ -9,6 +9,8 @@ vi.mock("../src/api.js", async (importOriginal) => {
       user: { id: 1, name: "Nicha Somchai", email: "nicha@example.test", role: "REQUESTER", isActive: true, mustChangePassword: false },
       expiresAt: "2026-09-19T00:00:00.000Z",
     }),
+    loadActions: vi.fn().mockResolvedValue([]),
+    loadTicketStatusEvents: vi.fn().mockResolvedValue([]),
   };
 });
 
@@ -18,4 +20,6 @@ beforeEach(async () => {
     user: { id: 1, name: "Nicha Somchai", email: "nicha@example.test", role: "REQUESTER", isActive: true, mustChangePassword: false },
     expiresAt: "2026-09-19T00:00:00.000Z",
   });
+  vi.mocked(api.loadActions).mockResolvedValue([]);
+  vi.mocked(api.loadTicketStatusEvents).mockResolvedValue([]);
 });

@@ -100,6 +100,18 @@ test("IT Staff queue, ticket operations, comments, notes, and attachment continu
   await page.getByLabel("Next status").selectOption("RESOLVED");
   await expect(page.getByRole("dialog")).toContainText("to Resolved");
   await page.getByRole("dialog").getByRole("button", { name: "Confirm status change" }).click();
+  await page.getByRole("button", { name: "Add Action" }).click();
+  await page.getByLabel(/Action Description/).fill("Verify the support fix before resolution");
+  await page.getByRole("button", { name: "Create Action" }).click();
+  await expect(page.getByText("Action created.", { exact: true })).toBeVisible();
+  const resolutionAction = page.locator(".actions-taken-item").first();
+  await resolutionAction.getByRole("button", { name: "Complete" }).click();
+  const completionDialog = page.getByRole("dialog", { name: "Complete Action" });
+  await completionDialog.getByLabel(/Result/).fill("Support fix verified with the requester");
+  await completionDialog.getByRole("button", { name: "Confirm completion" }).click();
+  await expect(page.getByText("Action completed.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Update Status" }).click();
+  await page.getByRole("dialog", { name: "Confirm status change" }).getByRole("button", { name: "Confirm status change" }).click();
   await expect(page.getByText("Status changed to Resolved.")).toBeVisible();
   await expect(page.getByLabel("Current Status (read-only)")).toHaveValue("Resolved");
   await expect(page.getByText("Requester indicated that this problem appears resolved on")).toBeVisible();

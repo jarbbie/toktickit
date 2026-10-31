@@ -1,5 +1,6 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import ActionsTaken from "./ActionsTaken.js";
 import {
   ApiError,
   type InternalNote,
@@ -17,6 +18,7 @@ import {
   updateStaffItPriority,
   updateStaffTicketStatus,
 } from "./api.js";
+import TicketStatusHistory from "./TicketStatusHistory.js";
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 type Priority = typeof priorities[number];
@@ -90,7 +92,7 @@ function NoteList({ notes }: { notes: InternalNote[] }) {
   </li>)}</ul>;
 }
 
-export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
+export default function StaffTicketDetail({ ticketId, currentUserName = "Current user" }: { ticketId: number; currentUserName?: string }) {
   const location = useLocation();
   const [ticket, setTicket] = useState<StaffTicketDetailData | null>(null);
   const [comments, setComments] = useState<PublicComment[] | null>(null);
@@ -107,10 +109,17 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
   const [statusSelection, setStatusSelection] = useState<TicketStatus | "">("");
   const [pendingOwner, setPendingOwner] = useState<number | null | undefined>(undefined);
   const [pendingStatus, setPendingStatus] = useState<TicketStatus | null>(null);
+  const [operationErrorCode, setOperationErrorCode] = useState<string | undefined>();
+  const [historyRefreshToken, setHistoryRefreshToken] = useState(0);
   const [commentBody, setCommentBody] = useState("");
   const [commentError, setCommentError] = useState("");
   const [noteBody, setNoteBody] = useState("");
   const [noteError, setNoteError] = useState("");
+  const operationErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (operationError) operationErrorRef.current?.focus();
+  }, [operationError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,11 +160,13 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
 
   function clearOperationFeedback() {
     setOperationError("");
+    setOperationErrorCode(undefined);
     setSuccessMessage("");
   }
 
   function operationFailed(error: unknown, fallback: string, reloadOnConflict = true) {
     setOperationError(errorLabel(error, fallback));
+    setOperationErrorCode(error instanceof ApiError ? error.code : undefined);
     if (reloadOnConflict && error instanceof ApiError && (error.status === 404 || error.status === 409)) setRetry((value) => value + 1);
   }
 
@@ -164,6 +175,13 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
     setOwnerSelection(data.ownerId === null ? "" : String(data.ownerId));
     setPrioritySelection(data.itPriority);
     setStatusSelection("");
+  }
+
+  async function refreshTicketForActions() {
+    const data = await loadStaffTicket(ticketId);
+    setTicket(data);
+    setHistoryRefreshToken((value) => value + 1);
+    return data.workflowVersion;
   }
 
   async function claim() {
@@ -216,15 +234,31 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
   }
 
   async function saveStatus(nextStatus: TicketStatus) {
-    if (!ticket || busy) return;
+    if (!ticket || busy || !statusTransitions[ticket.status].includes(nextStatus)) return;
     clearOperationFeedback();
     setBusy("status");
     try {
-      applyTicket(await updateStaffTicketStatus(ticket.id, nextStatus));
+      applyTicket(await updateStaffTicketStatus(ticket.id, nextStatus, ticket.workflowVersion));
+      setHistoryRefreshToken((value) => value + 1);
       setSuccessMessage(`Status changed to ${enumLabel(nextStatus)}.`);
       setPendingStatus(null);
     } catch (error) {
-      operationFailed(error, "Unable to update ticket status.");
+      setOperationError(errorLabel(error, "Unable to update ticket status."));
+      setOperationErrorCode(error instanceof ApiError ? error.code : undefined);
+      setPendingStatus(null);
+      if (error instanceof ApiError && error.status === 409) {
+        const selectedStatus = nextStatus;
+        try {
+          const refreshed = await loadStaffTicket(ticketId);
+          setTicket(refreshed);
+          setOwnerSelection(refreshed.ownerId === null ? "" : String(refreshed.ownerId));
+          setPrioritySelection(refreshed.itPriority);
+          setStatusSelection(selectedStatus);
+          setHistoryRefreshToken((value) => value + 1);
+        } catch {
+          // Keep the rejected selection and server conflict visible if refresh also fails.
+        }
+      }
     } finally { setBusy(null); }
   }
 
@@ -235,7 +269,7 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
   }
 
   function requestStatusUpdate() {
-    if (!statusSelection) return;
+    if (!statusSelection || !ticket || !statusTransitions[ticket.status].includes(statusSelection)) return;
     if (terminalStatuses.has(statusSelection)) setPendingStatus(statusSelection);
     else void saveStatus(statusSelection);
   }
@@ -319,13 +353,16 @@ export default function StaffTicketDetail({ ticketId }: { ticketId: number }) {
       <ReadonlyField label="Description" value={ticket.description} wide multiline />
     </div></div></section>
 
+    <ActionsTaken ticketId={ticket.id} ticketStatus={ticket.status} workflowVersion={ticket.workflowVersion} currentUserName={currentUserName} assigneeOptions={ticket.ownerOptions} refreshTicket={refreshTicketForActions} />
+    <TicketStatusHistory ticketId={ticket.id} refreshToken={historyRefreshToken} />
+
     <section className="card shadow-sm mb-3 staff-operations-card" aria-labelledby="staff-ticket-operations-heading"><div className="card-body"><div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h2 className="h5 mb-1" id="staff-ticket-operations-heading">Ticket Operations</h2><p className="text-secondary mb-0">Operational controls are enforced by the server.</p></div>{busy && <span role="status" className="text-secondary">Saving…</span>}</div>
-      {operationError && <div className="alert alert-danger" role="alert">{operationError}</div>}
+      {operationError && <div className="alert alert-danger" ref={operationErrorRef} role="alert" tabIndex={-1}>{operationError}{(operationErrorCode === "RESOLUTION_BLOCKED" || operationErrorCode === "CANCELLATION_BLOCKED") && <div className="mt-2"><a href={`#actions-taken-heading-${ticket.id}`}>Review Actions Taken</a></div>}</div>}
       {successMessage && <div className="alert alert-success" role="status">{successMessage}</div>}
       <div className="staff-operation-grid">
         <div className="staff-operation-control"><label className="form-label" htmlFor="staff-owner">Ticket Owner</label><select className="form-select" id="staff-owner" value={ownerSelection} disabled={busy !== null} onChange={(event) => chooseOwner(event.target.value)}><option value="">Unassigned</option>{ownerOptions.map((owner) => <option key={owner.id} value={owner.id}>{ownerOptionLabel(owner)}</option>)}</select><div className="form-text">Current owner: {ownerLabel(ticket)}</div>{ticket.ownerId === null && <button className="btn btn-zen-primary mt-2" disabled={busy !== null} onClick={() => void claim()} type="button">{busy === "claim" ? "Claiming…" : "Claim Ticket"}</button>}</div>
         <div className="staff-operation-control"><label className="form-label" htmlFor="staff-it-priority">IT Priority</label><select className="form-select" id="staff-it-priority" value={prioritySelection} disabled={busy !== null} onChange={(event) => setPrioritySelection(event.target.value as Priority)}>{priorities.map((priority) => <option key={priority} value={priority}>{enumLabel(priority)}</option>)}</select><button className="btn btn-outline-success mt-2" disabled={busy !== null || prioritySelection === ticket.itPriority} onClick={() => void savePriority()} type="button">{busy === "priority" ? "Saving…" : "Save IT Priority"}</button></div>
-        <div className="staff-operation-control"><div className="staff-current-status-label"><span className="form-label">Current Status</span> {statusBadge(ticket.status)}</div><label className="form-label" htmlFor="staff-status">Next status</label><select className="form-select" id="staff-status" value={statusSelection} disabled={busy !== null || availableStatuses.length === 0} onChange={(event) => chooseStatus(event.target.value as TicketStatus | "")}><option value="">Choose next status</option>{availableStatuses.map((status) => <option key={status} value={status}>{enumLabel(status)}</option>)}</select>{availableStatuses.length === 0 ? <div className="form-text">No further status transitions are available.</div> : <><div className="form-text">Choose only a permitted next status.</div><button className="btn btn-outline-success mt-2" disabled={busy !== null || !statusSelection || pendingStatus !== null} onClick={requestStatusUpdate} type="button">{busy === "status" ? "Saving…" : "Update Status"}</button></>}</div>
+        <div className="staff-operation-control"><div className="staff-current-status-label"><span className="form-label">Current Status</span> {statusBadge(ticket.status)}</div><label className="form-label" htmlFor="staff-status">Next status</label><select className="form-select" id="staff-status" value={statusSelection} disabled={busy !== null || availableStatuses.length === 0} onChange={(event) => chooseStatus(event.target.value as TicketStatus | "")}><option value="">Choose next status</option>{statusSelection && !availableStatuses.includes(statusSelection) && <option disabled value={statusSelection}>{enumLabel(statusSelection)} (no longer permitted)</option>}{availableStatuses.map((status) => <option key={status} value={status}>{enumLabel(status)}</option>)}</select>{availableStatuses.length === 0 ? <div className="form-text">No further status transitions are available.</div> : <><div className="form-text">{statusSelection && !availableStatuses.includes(statusSelection) ? "This status is no longer permitted. Choose another status." : "Choose only a permitted next status."}</div><button className="btn btn-outline-success mt-2" disabled={busy !== null || !statusSelection || !availableStatuses.includes(statusSelection) || pendingStatus !== null} onClick={requestStatusUpdate} type="button">{busy === "status" ? "Saving…" : "Update Status"}</button></>}</div>
       </div>
       {pendingOwner !== undefined && <div className="staff-confirmation" role="dialog" aria-modal="true" aria-labelledby="owner-confirmation-heading"><h3 className="h6" id="owner-confirmation-heading">Confirm owner change</h3><p>Change the owner of {ticket.ticketNumber} from <strong>{ownerLabel(ticket)}</strong> to <strong>{pendingOwnerLabel}</strong>?</p><button autoFocus className="btn btn-zen-primary btn-sm me-2" disabled={busy !== null} onClick={() => void saveOwner(pendingOwner)} type="button">Confirm owner change</button><button className="btn btn-outline-secondary btn-sm" disabled={busy !== null} onClick={() => { setPendingOwner(undefined); setOwnerSelection(ticket.ownerId === null ? "" : String(ticket.ownerId)); }} type="button">Cancel</button></div>}
       {pendingStatus && <div className="staff-confirmation staff-confirmation-warning" role="dialog" aria-modal="true" aria-labelledby="status-confirmation-heading"><h3 className="h6" id="status-confirmation-heading">Confirm status change</h3><p>Change {ticket.ticketNumber} from <strong>{enumLabel(ticket.status)}</strong> to <strong>{enumLabel(pendingStatus)}</strong>? This transition may be difficult to reverse.</p><button autoFocus className="btn btn-zen-primary btn-sm me-2" disabled={busy !== null} onClick={() => void saveStatus(pendingStatus)} type="button">Confirm status change</button><button className="btn btn-outline-secondary btn-sm" disabled={busy !== null} onClick={() => { setPendingStatus(null); setStatusSelection(""); }} type="button">Cancel</button></div>}

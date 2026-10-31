@@ -11,6 +11,7 @@ const storage = vi.hoisted(() => ({
 const transaction = vi.hoisted(() => ({
   $executeRaw: vi.fn(),
   ticket: { findFirst: vi.fn(), update: vi.fn() },
+  ticketStatusEvent: { create: vi.fn() },
   user: { findFirst: vi.fn(), findMany: vi.fn() },
   internalNote: { findMany: vi.fn(), create: vi.fn() },
 }));
@@ -65,8 +66,9 @@ beforeEach(() => {
   prisma.attachment.findFirst.mockResolvedValue({ id: 11, originalName: "vpn.pdf", mimeType: "application/pdf", sizeBytes: 8, createdAt: new Date("2026-09-18T08:00:00.000Z"), removedAt: null, removalReason: null, storageKey: "staff-download" });
   prisma.internalNote.findMany.mockResolvedValue([]);
   transaction.$executeRaw.mockResolvedValue(1);
-  transaction.ticket.findFirst.mockResolvedValue({ id: 4, ownerId: 7, status: "OPEN", itPriority: "HIGH" });
+  transaction.ticket.findFirst.mockResolvedValue({ id: 4, ownerId: 7, status: "OPEN", itPriority: "HIGH", workflowVersion: 1 });
   transaction.ticket.update.mockResolvedValue({ id: 4 });
+  transaction.ticketStatusEvent.create.mockResolvedValue({ id: 1 });
   transaction.user.findFirst.mockResolvedValue({ id: 7 });
   transaction.user.findMany.mockResolvedValue(ownerOptions);
   transaction.internalNote.findMany.mockResolvedValue([]);
@@ -165,14 +167,15 @@ describe("IT Staff Ticket operations", () => {
   });
 
   it("enforces the status matrix and clears resolution indication on Reopened", async () => {
-    transaction.ticket.findFirst.mockResolvedValueOnce({ id: 4, status: "RESOLVED" }).mockResolvedValueOnce({ ...detail, status: "REOPENED", resolutionIndicatedAt: null });
+    transaction.ticket.findFirst.mockResolvedValueOnce({ id: 4, status: "RESOLVED", workflowVersion: 1 }).mockResolvedValueOnce({ ...detail, status: "REOPENED", resolutionIndicatedAt: null });
 
-    const reopened = await request(app).patch("/api/staff/tickets/4/status").set("Origin", origin).set("Cookie", cookie).send({ status: "REOPENED" });
+    const reopened = await request(app).patch("/api/staff/tickets/4/status").set("Origin", origin).set("Cookie", cookie).send({ status: "REOPENED", expectedWorkflowVersion: 1 });
     expect(reopened.status).toBe(200);
-    expect(transaction.ticket.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "REOPENED", resolutionIndicatedAt: null }) }));
+    expect(transaction.ticket.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "REOPENED", resolutionIndicatedAt: null, workflowVersion: { increment: 1 } }) }));
+    expect(transaction.ticketStatusEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ fromStatus: "RESOLVED", toStatus: "REOPENED", actorId: staff.id }) }));
 
-    transaction.ticket.findFirst.mockResolvedValue({ id: 4, status: "CANCELLED" });
-    const invalid = await request(app).patch("/api/staff/tickets/4/status").set("Origin", origin).set("Cookie", cookie).send({ status: "OPEN" });
+    transaction.ticket.findFirst.mockResolvedValue({ id: 4, status: "CANCELLED", workflowVersion: 2 });
+    const invalid = await request(app).patch("/api/staff/tickets/4/status").set("Origin", origin).set("Cookie", cookie).send({ status: "OPEN", expectedWorkflowVersion: 2 });
     expect(invalid.status).toBe(409);
     expect(invalid.body.code).toBe("INVALID_STATUS_TRANSITION");
   });

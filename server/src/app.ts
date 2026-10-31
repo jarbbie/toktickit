@@ -2,8 +2,10 @@ import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import multer from "multer";
 import { randomUUID } from "node:crypto";
-import type { Prisma, PrismaClient, UserRole } from "@prisma/client";
+import { Prisma, type PrismaClient, type UserRole } from "@prisma/client";
 import { getPrisma } from "./prisma.js";
+import { registerActionRoutes } from "./actions.js";
+import { isTicketStatusTransitionAllowed } from "./workflow-rules.js";
 import { generateTicketNumber } from "./ticket-number.js";
 import { attachmentPath, discardAttachment, saveAttachment } from "./attachment-storage.js";
 import {
@@ -16,11 +18,14 @@ import {
 
 const priorities = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 const statuses = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CLOSED", "REOPENED", "CANCELLED"] as const;
-const sortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority"] as const;
-const staffSortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "itPriority", "status"] as const;
+const sortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "resolvedAt"] as const;
+const staffSortFields = ["updatedAt", "createdAt", "ticketNumber", "requestedPriority", "itPriority", "status", "urgentWork"] as const;
 const ownershipFilters = ["all", "mine", "assigned", "unassigned"] as const;
 const priorityRank: Record<typeof priorities[number], number> = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
 const statusRank: Record<typeof statuses[number], number> = Object.fromEntries(statuses.map((status, index) => [status, index])) as Record<typeof statuses[number], number>;
+const openTicketStatuses: (typeof statuses[number])[] = ["NEW", "OPEN", "IN_PROGRESS", "WAITING_FOR_REQUESTER", "REOPENED"];
+const resolvedTicketStatuses: (typeof statuses[number])[] = ["RESOLVED", "CLOSED"];
+const bangkokOffsetMs = 7 * 60 * 60 * 1000;
 const attachmentTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const userRoles = ["REQUESTER", "IT_STAFF", "ADMINISTRATOR"] as const;
 const userAccountLockKey = 44044;
@@ -35,6 +40,9 @@ class ResolutionConflictError extends Error {}
 class TicketAlreadyAssignedError extends Error {}
 class OwnerUnavailableError extends Error {}
 class InvalidStatusTransitionError extends Error {}
+class TicketWorkflowError extends Error {
+  constructor(readonly code: string, message: string, readonly details?: Record<string, number>) { super(message); }
+}
 class UserNotFoundError extends Error {}
 class EmailInUseError extends Error {}
 class AdminSafetyConflictError extends Error {
@@ -162,6 +170,37 @@ function optionalQueryChoice<T extends readonly string[]>(value: unknown, name: 
   return queryChoice(value, name, choices, choices[0]);
 }
 
+function queryTimestamp(value: unknown, name: string) {
+  if (typeof value !== "string") throw new RequestError(`${name} requires an ISO 8601 timestamp with an explicit offset.`);
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match) throw new RequestError(`${name} requires an ISO 8601 timestamp with an explicit offset.`);
+  const [, yearText, monthText, dayText, hourText, minuteText, secondsText, , offset] = match;
+  const [year, month, day, hour, minute, seconds] = [yearText, monthText, dayText, hourText, minuteText, secondsText ?? "0"].map(Number);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const date = new Date(value);
+  if (year < 1 || month < 1 || month > 12 || day < 1 || day > monthDays[month - 1]
+    || hour > 23 || minute > 59 || seconds > 59
+    || (offset !== "Z" && (Number(offset.slice(1, 3)) > 23 || Number(offset.slice(4)) > 59))
+    || !Number.isFinite(date.getTime())) {
+    throw new RequestError(`${name} must be a valid calendar timestamp.`);
+  }
+  return date;
+}
+
+function optionalQueryTimestamp(value: unknown, name: string) {
+  return value === undefined ? undefined : queryTimestamp(value, name);
+}
+
+function dashboardWindowStart(asOf: Date) {
+  const bangkokDate = new Date(asOf.getTime() + bangkokOffsetMs);
+  return new Date(Date.UTC(bangkokDate.getUTCFullYear(), bangkokDate.getUTCMonth(), bangkokDate.getUTCDate() - 6) - bangkokOffsetMs);
+}
+
+function statusDashboardHref(status: typeof statuses[number]) {
+  return `/staff/tickets?status=${status}`;
+}
+
 function hasAttachmentSignature(file: { mimetype: string; buffer: Buffer }) {
   const { buffer, mimetype } = file;
   if (mimetype === "application/pdf") return buffer.subarray(0, 5).equals(Buffer.from("%PDF-"));
@@ -233,6 +272,12 @@ type StaffQueueRow = {
 };
 
 function compareStaffQueue(a: StaffQueueRow, b: StaffQueueRow, sortBy: typeof staffSortFields[number], direction: "asc" | "desc") {
+  if (sortBy === "urgentWork") {
+    const priorityDifference = (a.itPriority === "URGENT" ? 0 : 1) - (b.itPriority === "URGENT" ? 0 : 1);
+    if (priorityDifference !== 0) return priorityDifference;
+    const ageDifference = a.updatedAt.getTime() - b.updatedAt.getTime();
+    return ageDifference || a.id - b.id;
+  }
   let comparison = 0;
   if (sortBy === "requestedPriority") comparison = priorityRank[a.requestedPriority] - priorityRank[b.requestedPriority];
   else if (sortBy === "itPriority") comparison = priorityRank[a.itPriority] - priorityRank[b.itPriority];
@@ -244,15 +289,22 @@ function compareStaffQueue(a: StaffQueueRow, b: StaffQueueRow, sortBy: typeof st
   return direction === "asc" ? comparison : -comparison;
 }
 
-const allowedStatusTransitions: Record<typeof statuses[number], readonly typeof statuses[number][]> = {
-  NEW: ["OPEN", "IN_PROGRESS", "CANCELLED"],
-  OPEN: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  IN_PROGRESS: ["WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  WAITING_FOR_REQUESTER: ["IN_PROGRESS", "RESOLVED", "CANCELLED"],
-  RESOLVED: ["CLOSED", "REOPENED"],
-  CLOSED: ["REOPENED"],
-  REOPENED: ["IN_PROGRESS", "WAITING_FOR_REQUESTER", "RESOLVED", "CANCELLED"],
-  CANCELLED: [],
+function latestResolvedAt(row: { statusEvents?: { changedAt: Date }[] }) {
+  return row.statusEvents?.[0]?.changedAt ?? null;
+}
+
+function compareResolvedAt(a: { id: number; statusEvents?: { changedAt: Date }[] }, b: { id: number; statusEvents?: { changedAt: Date }[] }) {
+  const aTime = latestResolvedAt(a)?.getTime() ?? null;
+  const bTime = latestResolvedAt(b)?.getTime() ?? null;
+  if (aTime === null && bTime !== null) return 1;
+  if (aTime !== null && bTime === null) return -1;
+  if (aTime !== null && bTime !== null && aTime !== bTime) return bTime - aTime;
+  return b.id - a.id;
+}
+
+const cacheResponse: (request: Request, response: Response, next: NextFunction) => void = (_request, response, next) => {
+  noStore(response);
+  next();
 };
 
 const staffTicketSelect = {
@@ -266,6 +318,7 @@ const staffTicketSelect = {
   requestedPriority: true,
   itPriority: true,
   status: true,
+  workflowVersion: true,
   ownerId: true,
   resolutionIndicatedAt: true,
   createdAt: true,
@@ -306,8 +359,13 @@ app.use(cors({
     callback(null, !origin || origin === configuredClientOrigin());
   },
   methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type", "Idempotency-Key"],
+  exposedHeaders: ["Idempotent-Replayed"],
 }));
+app.use(["/api/staff/actions", "/api/staff/tickets/:ticketId/actions", "/api/tickets/:ticketId/actions"], (_req, res, next) => {
+  noStore(res);
+  next();
+});
 app.use(express.json({ limit: "100kb" }));
 app.use((error: Error & { type?: string }, _req: Request, res: Response, next: NextFunction) => {
   if (error.type === "entity.parse.failed") {
@@ -667,34 +725,214 @@ app.get("/api/related-systems", ...completedAuthentication, async (_req: Request
   }
 });
 
-app.get("/api/tickets", ...requesterAuthentication, async (req: Request, res: Response) => {
+app.get("/api/requester/dashboard", cacheResponse, ...requesterAuthentication, async (req: Request, res: Response) => {
   try {
-    validateQuery(req.query as Record<string, unknown>, ["search", "categoryId", "requestedPriority", "status", "sortBy", "direction", "page", "pageSize"]);
+    validateQuery(req.query as Record<string, unknown>, []);
+    const requesterId = authenticatedUser(req).id;
+    const asOf = new Date();
+    const windowStart = dashboardWindowStart(asOf);
+    const prisma = getPrisma();
+    const data = await prisma.$transaction(async (transaction) => {
+      const [openTickets, waitingForRequester, recentlyUpdated, resolutionGroups] = await Promise.all([
+        transaction.ticket.count({ where: { requesterId, status: { in: openTicketStatuses } } }),
+        transaction.ticket.count({ where: { requesterId, status: "WAITING_FOR_REQUESTER" } }),
+        transaction.ticket.findMany({
+          where: { requesterId, updatedAt: { gte: windowStart } },
+          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+          take: 5,
+          select: { id: true, ticketNumber: true, summary: true, status: true, itPriority: true, updatedAt: true },
+        }),
+        transaction.ticketStatusEvent.groupBy({
+          by: ["ticketId"],
+          where: {
+            toStatus: "RESOLVED",
+            changedAt: { gte: windowStart },
+            ticket: { requesterId, status: { in: resolvedTicketStatuses } },
+          },
+          _max: { changedAt: true },
+          orderBy: [{ _max: { changedAt: "desc" } }, { ticketId: "desc" }],
+        }),
+      ]);
+      const resolvedTicketRows = resolutionGroups.length
+        ? await transaction.ticket.findMany({
+          where: {
+            id: { in: resolutionGroups.slice(0, 5).map((group) => group.ticketId) },
+            requesterId,
+            status: { in: resolvedTicketStatuses },
+          },
+          select: { id: true, ticketNumber: true, summary: true, status: true, itPriority: true, updatedAt: true },
+        })
+        : [];
+      const resolvedById = new Map(resolvedTicketRows.map((ticket) => [ticket.id, ticket]));
+      const recentlyResolvedTickets = resolutionGroups.slice(0, 5).flatMap((group) => {
+        const ticket = resolvedById.get(group.ticketId);
+        const resolvedAt = group._max?.changedAt;
+        return ticket && resolvedAt ? [{ ...ticket, resolvedAt, href: `/tickets/${ticket.id}` }] : [];
+      });
+      return { openTickets, waitingForRequester, recentlyUpdated, resolutionGroups, recentlyResolvedTickets };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    const windowStartQuery = encodeURIComponent(windowStart.toISOString());
+    res.json({
+      asOf: asOf.toISOString(),
+      windowStart: windowStart.toISOString(),
+      counts: {
+        openTickets: { count: data.openTickets, href: "/tickets?statusGroup=open" },
+        waitingForRequester: { count: data.waitingForRequester, href: "/tickets?status=WAITING_FOR_REQUESTER" },
+        recentlyResolved: {
+          count: data.resolutionGroups.length,
+          href: `/tickets?statusGroup=resolved&resolvedAfter=${windowStartQuery}&sortBy=resolvedAt&direction=desc`,
+        },
+      },
+      recentlyUpdated: data.recentlyUpdated.map((ticket) => ({ ...ticket, href: `/tickets/${ticket.id}` })),
+      recentlyResolvedTickets: data.recentlyResolvedTickets.map((ticket) => ({ ...ticket, resolvedAt: ticket.resolvedAt.toISOString() })),
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to load Requester dashboard." });
+  }
+});
+
+app.get("/api/staff/dashboard", cacheResponse, ...staffAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, []);
+    const user = authenticatedUser(req);
+    const asOf = new Date();
+    const windowStart = dashboardWindowStart(asOf);
+    const select = {
+      id: true,
+      ticketNumber: true,
+      summary: true,
+      status: true,
+      itPriority: true,
+      updatedAt: true,
+      requester: { select: { id: true, name: true } },
+      owner: { select: { id: true, name: true, role: true } },
+    } as const;
+    const prisma = getPrisma();
+    const data = await prisma.$transaction(async (transaction) => {
+      const [unassignedOpen, ownedByMeOpen, statusGroups, priorityGroups, recentlyUpdated, urgentRows, highRows] = await Promise.all([
+        transaction.ticket.count({ where: { status: { in: openTicketStatuses }, ownerId: null } }),
+        transaction.ticket.count({ where: { status: { in: openTicketStatuses }, ownerId: user.id } }),
+        transaction.ticket.groupBy({ by: ["status"], _count: { _all: true } }),
+        transaction.ticket.groupBy({ by: ["itPriority"], where: { status: { in: openTicketStatuses } }, _count: { _all: true } }),
+        transaction.ticket.findMany({
+          where: { status: { in: openTicketStatuses }, updatedAt: { gte: windowStart } },
+          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+          take: 10,
+          select,
+        }),
+        transaction.ticket.findMany({
+          where: { status: { in: openTicketStatuses }, itPriority: "URGENT" },
+          orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+          take: 5,
+          select,
+        }),
+        transaction.ticket.findMany({
+          where: { status: { in: openTicketStatuses }, itPriority: "HIGH" },
+          orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+          take: 5,
+          select,
+        }),
+      ]);
+      const statusCounts = new Map(statusGroups.map((group) => [group.status, typeof group._count === "object" ? group._count?._all ?? 0 : 0]));
+      const priorityCounts = new Map(priorityGroups.map((group) => [group.itPriority, typeof group._count === "object" ? group._count?._all ?? 0 : 0]));
+      const urgentTickets = [...urgentRows, ...highRows].sort((a, b) => {
+        const priorityDifference = (a.itPriority === "URGENT" ? 0 : 1) - (b.itPriority === "URGENT" ? 0 : 1);
+        return priorityDifference || a.updatedAt.getTime() - b.updatedAt.getTime() || a.id - b.id;
+      }).slice(0, 5);
+      return { unassignedOpen, ownedByMeOpen, statusCounts, priorityCounts, recentlyUpdated, urgentTickets };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    const asTicket = (ticket: typeof data.recentlyUpdated[number]) => ({ ...ticket, href: `/staff/tickets/${ticket.id}` });
+    res.json({
+      asOf: asOf.toISOString(),
+      windowStart: windowStart.toISOString(),
+      counts: {
+        unassignedOpen: { count: data.unassignedOpen, href: "/staff/tickets?statusGroup=open&ownership=unassigned" },
+        ownedByMeOpen: { count: data.ownedByMeOpen, href: "/staff/tickets?statusGroup=open&ownership=mine" },
+        byStatus: statuses.map((status) => ({ status, count: data.statusCounts.get(status) ?? 0, href: statusDashboardHref(status) })),
+        byITPriority: priorities.map((itPriority) => ({
+          itPriority,
+          count: data.priorityCounts.get(itPriority) ?? 0,
+          href: `/staff/tickets?statusGroup=open&itPriority=${itPriority}`,
+        })),
+      },
+      recentlyUpdated: data.recentlyUpdated.map(asTicket),
+      urgentTickets: data.urgentTickets.map(asTicket),
+    });
+  } catch (error) {
+    if (error instanceof RequestError) {
+      validationResponse(res, error);
+      return;
+    }
+    res.status(500).json({ error: "Unable to load Staff dashboard." });
+  }
+});
+
+app.get("/api/tickets", cacheResponse, ...requesterAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, ["search", "categoryId", "requestedPriority", "status", "statusGroup", "updatedAfter", "resolvedAfter", "sortBy", "direction", "page", "pageSize"]);
     const requesterId = authenticatedUser(req).id;
     const categoryId = req.query.categoryId === undefined ? undefined : queryInteger(req.query.categoryId, "categoryId");
     const requestedPriority = req.query.requestedPriority === undefined ? undefined : queryChoice(req.query.requestedPriority, "requestedPriority", priorities, "MEDIUM");
     const status = req.query.status === undefined ? undefined : queryChoice(req.query.status, "status", statuses, "NEW");
+    const statusGroup = optionalQueryChoice(req.query.statusGroup, "statusGroup", ["open", "resolved"] as const);
+    const updatedAfter = optionalQueryTimestamp(req.query.updatedAfter, "updatedAfter");
+    const resolvedAfter = optionalQueryTimestamp(req.query.resolvedAfter, "resolvedAfter");
+    if (statusGroup && status) throw new RequestError("statusGroup cannot be combined with status.");
+    if (resolvedAfter && statusGroup !== "resolved") throw new RequestError("resolvedAfter requires statusGroup=resolved.");
     const sortBy = queryChoice(req.query.sortBy, "sortBy", sortFields, "updatedAt");
     const direction = queryChoice(req.query.direction, "direction", ["asc", "desc"] as const, "desc");
+    if (sortBy === "resolvedAt" && statusGroup !== "resolved") throw new RequestError("sortBy=resolvedAt requires statusGroup=resolved.");
     const page = queryInteger(req.query.page, "page", 1);
     const pageSize = queryInteger(req.query.pageSize, "pageSize", 10);
     if (![5, 10, 20].includes(pageSize)) throw new RequestError("pageSize must be 5, 10, or 20.");
     const search = req.query.search === undefined ? undefined : typeof req.query.search === "string" ? req.query.search.trim() : (() => { throw new RequestError("search is invalid."); })();
     if (search !== undefined && search.length > 200) throw new RequestError("search must be no longer than 200 characters.");
-    const where: Prisma.TicketWhereInput = { requesterId, categoryId, requestedPriority, status };
+    const where: Prisma.TicketWhereInput = {
+      requesterId,
+      categoryId,
+      requestedPriority,
+      status: statusGroup === "open" ? { in: openTicketStatuses } : statusGroup === "resolved" ? { in: resolvedTicketStatuses } : status,
+      ...(updatedAfter ? { updatedAt: { gte: updatedAfter } } : {}),
+      ...(resolvedAfter ? { statusEvents: { some: { toStatus: "RESOLVED", changedAt: { gte: resolvedAfter } } } } : {}),
+    };
     if (search) where.OR = [{ ticketNumber: { contains: search, mode: "insensitive" } }, { summary: { contains: search, mode: "insensitive" } }];
     const prisma = getPrisma();
-    const select = { id: true, ticketNumber: true, summary: true, requestedPriority: true, itPriority: true, status: true, createdAt: true, updatedAt: true, category: { select: { id: true, name: true } } } as const;
+    const select = {
+      id: true,
+      ticketNumber: true,
+      summary: true,
+      requestedPriority: true,
+      itPriority: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      category: { select: { id: true, name: true } },
+      statusEvents: { where: { toStatus: "RESOLVED" }, orderBy: [{ changedAt: "desc" }, { id: "desc" }], take: 1, select: { changedAt: true } },
+    } satisfies Prisma.TicketSelect;
     const skip = (page - 1) * pageSize;
     const itemsPromise = sortBy === "requestedPriority"
       ? prisma.ticket.findMany({ where, orderBy: { id: direction }, select }).then((all) => all.sort((a, b) => comparePriority(a, b, direction)).slice(skip, skip + pageSize))
+      : sortBy === "resolvedAt"
+        ? prisma.ticket.findMany({ where, orderBy: { id: "desc" }, select }).then((all) => all.sort(compareResolvedAt).slice(skip, skip + pageSize))
       : prisma.ticket.findMany({ where, orderBy: [{ [sortBy]: direction }, { id: direction }], skip, take: pageSize, select });
     const [items, totalItems] = await Promise.all([
       itemsPromise,
       prisma.ticket.count({ where }),
     ]);
-    noStore(res);
-    res.json({ items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) });
+    res.json({
+      items: items.map(({ statusEvents, ...ticket }) => ({
+        ...ticket,
+        ...(statusGroup === "resolved" ? { resolvedAt: statusEvents[0]?.changedAt?.toISOString() ?? null } : {}),
+      })),
+      page,
+      pageSize,
+      totalItems,
+      totalPages: Math.ceil(totalItems / pageSize),
+    });
   } catch (error) {
     if (error instanceof RequestError) {
       res.status(400).json({ error: error.message });
@@ -704,17 +942,25 @@ app.get("/api/tickets", ...requesterAuthentication, async (req: Request, res: Re
   }
 });
 
-app.get("/api/staff/tickets", ...staffAuthentication, async (req: Request, res: Response) => {
+app.get("/api/staff/tickets", cacheResponse, ...staffAuthentication, async (req: Request, res: Response) => {
   try {
-    validateQuery(req.query as Record<string, unknown>, ["search", "categoryId", "requestedPriority", "itPriority", "status", "ownership", "sortBy", "direction", "page", "pageSize"]);
+    validateQuery(req.query as Record<string, unknown>, ["search", "categoryId", "requestedPriority", "itPriority", "status", "statusGroup", "updatedAfter", "itPriorityGroup", "ownership", "sortBy", "direction", "page", "pageSize"]);
     const user = authenticatedUser(req);
     const categoryId = req.query.categoryId === undefined ? undefined : queryInteger(req.query.categoryId, "categoryId");
     const requestedPriority = optionalQueryChoice(req.query.requestedPriority, "requestedPriority", priorities);
     const itPriority = optionalQueryChoice(req.query.itPriority, "itPriority", priorities);
     const status = optionalQueryChoice(req.query.status, "status", statuses);
+    const statusGroup = optionalQueryChoice(req.query.statusGroup, "statusGroup", ["open"] as const);
+    const itPriorityGroup = optionalQueryChoice(req.query.itPriorityGroup, "itPriorityGroup", ["high_or_urgent"] as const);
+    const updatedAfter = optionalQueryTimestamp(req.query.updatedAfter, "updatedAfter");
+    if (statusGroup && status) throw new RequestError("statusGroup cannot be combined with status.");
+    if (itPriorityGroup && itPriority) throw new RequestError("itPriorityGroup cannot be combined with itPriority.");
     const ownership = queryChoice(req.query.ownership, "ownership", ownershipFilters, "all");
     const sortBy = queryChoice(req.query.sortBy, "sortBy", staffSortFields, "updatedAt");
     const direction = queryChoice(req.query.direction, "direction", ["asc", "desc"] as const, "desc");
+    if (sortBy === "urgentWork" && (statusGroup !== "open" || itPriorityGroup !== "high_or_urgent")) {
+      throw new RequestError("sortBy=urgentWork requires statusGroup=open and itPriorityGroup=high_or_urgent.");
+    }
     const page = queryInteger(req.query.page, "page", 1);
     const pageSize = queryInteger(req.query.pageSize, "pageSize", 10);
     if (![10, 20, 50].includes(pageSize)) throw new RequestError("pageSize must be 10, 20, or 50.");
@@ -731,7 +977,9 @@ app.get("/api/staff/tickets", ...staffAuthentication, async (req: Request, res: 
       categoryId,
       requestedPriority,
       itPriority,
-      status,
+      status: statusGroup === "open" ? { in: openTicketStatuses } : status,
+      ...(itPriorityGroup === "high_or_urgent" ? { itPriority: { in: ["HIGH", "URGENT"] as const } } : {}),
+      ...(updatedAfter ? { updatedAt: { gte: updatedAfter } } : {}),
       ...(ownership === "mine" ? { ownerId: user.id } : ownership === "assigned" ? { ownerId: { not: null } } : ownership === "unassigned" ? { ownerId: null } : {}),
     };
     if (search) {
@@ -766,7 +1014,6 @@ app.get("/api/staff/tickets", ...staffAuthentication, async (req: Request, res: 
       return [items, total] as const;
     });
     const items = (allItems as StaffQueueRow[]).sort((a, b) => compareStaffQueue(a, b, sortBy, direction)).slice(skip, skip + pageSize);
-    noStore(res);
     res.json({ items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize) });
   } catch (error) {
     if (error instanceof RequestError) {
@@ -916,26 +1163,61 @@ app.patch("/api/staff/tickets/:ticketId/it-priority", ...staffAuthentication, as
   }
 });
 
-app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (req: Request, res: Response) => {
+app.patch("/api/staff/tickets/:ticketId/status", (_req, res, next) => { noStore(res); next(); }, ...staffAuthentication, async (req: Request, res: Response) => {
   try {
-    const body = validateObject(req.body ?? {}, ["status"]);
+    const body = validateObject(req.body ?? {}, ["status", "expectedWorkflowVersion"]);
     validateQuery(req.query as Record<string, unknown>, []);
     const ticketId = queryInteger(req.params.ticketId, "ticketId");
     if (!Object.prototype.hasOwnProperty.call(body, "status")) throw new RequestError("status is required.");
     const status = requiredStatus(body.status);
+    const expectedWorkflowVersion = body.expectedWorkflowVersion === undefined
+      ? undefined
+      : requiredId(body.expectedWorkflowVersion, "expectedWorkflowVersion");
     if (!requireAllowedOrigin(req, res)) return;
+    const user = authenticatedUser(req);
     const detail = await getPrisma().$transaction(async (transaction) => {
       await transaction.$executeRaw`SELECT pg_advisory_xact_lock(${ticketId})`;
-      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, status: true } });
+      const ticket = await transaction.ticket.findFirst({ where: { id: ticketId }, select: { id: true, status: true, workflowVersion: true } });
       if (!ticket) throw new TicketNotFoundError();
-      if (!allowedStatusTransitions[ticket.status as typeof statuses[number]].includes(status)) throw new InvalidStatusTransitionError();
-      const data = status === "REOPENED"
-        ? { status, resolutionIndicatedAt: null, updatedAt: new Date() }
-        : { status, updatedAt: new Date() };
-      await transaction.ticket.update({ where: { id: ticketId }, data });
+      if (expectedWorkflowVersion === undefined || ticket.workflowVersion !== expectedWorkflowVersion) {
+        throw new TicketWorkflowError("STALE_TICKET_WORKFLOW", "The Ticket has changed. Refresh and retry.");
+      }
+      if (!isTicketStatusTransitionAllowed(ticket.status as typeof statuses[number], status)) throw new InvalidStatusTransitionError();
+
+      if (status === "RESOLVED" || status === "CANCELLED") {
+        const [completedActions, activeActions, followUpActions] = await Promise.all([
+          transaction.actionTaken.count({ where: { ticketId, status: "COMPLETED" } }),
+          transaction.actionTaken.count({ where: { ticketId, status: { in: ["PLANNED", "IN_PROGRESS"] } } }),
+          transaction.actionTaken.count({ where: { ticketId, followUpRequired: true } }),
+        ]);
+        if (status === "RESOLVED" && (completedActions === 0 || activeActions > 0 || followUpActions > 0)) {
+          const requirements = [
+            completedActions === 0 ? "record at least one completed Action" : "",
+            activeActions > 0 ? `complete or cancel ${activeActions} active Action${activeActions === 1 ? "" : "s"}` : "",
+            followUpActions > 0 ? `clear ${followUpActions} required follow-up${followUpActions === 1 ? "" : "s"}` : "",
+          ].filter(Boolean);
+          throw new TicketWorkflowError("RESOLUTION_BLOCKED", `Before resolving, ${requirements.join(" and ")}.`, { completedActions, activeActions, followUpActions });
+        }
+        if (status === "CANCELLED" && activeActions > 0) {
+          throw new TicketWorkflowError("CANCELLATION_BLOCKED", `Complete or cancel ${activeActions} active Action${activeActions === 1 ? "" : "s"} before cancelling this Ticket.`, { activeActions });
+        }
+      }
+
+      const changedAt = new Date();
+      await transaction.ticket.update({
+        where: { id: ticketId },
+        data: {
+          status,
+          workflowVersion: { increment: 1 },
+          updatedAt: changedAt,
+          ...(status === "REOPENED" ? { resolutionIndicatedAt: null } : {}),
+        },
+      });
+      await transaction.ticketStatusEvent.create({
+        data: { ticketId, fromStatus: ticket.status, toStatus: status, actorId: user.id, changedAt },
+      });
       return loadStaffTicketDetail(transaction, ticketId);
     });
-    noStore(res);
     res.json(detail);
   } catch (error) {
     if (error instanceof TicketNotFoundError) {
@@ -946,11 +1228,40 @@ app.patch("/api/staff/tickets/:ticketId/status", ...staffAuthentication, async (
       conflictWithCode(res, "That status transition is not permitted.", "INVALID_STATUS_TRANSITION");
       return;
     }
+    if (error instanceof TicketWorkflowError) {
+      res.status(409).json({ error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) });
+      return;
+    }
     if (error instanceof RequestError) {
       res.status(400).json({ error: error.message });
       return;
     }
     res.status(500).json({ error: "Unable to update ticket status." });
+  }
+});
+
+app.get("/api/tickets/:ticketId/status-events", (_req, res, next) => { noStore(res); next(); }, ...completedAuthentication, async (req: Request, res: Response) => {
+  try {
+    validateQuery(req.query as Record<string, unknown>, []);
+    if (req.body !== undefined) validateObject(req.body, []);
+    const ticketId = queryInteger(req.params.ticketId, "ticketId");
+    const ticket = await findReadableTicket(getPrisma(), ticketId, req);
+    if (!ticket) {
+      notFound(res, "Ticket not found.");
+      return;
+    }
+    const events = await getPrisma().ticketStatusEvent.findMany({
+      where: { ticketId },
+      orderBy: [{ changedAt: "asc" }, { id: "asc" }],
+      select: { id: true, ticketId: true, fromStatus: true, toStatus: true, changedAt: true, actor: { select: { id: true, name: true, role: true } } },
+    });
+    res.json(events.map((event) => ({ ...event, changedAt: event.changedAt.toISOString() })));
+  } catch (error) {
+    if (error instanceof RequestError) {
+      res.status(400).json({ error: error.message, code: "VALIDATION_ERROR" });
+      return;
+    }
+    res.status(500).json({ error: "Unable to load Ticket status history." });
   }
 });
 
@@ -1026,7 +1337,7 @@ app.get("/api/tickets/:ticketId", ...requesterAuthentication, async (req: Reques
     const prisma = getPrisma();
     const ticket = await prisma.ticket.findFirst({
       where: { id: ticketId, requesterId },
-      select: { id: true, ticketNumber: true, requesterId: true, categoryId: true, relatedSystemId: true, summary: true, description: true, requestedPriority: true, itPriority: true, status: true, ownerId: true, resolutionIndicatedAt: true, createdAt: true, updatedAt: true, requester: { select: personSelect }, owner: { select: { id: true, name: true, role: true } }, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, attachments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: attachmentSelect } },
+      select: { id: true, ticketNumber: true, requesterId: true, categoryId: true, relatedSystemId: true, summary: true, description: true, requestedPriority: true, itPriority: true, status: true, workflowVersion: true, ownerId: true, resolutionIndicatedAt: true, createdAt: true, updatedAt: true, requester: { select: personSelect }, owner: { select: { id: true, name: true, role: true } }, category: { select: { id: true, name: true } }, relatedSystem: { select: { id: true, name: true } }, attachments: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], select: attachmentSelect } },
     });
     if (!ticket) {
       notFound(res, "Ticket not found.");
@@ -1319,6 +1630,8 @@ app.post("/api/tickets", ...requesterAuthentication, async (req: Request, res: R
     res.status(500).json({ error: "Unable to create ticket." });
   }
 });
+
+registerActionRoutes(app, completedAuthentication, staffAuthentication);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith("/api/")) {

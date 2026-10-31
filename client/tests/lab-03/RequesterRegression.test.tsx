@@ -8,7 +8,7 @@ import * as api from "../../src/api.js";
 const referenceData = { categories: [{ id: 2, name: "Hardware" }], relatedSystems: [{ id: 3, name: "VPN" }] };
 const ticket = {
   id: 1, requesterId: 1, requester: { id: 1, name: "Nicha Somchai" }, categoryId: 2, relatedSystemId: 3,
-  ownerId: null, owner: null, itPriority: "MEDIUM" as const, resolutionIndicatedAt: null,
+  ownerId: null, owner: null, itPriority: "MEDIUM" as const, workflowVersion: 1, resolutionIndicatedAt: null,
   ticketNumber: "TKT-2026-A1B2C3D4", summary: "VPN cannot connect", description: "The VPN fails after login.",
   requestedPriority: "MEDIUM" as const, status: "IN_PROGRESS" as const, category: { id: 2, name: "Hardware" },
   relatedSystem: { id: 3, name: "VPN" }, createdAt: "2026-08-25T00:00:00.000Z", updatedAt: "2026-08-25T00:00:00.000Z", attachments: [],
