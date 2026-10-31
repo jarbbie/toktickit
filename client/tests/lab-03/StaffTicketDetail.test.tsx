@@ -87,7 +87,7 @@ describe("Staff Ticket Detail", () => {
 
     await user.selectOptions(screen.getByLabelText("Next status"), "IN_PROGRESS");
     await user.click(screen.getByRole("button", { name: "Update Status" }));
-    expect(updateStatus).toHaveBeenCalledWith(4, "IN_PROGRESS");
+    expect(updateStatus).toHaveBeenCalledWith(4, "IN_PROGRESS", ticket.workflowVersion);
 
     await user.selectOptions(screen.getByLabelText("Next status"), "RESOLVED");
     expect(await screen.findByRole("dialog")).toHaveTextContent("Resolved");
