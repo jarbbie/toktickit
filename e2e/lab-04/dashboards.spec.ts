@@ -61,7 +61,8 @@ test("role dashboards have keyboard-accessible drill-downs and responsive layout
   await expectDashboardLayout(page, "staff");
   await captureLab4AllViewports(page, "staff-dashboard", "/dashboard", "staff-dashboard");
   expect(browserErrors).toEqual([]);
-  // A rerun may need to retry the first-login seed password after an earlier
-  // run already changed it; that expected fallback receives 401 from login.
+  // A prior scenario in this E2E run may have changed the shared seed
+  // account's password, so signIn can receive 401 before retrying the
+  // account's documented changed password.
   expect(unauthorizedPaths.every((pathname) => pathname === "/api/auth/me" || pathname === "/api/auth/login")).toBe(true);
 });
