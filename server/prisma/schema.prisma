@@ -158,6 +158,7 @@ model ActionTaken {
   events               ActionEvent[]
 
   @@index([ticketId, actionAt, id])
+  @@index([performedById, actionAt, id])
   @@index([assigneeId, status])
   @@index([ticketId, status])
 }

@@ -51,6 +51,9 @@ test("role dashboards have keyboard-accessible drill-downs and responsive layout
   await expect(page.getByRole("link", { name: "Ticket Queue" })).toBeVisible();
   await expect(page.getByRole("link", { name: "My Tickets" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Tickets by Status" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My Actions Taken" })).toBeVisible();
+  await expect(page.locator(".dashboard-my-actions .dashboard-action-count")).toHaveText(/[1-9]\d*/);
+  await expect(page.locator(".dashboard-my-actions .dashboard-action-link").first()).toBeVisible();
   await expect(page.locator("main")).not.toContainText(/\b(?:TODO|TBD|coming soon|placeholder)\b/i);
 
   await page.getByRole("link", { name: /Unassigned Open Tickets/ }).click();

@@ -1,6 +1,16 @@
 # Lab 4 Test-Driven Development and Traceability Plan
 
-**Status:** Issues #67–#74 are merged to `lab4-staging`. Issue #75 covers promotion to `main`; REL-01 final-main verification and the nine-part PDF remain pending until after that merge. PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose database name ends in `_test`.
+**Merged baseline:** PR #85 was approved and merged to `main` at
+`ae4dfd3cf90024a676bceafc426b019d1265124d` on 2026-10-31. Its final-main
+verification is recorded in the PR and summarized below.
+
+**Part 5 rubric addendum:** the Staff/Admin dashboard now includes a
+current-user Actions Taken count and recent list. The implementation,
+contract addendum, and regression checks below are verified in the current
+working copy on 2026-11-01; this addendum still needs peer review and merge
+before it can be described as part of `main`.
+PostgreSQL tests require a disposable `TEST_DATABASE_URL` whose database name
+ends in `_test`.
 
 TDD loop: add a focused failing test → record the red result → implement the
 smallest approved change → run focused and inherited regressions → record the
@@ -29,11 +39,13 @@ and this matrix before implementation continues.
 | API-09 | API/regression | AC-11 | Requester resolution indication remains advisory, first timestamp stable, forbidden statuses reject; reopening clears signal without deleting history. | server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-03/requester-regression.api.test.ts; e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
 | API-10 | API/dashboard | AC-08 | Requester counts/lists match fixture queries and Bangkok date boundaries; foreign Requester data never appears; zero metrics and drill-down filters/sorts (`statusGroup`, `updatedAfter`, `resolvedAfter`, `resolvedAt`) are exact, including legacy Tickets without status events. | server/tests/lab-04/requester-dashboard.api.test.ts | Passed locally; 2026-10-30 |
 | API-11 | API/dashboard | AC-09 | Staff/Admin counts and lists match real DB queries, correct status/priority ordering, empty states, safe Requester `{id,name}` summaries without email, and Queue filters/sorts (`statusGroup`, `updatedAfter`, `itPriorityGroup`, `urgentWork`). | server/tests/lab-04/staff-dashboard.api.test.ts | Passed locally; 2026-10-30 |
+| API-15 | API/dashboard | AC-19 | Staff/Admin Actions Taken count matches a direct database count for the authenticated `performedById`; recent five are performer-scoped, exclude Actions merely assigned to the user, sort actionAt/id descending, and include safe Ticket drill-down DTOs. | server/tests/lab-04/staff-dashboard.api.test.ts | Passed; 2026-11-01 |
 | API-12 | API/safe failure | AC-15, AC-16 | Missing Ticket/Action, forbidden role, malformed input, stale versions, and DB failure produce safe status/error shape with no leaked internals. | server/tests/lab-04/actions-taken.api.test.ts; server/tests/lab-04/ticket-workflow.api.test.ts; server/tests/lab-04/requester-dashboard.api.test.ts; server/tests/lab-04/staff-dashboard.api.test.ts | Action/Ticket safe failures passed locally; dashboards return generic errors without internals; 2026-10-30 |
 | API-13 | API/workflow invariant | AC-11, AC-16 | Parameterize Action create/edit/assignment/status requests over RESOLVED, CLOSED, and CANCELLED parent Tickets; each returns 409 `ACTION_TICKET_NOT_MUTABLE` with no Action, ActionEvent, version, timestamp, or workflowVersion change. Use a directly inserted PLANNED Action fixture where needed to exercise the parent guard before Action-state validation. Legal reopen restores eligibility; CANCELLED remains blocked. An exact same-key/actor/Ticket/payload create replay after a parent status change returns the original result without writing. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-30 |
 | API-14 | API/read contract | AC-01, AC-12 | GET Actions orders by actionAt ascending and Action ID ascending using controlled IDs/timestamps, including equal timestamps; support records include per-Action events ordered by createdAt/event ID, including equal-time ties, while Requester records have no events or snapshots. | server/tests/lab-04/actions-taken.api.test.ts | Passed locally; 2026-10-29 |
 | PERF-01 | Performance smoke | AC-09 | With 1,000 Tickets and 5,000 Actions, dashboard responses remain summary-only (≤10 rows/list) and p95 is below 500 ms over 20 warmed reads per role; record environment and counts. | server/tests/lab-04/dashboard-performance-smoke.test.ts | Passed; Node 22.18.0; Requester p95 11.7 ms; Staff p95 18.4 ms; 2026-10-30 |
 | UI-01 | UI component | AC-09, AC-15 | Staff/Admin dashboard cards, distributions, recent/urgent links with exact Queue query filters/sorts, active filter labels, loading/empty/forbidden/failure states. | client/tests/lab-04/StaffDashboard.test.tsx; client/tests/lab-04/StaffQueue.test.tsx | Passed locally; 2026-10-30 |
+| UI-08 | UI component | AC-19, AC-15 | My Actions Taken count and recent Action rows link to the correct parent Ticket; completed/in-progress status labels and explicit zero/empty state render accessibly. | client/tests/lab-04/StaffDashboard.test.tsx | Passed; 2026-11-01 |
 | UI-02 | UI component | AC-08, AC-15 | Requester-owned metrics/recent lists, zero states, exact My Tickets query filters/sorts and active labels, accessible links, forbidden/failure states, no requester ID from the URL. | client/tests/lab-04/RequesterDashboard.test.tsx; client/tests/lab-04/MyTickets.test.tsx | Passed locally; 2026-10-30 |
 | UI-03 | UI component | AC-02, AC-06, AC-15 | Action create/read layout, auto performer, field validation, conditional note, Attachment Notes without upload control, retained draft on failure. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-04 | UI/authz | AC-03, AC-07 | Assignee options/rejection, Requester read-only view, hidden controls plus API denial feedback. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
@@ -41,13 +53,13 @@ and this matrix before implementation continues.
 | UI-06 | UI/workflow | AC-05, AC-11 | Action Start/Complete/Cancel controls, result required, terminal state, confirmation/cancel behavior, parent refresh. | client/tests/lab-04/ActionsTaken.test.tsx | Passed locally; 2026-10-30 |
 | UI-07 | UI/workflow | AC-10, AC-11, AC-12 | Ticket permitted transitions, gate feedback/focus, ordered read-only status history, requester role visibility. | client/tests/lab-04/TicketWorkflow.test.tsx | Passed locally; 2026-10-30 |
 | STYLE-01 | Style/accessibility | AC-15, AC-17 | Zen Green dashboard cards, semantic metric links, text status/priority badges, loading and alert roles, route heading focus. | client/tests/lab-04/ZenGreen.test.tsx; e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
-| RESP-01 | Responsive | AC-17 | Dashboard cards/lists at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no page overflow and correct grid columns. | e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
+| RESP-01 | Responsive | AC-17, AC-19 | Dashboard cards/lists and My Actions Taken at 1440×1000, 820×1180, 390×844 and 767/768/991/992; no page overflow and correct grid columns. | e2e/lab-04/dashboards.spec.ts | Passed; 2026-11-01; screenshots refreshed |
 | E2E-01 | E2E/security | AC-02–AC-07, AC-15, AC-16 | Requester read-only access; Staff creates, assigns, edits, starts, completes, and cancels Actions; inactive-assignee rejection preserves the draft; UTC browser submits Asia/Bangkok time with +07:00; responsive screenshots have no horizontal overflow. | e2e/lab-04/actions-taken-flow.spec.ts | Passed locally; 2026-10-30 |
 | E2E-02 | E2E/workflow | AC-10–AC-12, AC-16 | Full Ticket status path, resolution/cancellation gates, append-only history/order, requester advisory signal, role visibility, and responsive screenshots. | e2e/lab-04/ticket-resolution.spec.ts | Passed locally; 2026-10-30 |
-| E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17 | Requester/Staff role navigation, keyboard metric drill-downs, operational links, responsive dashboard screenshots and layout checks. Component tests cover zero and safe-error states; dashboard API tests cover ownership isolation. | e2e/lab-04/dashboards.spec.ts | Passed locally; 2026-10-30 |
+| E2E-03 | E2E/dashboard | AC-08, AC-09, AC-17, AC-19 | Requester/Staff role navigation, keyboard metric drill-downs, operational links, current-user Actions visibility, responsive dashboard screenshots and layout checks. Component tests cover zero and safe-error states; dashboard API tests cover performer isolation. | e2e/lab-04/dashboards.spec.ts | Passed; 2026-11-01 |
 | REG-01 | Regression | AC-18 | Existing authenticated and Lab 1/2/3 server/client suites keep passing for login, ownership, Ticket, attachments, comments, notes, user management. | Existing server/tests/lab-01..lab-03 and client/tests/lab-01..lab-03 paths | Passed in full server/client/E2E runs; 2026-10-30 |
-| VIS-01 | Visual/manual | AC-15, AC-17 | Inspect required screenshots for readable text, focus, breakpoints, no overlap/clipping, no unfinished controls; record each viewport/result. | artifacts/lab-04/screenshots/{staff-dashboard,requester-dashboard,actions-taken,ticket-workflow}/ | Passed; all 19 dashboard, Actions, and workflow captures inspected; no clipping or overlap; 2026-10-30 |
-| REL-01 | Release verification | AC-18 | Re-run full tests/builds/migration/seed/E2E from exact final main commit and link output in nine-part PDF. | docs/lab-04/tests.md and final-main CI/terminal evidence | Pending post-merge; not claimed in this PR |
+| VIS-01 | Visual/manual | AC-15, AC-17 | Inspect required screenshots for readable text, focus, breakpoints, no overlap/clipping, no unfinished controls; record each viewport/result. | artifacts/lab-04/screenshots/{staff-dashboard,requester-dashboard,actions-taken,ticket-workflow}/ | Passed; all 19 dashboard, Actions, and workflow captures inspected; refreshed Staff screenshots show My Actions Taken; 2026-11-01 |
+| REL-01 | Release verification | AC-18, AC-19 | Verify final-main baseline, then rerun full checks for the Part 5 rubric addendum and record its review/merge state accurately. | docs/lab-04/tests.md and final-main PR evidence | Main baseline passed in PR #85; Part 5 addendum checks passed in this working copy, pending peer review/merge |
 
 ## 2. Acceptance Criterion Traceability
 
@@ -71,13 +83,14 @@ and this matrix before implementation continues.
 | AC-16 | API-02, API-03, API-08, API-12, API-13, UI-05, E2E-01, E2E-02 |
 | AC-17 | STYLE-01, RESP-01, VIS-01, E2E-03 |
 | AC-18 | REG-01, REL-01 |
+| AC-19 | API-15, UI-08, RESP-01, E2E-03 |
 
 ## 3. Responsive and Accessibility Checklist
 
 | Check | Evidence | Final status |
 |---|---|---|
 | Requester dashboard | Desktop/tablet/mobile; own data, empty/zero/recent/resolved states | Passed at 1440×1000, 820×1180, and 390×844; breakpoint edges 767/768/991/992 passed; screenshots captured and visually inspected 2026-10-30 |
-| Staff/Admin dashboard | Desktop/tablet/mobile; counts, drill-down, urgent list, safe failure | Passed for Staff at 1440×1000, 820×1180, 390×844 and 767/768/991/992; Admin dashboard role tested; screenshots captured and visually inspected 2026-10-30 |
+| Staff/Admin dashboard | Desktop/tablet/mobile; counts, My Actions Taken, drill-down, urgent list, safe failure | My Actions count and latest five visible at 1440×1000, 820×1180, and 390×844; responsive E2E passed; 2026-11-01 |
 | Actions Taken | List/create/edit/assignment/transition/complete/cancel, validation/conflict, read-only Requester | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
 | Ticket workflow/history | Confirmations, resolution/cancellation gates, ordered history, requester advisory signal | Passed at 1440×1000, 820×1180, and 390×844; Playwright confirmed no horizontal overflow on 2026-10-30 |
 | Keyboard and semantics | Tab order, visible focus, labels/errors, dialog focus trap/Escape/restore, status/alert announcements | Dashboard heading receives route focus; metric links work by keyboard; loading, forbidden, and failure states use status/alert roles; dashboard keyboard checks passed 2026-10-30 |
@@ -100,13 +113,43 @@ git diff --check
 ~~~
 
 The client Playwright config discovers the required root `e2e/lab-04/` suites
-and retains `client/e2e/lab-02/` and `client/e2e/lab-03/`. Release verification
-from `main` and the nine-part PDF remain post-merge work; report them only after
-they have run on the merged commit.
+and retains `client/e2e/lab-02/` and `client/e2e/lab-03/`. PR #85 is the merged
+main baseline. The current-user Actions dashboard follow-up is a working-copy
+addendum; its checks do not claim that the feature has already merged to main.
 
 ## 5. Results Log
 
-- Issue #74 integration verification on 2026-10-30, on the hardening branch:
+- Part 5 rubric addendum verification on 2026-11-01, in the current working
+  copy after PR #85 merged:
+  - `npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
+    **34 files passed; 149 tests passed; 0 failed; 0 skipped**. This includes
+    direct Prisma count comparisons, performer-versus-assignee isolation,
+    recent-five ordering, Admin scope, and empty-state coverage.
+  - Performance smoke on 1,000 Tickets and 5,000 Actions: Requester p95
+    **10.1 ms**; Staff/Admin p95 **25.7 ms** (20 warmed reads per role).
+  - `npm test --prefix client -- --reporter=dot`: **20 files passed; 69
+    tests passed; 0 failed**.
+  - `npm run build --prefix server`, `npm run build --prefix client`,
+    and `git diff --check`: passed.
+  - `npm run test:e2e:isolated --prefix server`: **12 tests passed; 0
+    failed; 0 skipped** across Labs 2–4. The Staff dashboard scenario asserts
+    the non-zero current-user count and Action link; responsive checks include
+    1440, 820, 390, 767, 768, 991, and 992 pixels.
+  - The refreshed dashboard captures are under
+    `artifacts/lab-04/screenshots/staff-dashboard/`. The 1440×1000, 820×1180,
+    and 390×844 screenshots were visually inspected; each shows the current
+    user's count and up to five recent Actions. Playwright reported no page
+    horizontal overflow.
+  - This addendum is verified locally and still requires peer review and merge
+    before it can be claimed as part of `main`.
+
+- PR #85 final-main baseline verification on 2026-10-31, from merge commit
+  `ae4dfd3cf90024a676bceafc426b019d1265124d`:
+  - Server: **34 files, 149 tests passed**; Client: **20 files, 69 tests
+    passed**; Server and Client builds passed; isolated Playwright: **12 tests
+    passed**. See [PR #85](https://github.com/jarbbie/toktickit/pull/85).
+
+- Historical Issue #74 integration verification on 2026-10-30, on the hardening branch:
   - `npm run test:isolated --prefix server -- --maxWorkers=1 --minWorkers=1`:
     **34 files passed; 149 tests passed; 0 failed; 0 skipped**. This includes
     the inherited Labs 1–3 server regressions, populated migration and recovery,
@@ -139,8 +182,8 @@ they have run on the merged commit.
     under root `e2e/lab-04/`.
   - The isolated runner used the existing `toktickit-postgres` container and a
     temporary schema in the disposable `toktickit_test` database. It did not
-    use the populated development schema. Final-main verification and the
-    nine-part PDF remain pending merge and hand-in.
+    use the populated development schema. These are historical Issue #74
+    results, not the final Part 5 amendment run.
 
 - Issue #68 verification on 2026-10-28: PR source at
   `0ddcdc410775849b43a98526b57722769e7be1be` plus the SQL-helper and legacy
@@ -261,7 +304,8 @@ they have run on the merged commit.
     `artifacts/lab-04/screenshots/{requester-dashboard,staff-dashboard}/`.
     Each role has desktop (1440×1000), tablet (820×1180), and mobile (390×844)
     captures.
-- Unit, performance, regression, and visual rows pass on the hardening branch.
-  REL-01 remains pending until merge to `main` and final hand-in.
+- Historical Issue #74 unit, performance, regression, and visual results are
+  retained above. They are distinct from the final-main PR #85 baseline and the
+  2026-11-01 Part 5 addendum run.
 - Baseline results: refer to the historical Lab 3 evidence in docs/lab-03;
   those results are not a new Lab 4 run.

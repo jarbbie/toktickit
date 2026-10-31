@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
 import request from "supertest";
 import app from "../../src/app.js";
 import { withDashboardApi, testDatabaseEnabled } from "./dashboard-test-utils.js";
@@ -20,6 +21,39 @@ describe.skipIf(!testDatabaseEnabled)("Staff dashboard API on PostgreSQL", () =>
         await f.ticket({ status: "REOPENED", itPriority: "HIGH", ownerId: f.users.admin.id, updatedAt: ago(5 * 60 * 60 * 1000) }),
         await f.ticket({ status: "CANCELLED", itPriority: "HIGH", updatedAt: ago(10 * 60 * 1000) }),
       ];
+      const ownActions = [];
+      const ownActionDates = [ago(30 * 24 * 60 * 60 * 1000), ago(2 * 60 * 1000), ago(2 * 60 * 1000), ago(3 * 60 * 1000), ago(4 * 60 * 1000), ago(5 * 60 * 1000)];
+      for (const [index, actionAt] of ownActionDates.entries()) {
+        ownActions.push(await f.prisma.actionTaken.create({ data: {
+          ticketId: fixtureTickets[index % fixtureTickets.length].id,
+          actionAt,
+          description: `Action by dashboard staff ${index + 1}`,
+          performedById: f.users.staff.id,
+          assigneeId: index % 2 === 0 ? f.users.otherStaff.id : f.users.staff.id,
+          status: index === 0 ? "COMPLETED" : "PLANNED",
+          result: index === 0 ? "The completed work was verified." : null,
+          idempotencyKey: randomUUID(),
+          creationFingerprint: "a".repeat(64),
+        } }));
+      }
+      await f.prisma.actionTaken.create({ data: {
+        ticketId: fixtureTickets[0].id,
+        actionAt: ago(60 * 1000),
+        description: "Assigned to dashboard staff but performed by another staff member",
+        performedById: f.users.otherStaff.id,
+        assigneeId: f.users.staff.id,
+        idempotencyKey: randomUUID(),
+        creationFingerprint: "b".repeat(64),
+      } });
+      await f.prisma.actionTaken.create({ data: {
+        ticketId: fixtureTickets[1].id,
+        actionAt: ago(60 * 1000),
+        description: "Action by administrator",
+        performedById: f.users.admin.id,
+        idempotencyKey: randomUUID(),
+        creationFingerprint: "c".repeat(64),
+      } });
+      const databaseActionCount = await f.prisma.actionTaken.count({ where: { performedById: f.users.staff.id } });
       const response = await request(app).get("/api/staff/dashboard").set("Cookie", f.cookies.staff);
 
       expect(response.status).toBe(200);
@@ -43,11 +77,27 @@ describe.skipIf(!testDatabaseEnabled)("Staff dashboard API on PostgreSQL", () =>
       expect(response.body.urgentTickets[0].requester).toEqual({ id: f.users.requester.id, name: f.users.requester.name });
       expect(response.body.urgentTickets[0].owner).toEqual({ id: f.users.otherStaff.id, name: f.users.otherStaff.name, role: "IT_STAFF" });
       expect(JSON.stringify(response.body)).not.toContain(f.users.requester.email);
+      expect(databaseActionCount).toBe(6);
+      expect(response.body.myActionsTaken.count).toBe(databaseActionCount);
+      expect(response.body.myActionsTaken.recent.map((action: { id: number }) => action.id)).toEqual(
+        [...ownActions].sort((a, b) => b.actionAt.getTime() - a.actionAt.getTime() || b.id - a.id).slice(0, 5).map((action) => action.id),
+      );
+      expect(response.body.myActionsTaken.recent[0]).toMatchObject({
+        ticketId: fixtureTickets[2].id,
+        ticketNumber: fixtureTickets[2].ticketNumber,
+        summary: fixtureTickets[2].summary,
+        description: "Action by dashboard staff 3",
+        status: "PLANNED",
+        href: `/staff/tickets/${fixtureTickets[2].id}`,
+      });
+      expect(response.body.myActionsTaken.recent).toHaveLength(5);
 
       const admin = await request(app).get("/api/staff/dashboard").set("Cookie", f.cookies.admin);
       expect(admin.status).toBe(200);
       expect(admin.body.counts).toEqual(response.body.counts);
       expect(admin.body.urgentTickets).toEqual(response.body.urgentTickets);
+      expect(admin.body.myActionsTaken.count).toBe(1);
+      expect(admin.body.myActionsTaken.recent[0].description).toBe("Action by administrator");
     });
   });
 
@@ -110,6 +160,7 @@ describe.skipIf(!testDatabaseEnabled)("Staff dashboard API on PostgreSQL", () =>
       expect(response.body.counts.byITPriority.map((row: { count: number }) => row.count)).toEqual(Array(4).fill(0));
       expect(response.body.recentlyUpdated).toEqual([]);
       expect(response.body.urgentTickets).toEqual([]);
+      expect(response.body.myActionsTaken).toEqual({ count: 0, recent: [] });
     });
   });
 });

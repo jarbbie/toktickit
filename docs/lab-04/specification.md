@@ -66,6 +66,7 @@ contract. Attachment Notes describe files; they do not add Action file upload.
 | FR-12 | Existing authenticated role behavior, ownership, comments, notes, attachments, account management, and Zen Green conventions continue to work. |
 | FR-13 | Final product handles loading, validation, success, empty/no-results, forbidden, conflict, not-found, and safe API failure; prevents duplicate writes and retains drafts after recoverable failure. |
 | FR-14 | Required unit, API/integration, UI/style, responsive/accessibility, authorization, workflow, migration/regression, performance-smoke, and E2E evidence is traced to ACs and the exact verified commit. |
+| FR-15 | Staff/Admin dashboard shows the authenticated user's Actions Taken count and up to five most recent Actions that user performed, with links to each parent Ticket. |
 
 ## 5. Business Rules
 
@@ -109,6 +110,7 @@ inherited or required by the handout.
 | BR-33 | Lab 4 preserves Labs 1–3 authentication, requester ownership, queue/detail, comments, internal-note isolation, attachments, and Administrator management. No protected data survives logout/user switch in client state. |
 | BR-34 | All screens continue the Zen Green language, semantic labels, visible keyboard focus, text status cues not dependent on color, and layouts usable without clipping/overlap/page overflow. |
 | BR-35 | **Proposed:** Action create, edit, assignment, and status changes require a parent Ticket in NEW, OPEN, IN_PROGRESS, WAITING_FOR_REQUESTER, or REOPENED. RESOLVED/CLOSED Tickets must first be legally reopened; CANCELLED is terminal. Reject with 409 ACTION_TICKET_NOT_MUTABLE and write no Action, version, timestamp, or event change. An exact create replay with the same key, actor, Ticket, and payload is read-only and may return its original result after the parent changes status. |
+| BR-36 | **Rubric-alignment addendum:** “My Actions Taken” counts all ActionTaken rows whose performedById equals the authenticated Staff/Admin user, regardless of assignee or parent Ticket status. Return at most five recent records ordered actionAt descending, then Action ID descending. Each record includes only its Action ID, parent Ticket ID/number/summary, description, status, UTC actionAt, and staff Ticket Detail link. The count and recent list are computed in the same dashboard transaction; empty results are count 0 and an empty list. |
 
 ### Authorization Matrix
 
@@ -182,6 +184,7 @@ cancelling a Ticket blocks further Action writes until it is legally reopened.
 | Staff: By IT Priority | Open-status Tickets grouped by LOW/MEDIUM/HIGH/URGENT | Queue with `statusGroup=open` and the selected `itPriority` |
 | Staff: Recently Updated | Up to 10 open-status Tickets in the window, updatedAt desc then id desc | Queue with `statusGroup=open&updatedAfter=windowStart`, sorted updatedAt desc then id desc |
 | Staff: Urgent Work | Up to 5 open-status HIGH/URGENT Tickets, URGENT first, then oldest updatedAt, then id | Queue with `statusGroup=open&itPriorityGroup=high_or_urgent`, sorted by urgent priority then oldest update |
+| Staff: My Actions Taken | All Actions whose `performedById` is the authenticated user; count plus up to 5 latest by actionAt desc then Action ID desc | Each recent Action opens its parent Ticket Detail |
 
 Administrators receive the Staff dashboard. All counts and lists are computed
 server-side; every card with a destination has a matching queue filter.
@@ -214,6 +217,7 @@ ActionStatus enum values are PLANNED, IN_PROGRESS, COMPLETED, CANCELLED. New
 foreign keys use restrictive deletion; no product hard-delete API is added.
 Add a global unique constraint on Action.idempotencyKey and indexes on
 Action(ticketId, actionAt, id), Action(assigneeId, status),
+Action(performedById, actionAt, id),
 Action(ticketId, status), ActionEvent(actionId, createdAt, id), and
 TicketStatusEvent(ticketId, changedAt, id) plus status/window query indexes.
 
@@ -286,6 +290,7 @@ or raw database details.
 | AC-16 | Role navigation and direct APIs prevent unauthorized reads/writes; stale and concurrent mutations cannot silently overwrite workflow state. |
 | AC-17 | Desktop/tablet/mobile screens are keyboard-usable, labeled, readable, and free of clipping/overlap/horizontal page overflow. |
 | AC-18 | All required Labs 1–4 tests/builds pass from final main with truthful evidence, current README, review records, and the nine-part PDF. |
+| AC-19 | Staff/Admin dashboard count and recent Actions match rows performed by the authenticated user, exclude Actions merely assigned to them, link to the correct Tickets, and show the documented zero state. |
 
 Every AC maps to planned test IDs in [tests.md](tests.md). No criterion is
 considered passed until its test/evidence is actually run and recorded.

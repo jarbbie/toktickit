@@ -31,6 +31,10 @@ const staffDashboard: StaffDashboard = {
   },
   recentlyUpdated: [{ id: 40, ticketNumber: "TKT-2026-ABC12345", summary: "Campus VPN unavailable", requester: { id: 2, name: "Requester One" }, status: "OPEN", itPriority: "HIGH", owner: null, updatedAt: "2026-10-30T02:00:00.000Z", href: "/staff/tickets/40" }],
   urgentTickets: [{ id: 41, ticketNumber: "TKT-2026-DEF12345", summary: "Gateway offline", requester: { id: 3, name: "Requester Two" }, status: "IN_PROGRESS", itPriority: "URGENT", owner: { id: 7, name: "Support One", role: "IT_STAFF" }, updatedAt: "2026-10-29T02:00:00.000Z", href: "/staff/tickets/41" }],
+  myActionsTaken: { count: 2, recent: [
+    { id: 101, ticketId: 41, ticketNumber: "TKT-2026-DEF12345", summary: "Gateway offline", description: "Replaced the uplink cable.", status: "COMPLETED", actionAt: "2026-10-30T02:30:00.000Z", href: "/staff/tickets/41" },
+    { id: 100, ticketId: 40, ticketNumber: "TKT-2026-ABC12345", summary: "Campus VPN unavailable", description: "Checked the authentication service.", status: "IN_PROGRESS", actionAt: "2026-10-30T01:30:00.000Z", href: "/staff/tickets/40" },
+  ] },
 };
 
 function renderApp(path = "/dashboard") {
@@ -56,9 +60,13 @@ describe("Staff and Administrator Dashboard", () => {
     expect(screen.getByRole("link", { name: /Low/ })).toHaveAttribute("href", "/staff/tickets?statusGroup=open&itPriority=LOW");
     expect(screen.getByRole("link", { name: /View recent tickets/ })).toHaveAttribute("href", expect.stringContaining("/staff/tickets?statusGroup=open&updatedAfter="));
     expect(screen.getByRole("link", { name: /View urgent work/ })).toHaveAttribute("href", "/staff/tickets?statusGroup=open&itPriorityGroup=high_or_urgent&sortBy=urgentWork");
-    expect(screen.getByRole("link", { name: /TKT-2026-ABC12345/ })).toHaveAttribute("href", "/staff/tickets/40");
-    expect(screen.getByRole("link", { name: /TKT-2026-ABC12345/ })).toHaveTextContent("Unassigned");
-    expect(screen.getByRole("link", { name: /TKT-2026-DEF12345/ })).toHaveTextContent("Support One");
+    expect(screen.getByRole("link", { name: /Requester: Requester One/ })).toHaveAttribute("href", "/staff/tickets/40");
+    expect(screen.getByRole("link", { name: /Requester: Requester One/ })).toHaveTextContent("Unassigned");
+    expect(screen.getByRole("link", { name: /Owner: Support One/ })).toHaveTextContent("TKT-2026-DEF12345");
+    expect(screen.getByRole("heading", { name: "My Actions Taken" })).toBeInTheDocument();
+    expect(screen.getByLabelText("2 Actions Taken")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Replaced the uplink cable/ })).toHaveAttribute("href", "/staff/tickets/41");
+    expect(screen.getByRole("link", { name: /Checked the authentication service/ })).toHaveAttribute("href", "/staff/tickets/40");
     expect(screen.queryByText("private.requester@example.test")).not.toBeInTheDocument();
   });
 
@@ -83,13 +91,14 @@ describe("Staff and Administrator Dashboard", () => {
     vi.spyOn(api, "loadStaffDashboard").mockResolvedValue({
       ...staffDashboard,
       counts: { ...staffDashboard.counts, unassignedOpen: { count: 0, href: "/staff/tickets?statusGroup=open&ownership=unassigned" } },
-      recentlyUpdated: [], urgentTickets: [],
+      recentlyUpdated: [], urgentTickets: [], myActionsTaken: { count: 0, recent: [] },
     });
     renderApp();
 
     expect(await screen.findByRole("link", { name: /Unassigned Open Tickets: 0/ })).toBeInTheDocument();
     expect(screen.getByText("No recently updated open tickets. View the Ticket Queue for current work.")).toBeInTheDocument();
     expect(screen.getByText("No HIGH or URGENT open tickets. View the Ticket Queue for all work.")).toBeInTheDocument();
+    expect(screen.getByText("You have not recorded any Actions Taken yet.")).toBeInTheDocument();
   });
 
   it("shows a retryable generic failure without stale rows", async () => {

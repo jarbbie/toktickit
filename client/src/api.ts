@@ -142,6 +142,17 @@ export interface StaffDashboardTicket {
   href: string;
 }
 
+export interface StaffDashboardAction {
+  id: number;
+  ticketId: number;
+  ticketNumber: string;
+  summary: string;
+  description: string;
+  status: ActionStatus;
+  actionAt: string;
+  href: string;
+}
+
 export interface StaffDashboard {
   asOf: string;
   windowStart: string;
@@ -153,6 +164,7 @@ export interface StaffDashboard {
   };
   recentlyUpdated: StaffDashboardTicket[];
   urgentTickets: StaffDashboardTicket[];
+  myActionsTaken: { count: number; recent: StaffDashboardAction[] };
 }
 
 export interface StaffOwnerOption {
